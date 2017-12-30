@@ -27,16 +27,20 @@ def fit(train_data = None,
         epochs = None,
         criterion = None,
         save_path = None):
+    model = to_gpu(model)
     best_valid_loss = torch.cuda.FloatTensor([float('inf')])
     for epoch in range(epochs):
         print('epoch ', epoch)
         # training
         scheduler.step()
         for inputs, labels in train_data:
-            inputs = Variable(to_gpu(inputs))
-            labels = Variable(to_gpu(labels))
+            try: #if inputs are Tensors, cast them to Variables
+                inputs = Variable(to_gpu(inputs))
+                labels = Variable(to_gpu(labels),requires_grad = False)
+            except:
+                pass
 
-            outputs = model(inputs)
+            outputs = model.forward(inputs)
             loss = criterion(outputs, labels)
 
             optimizer.zero_grad()
@@ -45,8 +49,11 @@ def fit(train_data = None,
 
         # validation:
         valid_inputs, valid_labels = valid_data
-        inputs = Variable(to_gpu(valid_inputs))
-        labels = Variable(to_gpu(valid_labels))
+        try: #if inputs are Tensors, cast them to Variables
+            inputs = Variable(to_gpu(valid_inputs))
+            labels = Variable(to_gpu(valid_labels))
+        except:
+            pass
 
         outputs = model(inputs)
         loss = criterion(outputs, labels).data

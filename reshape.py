@@ -1,5 +1,6 @@
 import torch
 from math import floor, ceil
+from utils import to_gpu
 
 
 class WarpMatrix(torch.autograd.Function):
@@ -10,8 +11,8 @@ class WarpMatrix(torch.autograd.Function):
         dim0 = int(ceil(b[-1]))
         #t_dim = [dim0, dim1]
         t_dim = [dim1, dim1]
-        trans_mat = torch.zeros(t_dim)
-        grad_indices = torch.FloatTensor(dim1)
+        trans_mat = to_gpu(torch.zeros(t_dim))
+        grad_indices = to_gpu(torch.FloatTensor(dim1))
         #trans_grad = torch.zeros(t_dim.append(a.shape[0]))
         prev_ind = 0
         cross_boundary = []
@@ -33,13 +34,13 @@ class WarpMatrix(torch.autograd.Function):
         ctx.save_for_backward(a)
         ctx.grad_indices = grad_indices
         ctx.cross_boundary = cross_boundary
-        return trans_mat
+        return to_gpu(trans_mat)
     @staticmethod
     def backward(ctx,grad_output):
         #print('grad output:', grad_output)
         a, = ctx.saved_variables
         grad_indices = ctx.grad_indices
-        my_grad = torch.zeros_like(a)
+        my_grad = to_gpu(torch.zeros_like(a))
         for k, ind in enumerate(grad_indices):
             my_grad[k] = grad_output[int(ind),k]
             for j in range(k+1,int(grad_output.data.shape[1])):
@@ -49,7 +50,7 @@ class WarpMatrix(torch.autograd.Function):
                                 (grad_output[iofj,j] - \
                                 grad_output[iofj-1,j] )
                     #print(my_grad[k].view(1,-1))
-        return my_grad#torch.ones_like(a)
+        return my_grad #torch.ones_like(a)
 
 
 
@@ -70,17 +71,19 @@ class WarpMatrix(torch.autograd.Function):
 from torch.autograd import Variable
 
 
-class FittedWarp__(torch.nn.Module):
+class FittedWarp(torch.nn.Module):
     def __init__(self, w_shape):
         super().__init__()
-        self.w = torch.nn.Parameter(torch.randn(w_shape))
+        self.w = torch.nn.Parameter(to_gpu(torch.randn(w_shape)))
+        self.input_shape = [None,int(self.w.shape[0])]
 
     def forward(self, x):
-        tmp1 = x @ self.w
-        tmp = torch.nn.Sigmoid()(tmp1)
-        trans_mat = warp_matrix(tmp)
+        # x: n1 x n2, w: n2 x 1
+        tmp1 = x @ self.w # n1 x 1
+        tmp = torch.nn.Sigmoid()(tmp1) # n1 x 1
+        trans_mat = WarpMatrix.apply(tmp) # n1 x n1
         #print(tmp, trans_mat)
-        return trans_mat @ x
+        return trans_mat @ x # n1 x n2, but compressed over the first dim, so final rows are 0
 
 
 if __name__ == '__main__':
