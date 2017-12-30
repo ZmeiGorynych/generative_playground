@@ -19,8 +19,8 @@ from utils import to_gpu
 # train_data = [x for x in train_gen]
 
 
-def fit(train_data = None,
-        valid_data = None,
+def fit(train_gen = None,
+        valid_gen = None,
         model = None,
         optimizer = None,
         scheduler = None,
@@ -28,40 +28,45 @@ def fit(train_data = None,
         criterion = None,
         save_path = None):
     model = to_gpu(model)
-    best_valid_loss = torch.cuda.FloatTensor([float('inf')])
+    best_valid_loss = float('inf')
+    train_data = train_gen
+    valid_data = valid_gen
+
     for epoch in range(epochs):
         print('epoch ', epoch)
-        # training
         scheduler.step()
-        for inputs, labels in train_data:
-            try: #if inputs are Tensors, cast them to Variables
-                inputs = Variable(to_gpu(inputs))
-                labels = Variable(to_gpu(labels),requires_grad = False)
-            except:
-                pass
+        for train, data in [True, train_data], [False, valid_data]:
+            loss_ = 0
+            count_ = 0
+            for inputs_, labels_ in data:
+                inputs = inputs_[0]
+                labels = labels_[0]
+                try: #if inputs are Tensors, cast them to Variables
+                    inputs = Variable(to_gpu(inputs))
+                    labels = Variable(to_gpu(labels),requires_grad = False)
+                except:
+                    pass
 
-            outputs = model.forward(inputs)
-            loss = criterion(outputs, labels)
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-        # validation:
-        valid_inputs, valid_labels = valid_data
-        try: #if inputs are Tensors, cast them to Variables
-            inputs = Variable(to_gpu(valid_inputs))
-            labels = Variable(to_gpu(valid_labels))
-        except:
-            pass
-
-        outputs = model(inputs)
-        loss = criterion(outputs, labels).data
-        if loss[0] < best_valid_loss[0]:
-            best_valid_loss = loss
-            print("we're improving!", best_valid_loss[0])
+                outputs = model(inputs)
+                loss = criterion(outputs, labels)
+                if train:
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
+                loss_+=loss.data[0]
+                count_+=1
+            if train:
+                print(loss_/count_)
+            else: 
+                valid_loss = loss_/count_
+                
+        
+        if valid_loss < best_valid_loss:
+            best_valid_loss = valid_loss
+            print("we're improving!", best_valid_loss)
             # spell_out:
             torch.save(model.state_dict(), save_path)
             print("successfully saved model")
 
-    print(model.w.data)
+        if valid_loss < 1e-10:
+            break

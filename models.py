@@ -1,5 +1,6 @@
 import torch
-from reshape import WarpMatrix
+from reshape import FittedWarp
+import torch.nn as nn
 
 class Net(torch.nn.Module):
     def __init__(self, w_shape):
@@ -12,15 +13,15 @@ class Net(torch.nn.Module):
     def input_size(self):
         return int(len(w))
     
-class FittedWarp(torch.nn.Module):
+class FittedWarpWithConvolution(torch.nn.Module):
     def __init__(self, w_shape):
         super().__init__()
-        self.w = torch.nn.Parameter(torch.randn(w_shape))
-
-    def forward(self, x):
-        tmp1 = x @ self.w
-        tmp = torch.nn.Sigmoid()(tmp1)
-        trans_mat = WarpMatrix.apply(tmp)
-        return trans_mat @ x
+        self.warp = FittedWarp(w_shape)
+        self.conv1 = nn.TemporalConvolution(self.warp.input_shape[1],
+                                                self.warp.input_shape[1],5)
+    def forward(self,x):
+        tmp = self.warp(x)
+        tmp2 = self.conv1(tmp)
+        return tmp2
 
 

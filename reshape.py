@@ -15,7 +15,7 @@ class WarpMatrix(torch.autograd.Function):
         grad_indices = to_gpu(torch.FloatTensor(dim1))
         #trans_grad = torch.zeros(t_dim.append(a.shape[0]))
         prev_ind = 0
-        cross_boundary = []
+        cross_boundary = [None]*dim1
         for i, x in enumerate(zip(a, b)):
             ai, bi = x
             this_ind = floor(bi)
@@ -31,14 +31,16 @@ class WarpMatrix(torch.autograd.Function):
             prev_ind = this_ind
         # assert ((a - trans_mat.sum(0)).abs().max() < 1e-6)
         # assert ((torch.ones(trans_mat.shape[0] - 1) - trans_mat.sum(1)[:-1]).abs().max() < 1e-6)
-        ctx.save_for_backward(a)
+        #ctx.save_for_backward(a)
+        ctx.a = a
         ctx.grad_indices = grad_indices
         ctx.cross_boundary = cross_boundary
         return to_gpu(trans_mat)
     @staticmethod
     def backward(ctx,grad_output):
         #print('grad output:', grad_output)
-        a, = ctx.saved_variables
+        #a, = ctx.saved_variables
+        a = Variable(ctx.a)
         grad_indices = ctx.grad_indices
         my_grad = to_gpu(torch.zeros_like(a))
         for k, ind in enumerate(grad_indices):
