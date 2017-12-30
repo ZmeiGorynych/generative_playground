@@ -27,7 +27,6 @@ def fit(train_gen = None,
         epochs = None,
         criterion = None,
         save_path = None):
-    model = to_gpu(model)
     best_valid_loss = float('inf')
     train_data = train_gen
     valid_data = valid_gen
@@ -38,15 +37,13 @@ def fit(train_gen = None,
         for train, data in [True, train_data], [False, valid_data]:
             loss_ = 0
             count_ = 0
-            for inputs_, labels_ in data:
-                inputs = inputs_[0]
-                labels = labels_[0]
+            for inputs, labels in data:
                 try: #if inputs are Tensors, cast them to Variables
-                    inputs = Variable(to_gpu(inputs))
-                    labels = Variable(to_gpu(labels),requires_grad = False)
+                    inputs = Variable(inputs)
+                    labels = Variable(labels)
                 except:
                     pass
-
+                #print(inputs.shape)
                 outputs = model(inputs)
                 loss = criterion(outputs, labels)
                 if train:
@@ -56,7 +53,7 @@ def fit(train_gen = None,
                 loss_+=loss.data[0]
                 count_+=1
             if train:
-                print(loss_/count_)
+                print(loss_/count_, count_)
             else: 
                 valid_loss = loss_/count_
                 

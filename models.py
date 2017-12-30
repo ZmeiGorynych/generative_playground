@@ -14,14 +14,25 @@ class Net(torch.nn.Module):
         return int(len(w))
     
 class FittedWarpWithConvolution(torch.nn.Module):
-    def __init__(self, w_shape):
+    def __init__(self, w_shape=None, w=None):
         super().__init__()
-        self.warp = FittedWarp(w_shape)
-        self.conv1 = nn.TemporalConvolution(self.warp.input_shape[1],
-                                                self.warp.input_shape[1],5)
+        self.warp = FittedWarp(w_shape=w_shape, w=w)
+        self.input_shape = self.warp.input_shape
+        self.conv1 = nn.Conv2d(1,1,[3,1])
     def forward(self,x):
         tmp = self.warp(x)
-        tmp2 = self.conv1(tmp)
-        return tmp2
+        squeeze = False
+        # do a convolution over time only, so don't mix dimensions 
+        # and inject a dummy channel dimension, and batch dim if necessary
+        if len(x.shape)==2:
+            tmp = torch.unsqueeze(tmp,0)
+            squeeze = True
+        tmp2 = torch.unsqueeze(tmp,1)
+        #print(x.shape,tmp2.shape)
+        tmp3 = self.conv1(tmp2)
+        tmp3 = torch.squeeze(tmp3,1)
+        if squeeze:
+            tmp3 = torch.squeeze(tmp3,0)
+        return tmp3
 
 
