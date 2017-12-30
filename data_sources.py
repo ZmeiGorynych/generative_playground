@@ -11,8 +11,8 @@ import torch
 #     pass
 
 
-def data_gen(batch_size, batches, w):
+def data_gen(batch_size, batches, model):
     for _ in range(batches):
-        x = torch.randn(batch_size, w.shape[0])
-        y = x @ w
+        x = torch.randn(batch_size, model.input_size())
+        y = model.forward(x)
         yield x, y
