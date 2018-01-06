@@ -1,6 +1,6 @@
 import torch
 from math import floor, ceil
-from utils import FloatTensor, IntTensor #
+from gpu_utils import FloatTensor, IntTensor #
 from torch import squeeze, unsqueeze
 
 
@@ -111,7 +111,7 @@ class FittedWarp(torch.nn.Module):
         #print(tmp, trans_mat)
         return trans_mat @ x # n1 x n2, but compressed over the first dim, so final rows are 0
  
-from utils import to_gpu
+from gpu_utils import to_gpu
 
 class WarpMatrixOld(torch.autograd.Function):
     @staticmethod
