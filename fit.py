@@ -1,6 +1,6 @@
 import torch
 from torch.autograd import Variable
-from utils import to_gpu
+from gpu_utils import to_gpu
 
 
 # true_w = torch.ones((20, 1))

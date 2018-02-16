@@ -1,6 +1,6 @@
 import torch
 from torch.autograd import Variable
-from utils import to_gpu
+from gpu_utils import to_gpu
 from torch.utils.data.dataset import Dataset
 
 # fit_dataset = ImagesDataset(path_to_fit_images)
