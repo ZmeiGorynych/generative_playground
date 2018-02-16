@@ -10,11 +10,11 @@ import sys
 sys.path.append("../aind/AIND-VUI-Capstone")
 
 # to_gpu is equivalent to .cuda()
-#from gpu_utils import to_gpu
-from torch.cuda import FloatTensor, IntTensor
+from gpu_utils import to_gpu, FloatTensor, IntTensor
 
-def to_gpu(x):
-    return x.cuda()
+# def to_gpu(x):
+#     return x.cuda() #x.cpu()#
+
 
 class LSTMModel(nn.Module):
 
@@ -51,6 +51,7 @@ class LSTMModel(nn.Module):
         # tag_scores = F.log_softmax(tag_space, dim=1)
         return lin_out
 
+
 if __name__ == '__main__':
     # TODO: do we reset hidden state for each batch?
     from data_generator_short import AudioGenerator2
@@ -68,7 +69,7 @@ if __name__ == '__main__':
 
     # reshape the data to our needs
     inputs = torch.FloatTensor(inputs_['the_input']).permute(1,0,2)
-    inputs = Variable(to_gpu(inputs))
+    inputs = Variable(to_gpu(inputs), requires_grad = True)
 
     probs_sizes = inputs_['input_length'].T[0]
     label_sizes = inputs_['label_length'].T[0]
@@ -76,9 +77,9 @@ if __name__ == '__main__':
     for i,row in enumerate(inputs_['the_labels']):
         labels += list(row[:int(label_sizes[i])])
 
-    labels = Variable(IntTensor([int(label) for label in labels]))
-    probs_sizes = Variable(IntTensor([int(x) for x in probs_sizes]))
-    label_sizes = Variable(IntTensor([int(x) for x in label_sizes]))
+    labels = Variable(torch.IntTensor([int(label) for label in labels]))
+    probs_sizes = Variable(torch.IntTensor([int(x) for x in probs_sizes]))
+    label_sizes = Variable(torch.IntTensor([int(x) for x in label_sizes]))
     num_features = inputs.shape[2]
 
     # create and call the model
@@ -90,5 +91,5 @@ if __name__ == '__main__':
 
     ctc_loss = to_gpu(CTCLoss())
     cost = ctc_loss(log_probs, labels, probs_sizes, label_sizes)
-
+    cost.backward()
     print('aaa')
