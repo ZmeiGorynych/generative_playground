@@ -6,10 +6,15 @@ from torch.autograd import Variable
 from warpctc_pytorch import CTCLoss
 
 import sys
+# that path is the location of the audio generator
 sys.path.append("../aind/AIND-VUI-Capstone")
 
-# this defines the below to be either .cuda() or .cpu(),
-from gpu_utils import to_gpu, FloatTensor, IntTensor
+# to_gpu is equivalent to .cuda()
+#from gpu_utils import to_gpu
+from torch.cuda import FloatTensor, IntTensor
+
+def to_gpu(x):
+    return x.cuda()
 
 class LSTMModel(nn.Module):
 
