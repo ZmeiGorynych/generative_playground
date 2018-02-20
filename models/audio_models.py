@@ -48,7 +48,7 @@ class LSTMModel(nn.Module):
         sz = lstm_out.shape
         # flatten it so
         lin_out = self.hidden2tag(lstm_out.view(-1, sz[2])).view(sz[0],sz[1],-1)
-        prob_out = torch.nn.functional.log_softmax(lin_out, dim=2)
+        prob_out = lin_out#torch.nn.functional.log_softmax(lin_out, dim=2)
         # tag_space = self.hidden2tag(lstm_out.view(len(sentence), -1))
         # tag_scores = F.log_softmax(tag_space, dim=1)
         return prob_out, input_sizes
