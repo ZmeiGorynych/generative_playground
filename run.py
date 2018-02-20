@@ -1,9 +1,8 @@
 import torch
-from torch.autograd import Variable
 from torch.optim import lr_scheduler
 from gpu_utils import to_gpu
-from models import Net
-from data_sources import data_gen
+from models.simple_models import Net
+from data_utils.data_sources import data_gen
 from fit import fit
 
 true_w = torch.ones((20, 1))
