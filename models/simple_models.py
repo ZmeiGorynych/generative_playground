@@ -10,8 +10,8 @@ class Net(torch.nn.Module):
     def forward(self, x):
         return x @ self.w
     
-    def input_size(self):
-        return int(len(w))
+    def input_shape(self):
+        return (1,len(self.w))
     
 class FittedWarpWithConvolution(torch.nn.Module):
     def __init__(self, w_shape=None, w=None):

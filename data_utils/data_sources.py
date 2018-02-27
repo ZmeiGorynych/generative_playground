@@ -13,10 +13,9 @@ from torch.utils.data.dataset import Dataset
 # class ImagesDataset(torch.utils.data.Dataset):
 #     pass
 
-
 def data_gen(batch_size, batches, model):
     for _ in range(batches):
-        x = to_gpu(Variable(torch.randn(batch_size, model.input_shape[1])))
+        x = to_gpu(Variable(torch.randn(batch_size, model.input_shape()[1])))
         y = to_gpu(model.forward(x))
         y = y.detach()
         yield x, y
