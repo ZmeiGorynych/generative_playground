@@ -8,7 +8,7 @@ def fit(train_gen = None,
         optimizer = None,
         scheduler = None,
         epochs = None,
-        criterion = None,
+        loss_fn = None,
         save_path = None):
     best_valid_loss = float('inf')
 
@@ -25,9 +25,11 @@ def fit(train_gen = None,
             # except:
             #     pass
             my_data = data_gen()
-            for inputs, labels in data_gen():
+            for inputs_, targets_ in data_gen():
+                inputs = inputs_#Variable(inputs_)
+                targets = targets_#Variable(targets_)
                 outputs = model(inputs)
-                loss = criterion(outputs, labels)
+                loss = loss_fn(outputs, targets)
                 if train:
                     optimizer.zero_grad()
                     loss.backward()

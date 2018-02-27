@@ -23,13 +23,13 @@ train_data = [x for x in train_gen]
 
 
 fit(train_data = train_data,
-        valid_data = valid_data,
-        model = model,
-        optimizer = optimizer,
-        scheduler = scheduler,
-        epochs = epochs,
-        criterion = criterion,
-        save_path=save_path)
+    valid_data = valid_data,
+    model = model,
+    optimizer = optimizer,
+    scheduler = scheduler,
+    epochs = epochs,
+    loss= criterion,
+    save_path=save_path)
 
 # now try creating a new model and loading the old weights
 model_2 = to_gpu(Net(true_w.shape))

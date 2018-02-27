@@ -63,7 +63,7 @@ print('about to start fitting...')
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.003)
 scheduler = lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.5)
-criterion = my_ctc_loss
+loss = my_ctc_loss
 
 epochs = 10
 save_path = 'test.mdl'
@@ -75,7 +75,7 @@ fit(train_gen = train_gen,
     optimizer = optimizer,
     scheduler = scheduler,
     epochs = epochs,
-    criterion = criterion,
+    loss_fn = loss,
     save_path=save_path)
 #
 # # now try creating a new model and loading the old weights

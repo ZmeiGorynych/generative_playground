@@ -6,7 +6,7 @@ from gpu_utils import to_gpu
 def inputs2pytorch(inputs_):
     # reshape the data to our needs
     inputs = torch.FloatTensor(inputs_['the_input']).permute(1, 0, 2)
-    inputs = Variable(to_gpu(inputs), requires_grad=True)
+    inputs = Variable(to_gpu(inputs))#, requires_grad=True)
 
     probs_sizes = inputs_['input_length'].T[0]
     label_sizes = inputs_['label_length'].T[0]
