@@ -1,6 +1,9 @@
 # https://github.com/episodeyang/visdom_helper
 
+# NOTE: as of Feb 28, 2018 you need to install visdom from source for this to work
+# the pip install visdom - version doesn't append correctly
 from visdom import Visdom
+import numpy as np
 
 class Dashboard(Visdom):
     def __init__(self, name):
@@ -36,3 +39,12 @@ class Dashboard(Visdom):
 
     def clear(self):
         self.plots = {}
+
+if __name__ == '__main__':
+    vis = Dashboard('my-dashboard')
+    #vis.plot()
+    for i in range(3):
+        vis.append('training_loss',
+               'line',
+               X=np.array([i]),
+               Y=np.array([i]))

@@ -6,20 +6,27 @@ import torch.autograd as autograd
 from gpu_utils import to_gpu
 
 class LSTMModel(nn.Module):
-    def __init__(self, input_dim=None, hidden_dim=200, output_dim=100, batch_size=1):
+    def __init__(self,
+                 input_dim=None,
+                 hidden_dim=200,
+                 output_dim=100,
+                 batch_size=1,
+                 p_dropout = 0.2,
+                 num_layers = 2):
         super(LSTMModel, self).__init__()
         self.hidden_dim = hidden_dim
         self.batch_size = batch_size
         self.bidirectional = True
-        self.num_layers = 1
+        self.num_layers = num_layers
         self.bidir_mult = 2 if self.bidirectional else 1
         self.dimension_mult = self.num_layers * self.bidir_mult
         # The LSTM takes sequences of spectrograms/MFCCs as inputs, and outputs hidden states
         # with dimensionality hidden_dim.
         self.lstm = to_gpu(nn.LSTM(input_dim, hidden_dim,
                                    bidirectional=self.bidirectional,
-                                   num_layers=self.num_layers))
-
+                                   num_layers=self.num_layers,
+                                   dropout=p_dropout))
+        self.dropout_1 = nn.Dropout(p_dropout)
         # The linear layer that maps from hidden state space to tag space
         self.hidden2tag = to_gpu(nn.Linear(hidden_dim*self.bidir_mult, output_dim))
         self.reset_hidden()
@@ -43,6 +50,7 @@ class LSTMModel(nn.Module):
         lstm_out, self.hidden = self.lstm(inputs, self.hidden)
         sz = lstm_out.shape
         # flatten it so
+        lstm_out = self.dropout_1(lstm_out)
         lin_out = self.hidden2tag(lstm_out.view(-1, sz[2])).view(sz[0],sz[1],-1)
         prob_out = lin_out#torch.nn.functional.log_softmax(lin_out, dim=2)
         # tag_space = self.hidden2tag(lstm_out.view(len(sentence), -1))

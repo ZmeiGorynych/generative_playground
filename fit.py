@@ -1,6 +1,8 @@
 import torch
 from torch.autograd import Variable
 from gpu_utils import get_gpu_memory_map
+from visdom_helper.visdom_helper import Dashboard
+import numpy as np
 
 def to_variable(x):
     if type(x)==tuple:
@@ -17,8 +19,13 @@ def fit(train_gen = None,
         scheduler = None,
         epochs = None,
         loss_fn = None,
-        save_path = None):
+        save_path = None,
+        dashboard = 'My dashboard',
+        ignore_initial=10):
     best_valid_loss = float('inf')
+    vis = Dashboard(dashboard)
+    plot_counter = 0
+
 
     for epoch in range(epochs):
         print('epoch ', epoch)
@@ -40,21 +47,28 @@ def fit(train_gen = None,
                     optimizer.zero_grad()
                     loss.backward()
                     optimizer.step()
-
                 try:
                     model.reset_hidden()
                 except:
                     pass
-
-                loss_+= loss.data[0]
+                this_loss = loss.data[0]
+                loss_+= this_loss
                 count_+= 1
+                plot_counter += 1
                 if train:
+                    line_name = 'training_loss'
                     print('train:',loss_/count_, count_, get_gpu_memory_map())
                 else:
                     valid_loss = loss_/count_
+                    line_name = 'validation_loss'
                     print('valid:',loss_/count_, count_, get_gpu_memory_map())
-                    if count_ > 10:
+                    if count_ > 50:
                         break
+                if plot_counter>ignore_initial:
+                    vis.append(line_name,
+                               'line',
+                               X=np.array([plot_counter]),
+                               Y=np.array([this_loss]))
 
         if valid_loss < best_valid_loss:
             best_valid_loss = valid_loss
