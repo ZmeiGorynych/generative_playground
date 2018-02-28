@@ -1,11 +1,7 @@
 import torch
-
-from data_utils.audio2pytorch import inputs2pytorch
-
 print(torch.__version__)
 import torch.nn as nn
 import torch.autograd as autograd
-
 
 from gpu_utils import to_gpu
 

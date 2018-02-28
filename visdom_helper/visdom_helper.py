@@ -1,3 +1,5 @@
+# https://github.com/episodeyang/visdom_helper
+
 from visdom import Visdom
 
 class Dashboard(Visdom):
