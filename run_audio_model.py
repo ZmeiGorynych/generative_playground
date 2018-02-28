@@ -26,26 +26,28 @@ output_dim = 29
 audio_gen_train = AudioGenerator2(spectrogram=spectrogram,
                                   pad_sequences = False,
                                   minibatch_size = batch_size,
-                                  audio_location="../aind/AIND-VUI-Capstone")
+                                  audio_location="../aind/AIND-VUI-Capstone",
+                                  pytorch_iter=True)
 
 audio_gen_train.load_data(fit_params=True)
 
 audio_gen_valid = AudioGenerator2(spectrogram=spectrogram,
                                   pad_sequences = False,
                                   minibatch_size = batch_size,
-                                  audio_location="../aind/AIND-VUI-Capstone")
+                                  audio_location="../aind/AIND-VUI-Capstone",
+                                  pytorch_iter=True)
 
 audio_gen_valid.load_data(desc_file='valid_corpus.json')
 audio_gen_valid.feats_mean, audio_gen_valid.feats_std = audio_gen_train.norm_params()
 
-train_gen = lambda: audio_gen_train.gen(pytorch_format=True)
-valid_gen = lambda: audio_gen_valid.gen(pytorch_format=True)
+# train_gen = lambda: audio_gen_train.gen(pytorch_format=True)
+# valid_gen = lambda: audio_gen_valid.gen(pytorch_format=True)
 
 
 
 # create and call the model
 # grab one input batch just to get the input dimension
-ext_inputs, ext_labels = next(train_gen())
+ext_inputs, ext_labels = next(audio_gen_valid.__iter__())
 # and define the model using that dim
 model = LSTMModel(input_dim=ext_inputs[0].shape[2],
                   hidden_dim=200,
@@ -69,8 +71,8 @@ epochs = 10
 save_path = 'test.mdl'
 
 
-fit(train_gen = train_gen,
-    valid_gen = valid_gen,
+fit(train_gen = audio_gen_train,
+    valid_gen = audio_gen_valid,
     model = model,
     optimizer = optimizer,
     scheduler = scheduler,

@@ -22,7 +22,8 @@ my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfra
 class AudioGenerator2():
     def __init__(self, step=10, window=20, max_freq=8000, mfcc_dim=13,
         minibatch_size=20, desc_file=None, spectrogram=True, max_duration=10.0, 
-        sort_by_duration=False, pad_sequences = True,audio_location='.'):
+        sort_by_duration=False, pad_sequences = True,audio_location='.',
+                 pytorch_iter = False):
         """
         Params:
             step (int): Step size in milliseconds between windows (for spectrogram ONLY)
@@ -52,6 +53,7 @@ class AudioGenerator2():
         self.pad_sequences = pad_sequences
         self.warp_ctc_format = False
         self.audio_location = audio_location
+        self.pytorch_iter = pytorch_iter
 
     def get_batch(self):
         """ Obtain a batch of train, validation, or test data
@@ -124,20 +126,22 @@ class AudioGenerator2():
         self.audio_paths, self.durations, self.texts = sort_data(
             self.audio_paths, self.durations, self.texts)
 
-    def gen(self, pytorch_format = False):
+    def __iter__(self):
         """ Obtain a batch of data
         """
-        while True:
-            ret = self.get_batch()
-            self.cur_index += self.minibatch_size
-            if self.cur_index >= len(self.texts) - self.minibatch_size:
-                self.cur_index = 0
-                self.shuffle_data()
-                raise StopIteration
+        def gen():
+            while True:
+                ret = self.get_batch()
+                self.cur_index += self.minibatch_size
+                if self.cur_index >= len(self.texts) - self.minibatch_size:
+                    self.cur_index = 0
+                    self.shuffle_data()
+                    raise StopIteration
 
-            if pytorch_format:
-                ret = inputs2pytorch(ret[0])
-            yield ret
+                if self.pytorch_iter:
+                    ret = inputs2pytorch(ret[0])
+                yield ret
+        return gen()
 
     # def next_test(self):
     #     """ Obtain a batch of test data

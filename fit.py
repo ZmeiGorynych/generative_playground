@@ -2,6 +2,14 @@ import torch
 from torch.autograd import Variable
 from gpu_utils import get_gpu_memory_map
 
+def to_variable(x):
+    if type(x)==tuple:
+        return tuple([to_variable(xi) for xi in x])
+    elif 'Variable' not in str(type(x)):
+        return Variable(x)
+    else:
+        return x
+
 def fit(train_gen = None,
         valid_gen = None,
         model = None,
@@ -18,16 +26,14 @@ def fit(train_gen = None,
         for train, data_gen in [True, train_gen], [False, valid_gen]:
             loss_ = 0
             count_ = 0
-            # data_gen is a FUNCTION that returns a new generator of batches for each epoch
-            print('starting next epoch...')
-            # try:
-            #     del outputs, loss, labels, inputs, my_data
-            # except:
-            #     pass
-            my_data = data_gen()
-            for inputs_, targets_ in data_gen():
-                inputs = inputs_#Variable(inputs_)
-                targets = targets_#Variable(targets_)
+            if train:
+                model.train()
+            else:
+                model.eval()
+
+            for inputs_, targets_ in data_gen:
+                inputs = to_variable(inputs_)
+                targets = to_variable(targets_)
                 outputs = model(inputs)
                 loss = loss_fn(outputs, targets)
                 if train:

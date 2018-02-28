@@ -1,53 +1,18 @@
 import torch
-from reshape import FittedWarp
-import torch.nn as nn
 
+# multiplies all inputs by a fixed vector
 class Net(torch.nn.Module):
-    def __init__(self, w_shape):
+    def __init__(self, w):
         super().__init__()
-        self.w = torch.nn.Parameter(torch.randn(w_shape))
+        self.w = torch.nn.Parameter(w)
 
     def forward(self, x):
-        return x @ self.w
+        if len(x.size())==2: # if got a single matrix
+            return x @ self.w
+        elif len(x.size())==3: # we got a batch of inputs
+            return torch.matmul(x, self.w.view(1,-1,1))
     
     def input_shape(self):
         return (1,len(self.w))
-    
-class FittedWarpWithConvolution(torch.nn.Module):
-    def __init__(self, w_shape=None, w=None):
-        super().__init__()
-        self.warp = FittedWarp(w_shape=w_shape, w=w)
-        self.input_shape = self.warp.input_shape
-        self.conv1 = nn.Conv2d(1,1,[5,1])
-    def forward(self,x):
-        tmp = self.warp(x)
-        squeeze = False
-        # do a convolution over time only, so don't mix dimensions 
-        # and inject a dummy channel dimension, and batch dim if necessary
-        if len(x.shape)==2:
-            tmp = torch.unsqueeze(tmp,0)
-            squeeze = True
-        tmp2 = torch.unsqueeze(tmp,1)
-        #print(x.shape,tmp2.shape)
-        tmp3 = self.conv1(tmp2)
-        tmp3 = torch.squeeze(tmp3,1)
-        if squeeze:
-            tmp3 = torch.squeeze(tmp3,0)
-        return tmp3
-    
-def conv_wrapper(x, conv):
-    # takes either a 2-d tensor (time x other_dim) or a batch thereof, 
-    # and injects a channel and if necessary batch dimension to do conv2d
-    squeeze = False
-    if len(x.shape)==2:
-        tmp = torch.unsqueeze(tmp,0)
-        squeeze = True
-    tmp2 = torch.unsqueeze(tmp,1)
-    #print(x.shape,tmp2.shape)
-    tmp3 = conv(tmp2)
-    tmp4 = torch.squeeze(tmp3,1)
-    if squeeze:
-        tmp4 = torch.squeeze(tmp4,0)
-    return tmp4
 
 
