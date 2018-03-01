@@ -20,10 +20,12 @@ def fit(train_gen = None,
         epochs = None,
         loss_fn = None,
         save_path = None,
+        use_visdom = False,
         dashboard = 'My dashboard',
         ignore_initial=10):
     best_valid_loss = float('inf')
-    vis = Dashboard(dashboard)
+    if use_visdom:
+        vis = Dashboard(dashboard)
     plot_counter = 0
 
 
@@ -64,7 +66,7 @@ def fit(train_gen = None,
                     print('valid:',loss_/count_, count_, get_gpu_memory_map())
                     if count_ > 50:
                         break
-                if plot_counter>ignore_initial:
+                if use_visdom and plot_counter>ignore_initial:
                     try:
                         vis.append(line_name,
                                'line',
