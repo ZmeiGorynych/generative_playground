@@ -65,11 +65,13 @@ def fit(train_gen = None,
                     if count_ > 50:
                         break
                 if plot_counter>ignore_initial:
-                    vis.append(line_name,
+                    try:
+                        vis.append(line_name,
                                'line',
                                X=np.array([plot_counter]),
                                Y=np.array([this_loss]))
-
+                    except:
+                        print('Please start a visdom server with python -m visdom.server!')
         if valid_loss < best_valid_loss:
             best_valid_loss = valid_loss
             print("we're improving!", best_valid_loss)
