@@ -12,6 +12,7 @@ def to_variable(x):
     else:
         return x
 
+
 def fit(train_gen = None,
         valid_gen = None,
         model = None,
@@ -23,7 +24,9 @@ def fit(train_gen = None,
         use_visdom = False,
         dashboard = 'My dashboard',
         ignore_initial=10):
+
     best_valid_loss = float('inf')
+
     if use_visdom:
         vis = Dashboard(dashboard)
     plot_counter = 0
@@ -37,8 +40,10 @@ def fit(train_gen = None,
             count_ = 0
             if train:
                 model.train()
+                loss_name = 'training_loss'
             else:
                 model.eval()
+                loss_name = 'validation_loss'
 
             for inputs_, targets_ in data_gen:
                 inputs = to_variable(inputs_)
@@ -57,18 +62,15 @@ def fit(train_gen = None,
                 loss_+= this_loss
                 count_+= 1
                 plot_counter += 1
-                if train:
-                    line_name = 'training_loss'
-                    print('train:',loss_/count_, count_, get_gpu_memory_map())
-                else:
+                if not train:
                     valid_loss = loss_/count_
-                    line_name = 'validation_loss'
-                    print('valid:',loss_/count_, count_, get_gpu_memory_map())
                     if count_ > 50:
                         break
+                # show intermediate results
+                print(loss_name, loss_ / count_, count_, get_gpu_memory_map())
                 if use_visdom and plot_counter>ignore_initial:
                     try:
-                        vis.append(line_name,
+                        vis.append(loss_name,
                                'line',
                                X=np.array([plot_counter]),
                                Y=np.array([this_loss]))

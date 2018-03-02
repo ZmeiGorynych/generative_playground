@@ -1,4 +1,4 @@
-use_gpu=True
+use_gpu=False
 if use_gpu:
     from torch.cuda import FloatTensor, IntTensor
     def to_gpu(x):
@@ -8,11 +8,11 @@ else:
     def to_gpu(x):
         return x.cpu()
 
+# the below function is from the Pytorch forums
+# https://discuss.pytorch.org/t/access-gpu-memory-usage-in-pytorch/3192/3
 import subprocess
-
 def get_gpu_memory_map():
     """Get the current gpu usage.
-
     Returns
     -------
     usage: dict
