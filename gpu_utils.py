@@ -1,4 +1,4 @@
-use_gpu=False
+use_gpu=True
 if use_gpu:
     from torch.cuda import FloatTensor, IntTensor
     def to_gpu(x):
