@@ -1,7 +1,7 @@
 import torch
 from torch.autograd import Variable
-from gpu_utils import get_gpu_memory_map
-from visdom_helper.visdom_helper import Dashboard
+from basic_pytorch.gpu_utils import get_gpu_memory_map
+from basic_pytorch.visdom_helper.visdom_helper import Dashboard
 import numpy as np
 
 def to_variable(x):
@@ -21,13 +21,14 @@ def fit(train_gen = None,
         epochs = None,
         loss_fn = None,
         save_path = None,
-        use_visdom = False,
-        dashboard = 'My dashboard',
-        ignore_initial=10):
+        dashboard = None,
+        ignore_initial=10,
+        exp_smooth = 0.9,
+        save_every = 0):
 
     best_valid_loss = float('inf')
 
-    if use_visdom:
+    if dashboard is not None:
         vis = Dashboard(dashboard)
     plot_counter = 0
 
@@ -66,9 +67,11 @@ def fit(train_gen = None,
                     valid_loss = loss_/count_
                     if count_ > 50:
                         break
+                elif save_every and count_>0 and count_%save_every==0:
+                    save_model(model)
                 # show intermediate results
                 print(loss_name, loss_ / count_, count_, get_gpu_memory_map())
-                if use_visdom and plot_counter>ignore_initial:
+                if dashboard is not None and plot_counter>ignore_initial:
                     try:
                         vis.append(loss_name,
                                'line',
@@ -80,8 +83,11 @@ def fit(train_gen = None,
             best_valid_loss = valid_loss
             print("we're improving!", best_valid_loss)
             # spell_out:
-            torch.save(model.state_dict(), save_path)
-            print("successfully saved model")
+            save_model(model,save_path)
 
         if valid_loss < 1e-10:
             break
+
+def save_model(model, save_path = 'insurance.mdl'):
+    torch.save(model.state_dict(), save_path)
+    print("successfully saved model")

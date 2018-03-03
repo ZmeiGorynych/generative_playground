@@ -3,18 +3,9 @@ import h5py
 import math
 import numpy as np
 from torch.autograd import Variable
-from gpu_utils import to_gpu, use_gpu
+from basic_pytorch.gpu_utils import to_gpu, use_gpu
 from torch.utils.data.dataset import Dataset
 from torch.utils.data.sampler import SubsetRandomSampler
-# fit_dataset = ImagesDataset(path_to_fit_images)
-# fit_data_loader = torch.utils.data.DataLoader(fitdataset, batch_size=10)
-
-# def data_gen(batch_size, batches, model):
-#     for _ in range(batches):
-#         x = to_gpu(Variable(torch.randn(batch_size, model.input_shape()[1])))
-#         y = to_gpu(model.forward(x))
-#         y = y.detach()
-#         yield x, y
 
 class DatasetFromHDF5(Dataset):
     def __init__(self, filename, dataset, len_dim=0):
@@ -39,6 +30,8 @@ def train_valid_loaders(dataset, valid_fraction =0.1, **kwargs):
     if not('shuffle' in kwargs and not kwargs['shuffle']):
             #np.random.seed(random_seed)
             np.random.shuffle(indices)
+    if 'num_workers' not in kwargs:
+        kwargs['num_workers'] = 1
 
     train_idx, valid_idx = indices[split:], indices[:split]
     train_sampler = SubsetRandomSampler(train_idx)
