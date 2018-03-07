@@ -3,7 +3,7 @@ print(torch.__version__)
 import torch.nn as nn
 import torch.autograd as autograd
 
-from gpu_utils import to_gpu
+from basic_pytorch.gpu_utils import to_gpu
 
 class LSTMModel(nn.Module):
     def __init__(self,

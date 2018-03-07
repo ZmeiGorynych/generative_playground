@@ -22,9 +22,9 @@ def fit(train_gen = None,
         loss_fn = None,
         save_path = None,
         dashboard = None,
-        ignore_initial=10,
+        plot_ignore_initial=10,
         exp_smooth = 0.9,
-        save_every = 0):
+        batches_to_valid=10):
 
     best_valid_loss = float('inf')
 
@@ -32,53 +32,71 @@ def fit(train_gen = None,
         vis = Dashboard(dashboard)
     plot_counter = 0
 
+    valid_batches = max(1,int(batches_to_valid*len(valid_gen)/len(train_gen)))
 
     for epoch in range(epochs):
         print('epoch ', epoch)
         scheduler.step()
-        for train, data_gen in [True, train_gen], [False, valid_gen]:
-            loss_ = 0
-            count_ = 0
-            if train:
+        train_iter = train_gen.__iter__()
+        valid_iter = valid_gen.__iter__()
+        done={True:False,False:False}
+        for n in range(len(train_gen) + len(valid_gen)):
+            if n%(batches_to_valid + valid_batches) <batches_to_valid:
+                train = True
+                data_iter = train_iter
                 model.train()
                 loss_name = 'training_loss'
             else:
+                train = False
+                data_iter = valid_iter
                 model.eval()
                 loss_name = 'validation_loss'
 
-            for inputs_, targets_ in data_gen:
-                inputs = to_variable(inputs_)
-                targets = to_variable(targets_)
-                outputs = model(inputs)
-                loss = loss_fn(outputs, targets)
-                if train:
-                    optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
+            loss_ = 0
+            count_ = 0
+
+            # get the next pair (inputs, targets)
+            try:
+                inputs_, targets_ = next(data_iter)
+            except StopIteration:
+                done[train] = True
+                if done[True] and done[False]:
+                    break
+                else:
+                    continue
+
+            inputs = to_variable(inputs_)
+            targets = to_variable(targets_)
+            outputs = model(inputs)
+            loss = loss_fn(outputs, targets)
+            if train:
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+            try:
+                model.reset_hidden()
+            except:
+                pass
+            this_loss = loss.data[0]
+            loss_+= this_loss
+            count_+= 1
+            plot_counter += 1
+            if not train:
+                valid_loss = loss_/count_
+                if count_ > 50:
+                    break
+            # elif save_every and count_>0 and count_%save_every==0:
+            #     save_model(model)
+            # show intermediate results
+            print(loss_name, loss_ / count_, n, get_gpu_memory_map())
+            if dashboard is not None and plot_counter>plot_ignore_initial:
                 try:
-                    model.reset_hidden()
+                    vis.append(loss_name,
+                           'line',
+                           X=np.array([plot_counter]),
+                           Y=np.array([this_loss]))
                 except:
-                    pass
-                this_loss = loss.data[0]
-                loss_+= this_loss
-                count_+= 1
-                plot_counter += 1
-                if not train:
-                    valid_loss = loss_/count_
-                    if count_ > 50:
-                        break
-                elif save_every and count_>0 and count_%save_every==0:
-                    save_model(model)
-                # show intermediate results
-                print(loss_name, loss_ / count_, count_, get_gpu_memory_map())
-                if dashboard is not None and plot_counter>ignore_initial:
-                    try:
-                        vis.append(loss_name,
-                               'line',
-                               X=np.array([plot_counter]),
-                               Y=np.array([this_loss]))
-                    except:
-                        print('Please start a visdom server with python -m visdom.server!')
+                    print('Please start a visdom server with python -m visdom.server!')
         if valid_loss < best_valid_loss:
             best_valid_loss = valid_loss
             print("we're improving!", best_valid_loss)

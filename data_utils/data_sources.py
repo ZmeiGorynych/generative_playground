@@ -12,8 +12,9 @@ class DatasetFromHDF5(Dataset):
         h5f = h5py.File(filename, 'r')
         self.data = h5f[dataset]
         if not len_dim==0:
-            raise NotImplementedError("Don't support other batch dimensions than 2 just yet")
+            raise NotImplementedError("Don't support other batch dimensions than 0 just yet")
         self.len_dim = len_dim
+        
     def __len__(self):
         return self.data.shape[self.len_dim]
 
@@ -43,6 +44,7 @@ def train_valid_loaders(dataset, valid_fraction =0.1, **kwargs):
     valid_loader = torch.utils.data.DataLoader(dataset,
                                                sampler=valid_sampler,
                                                **kwargs)
+
     return train_loader, valid_loader
 
 class DatasetFromModel(Dataset):
