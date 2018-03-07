@@ -14,7 +14,7 @@ class DatasetFromHDF5(Dataset):
         if not len_dim==0:
             raise NotImplementedError("Don't support other batch dimensions than 0 just yet")
         self.len_dim = len_dim
-        
+
     def __len__(self):
         return self.data.shape[self.len_dim]
 
