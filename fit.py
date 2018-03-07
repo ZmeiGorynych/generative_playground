@@ -40,6 +40,8 @@ def fit(train_gen = None,
         train_iter = train_gen.__iter__()
         valid_iter = valid_gen.__iter__()
         done={True:False,False:False}
+        val_loss = 0
+        val_count = 0
         for n in range(len(train_gen) + len(valid_gen)):
             if n%(batches_to_valid + valid_batches) <batches_to_valid:
                 train = True
@@ -52,13 +54,11 @@ def fit(train_gen = None,
                 model.eval()
                 loss_name = 'validation_loss'
 
-            loss_ = 0
-            count_ = 0
-
             # get the next pair (inputs, targets)
             try:
                 inputs_, targets_ = next(data_iter)
             except StopIteration:
+                # make sure we get all data from both iterators
                 done[train] = True
                 if done[True] and done[False]:
                     break
@@ -69,26 +69,23 @@ def fit(train_gen = None,
             targets = to_variable(targets_)
             outputs = model(inputs)
             loss = loss_fn(outputs, targets)
+            this_loss = loss.data[0]
             if train:
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
+            else:
+                val_loss += this_loss
+                val_count += 1
+
             try:
                 model.reset_hidden()
             except:
                 pass
-            this_loss = loss.data[0]
-            loss_+= this_loss
-            count_+= 1
-            plot_counter += 1
-            if not train:
-                valid_loss = loss_/count_
-                if count_ > 50:
-                    break
-            # elif save_every and count_>0 and count_%save_every==0:
-            #     save_model(model)
+
             # show intermediate results
-            print(loss_name, loss_ / count_, n, get_gpu_memory_map())
+            print(loss_name, this_loss, n, get_gpu_memory_map())
+            plot_counter += 1
             if dashboard is not None and plot_counter>plot_ignore_initial:
                 try:
                     vis.append(loss_name,
@@ -97,6 +94,7 @@ def fit(train_gen = None,
                            Y=np.array([this_loss]))
                 except:
                     print('Please start a visdom server with python -m visdom.server!')
+        valid_loss = val_loss / val_count
         if valid_loss < best_valid_loss:
             best_valid_loss = valid_loss
             print("we're improving!", best_valid_loss)
