@@ -24,7 +24,8 @@ def fit(train_gen = None,
         dashboard = None,
         plot_ignore_initial=10,
         exp_smooth = 0.9,
-        batches_to_valid=10):
+        batches_to_valid=10,
+        grad_clip = None):
 
     best_valid_loss = float('inf')
 
@@ -73,6 +74,8 @@ def fit(train_gen = None,
             if train:
                 optimizer.zero_grad()
                 loss.backward()
+                if grad_clip is not None:
+                    torch.nn.utils.clip_grad_norm(model.parameters(), grad_clip)
                 optimizer.step()
             else:
                 val_loss += this_loss
