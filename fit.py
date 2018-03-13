@@ -22,7 +22,7 @@ def fit(train_gen = None,
         loss_fn = None,
         save_path = None,
         dashboard = None,
-        plot_ignore_initial=10,
+        plot_ignore_initial=0,
         exp_smooth = 0.9,
         batches_to_valid=10,
         grad_clip = None):
@@ -48,11 +48,13 @@ def fit(train_gen = None,
                 train = True
                 data_iter = train_iter
                 model.train()
+                loss_fn.train()
                 loss_name = 'training_loss'
             else:
                 train = False
                 data_iter = valid_iter
                 model.eval()
+                loss_fn.eval()
                 loss_name = 'validation_loss'
 
             # get the next pair (inputs, targets)
@@ -94,7 +96,13 @@ def fit(train_gen = None,
                     vis.append(loss_name,
                            'line',
                            X=np.array([plot_counter]),
-                           Y=np.array([this_loss]))
+                           Y=np.array([min(1.0, this_loss)]))
+                    if hasattr(loss_fn,'metrics'):
+                        vis.append(loss_name + ' metrics',
+                                   'line',
+                                   X=np.array([plot_counter]),
+                                   Y=np.array([[min(val,1.0) for key, val in loss_fn.metrics.items()]]),
+                                   opts={'legend': [key for key, val in loss_fn.metrics.items()]})
                 except:
                     print('Please start a visdom server with python -m visdom.server!')
         valid_loss = val_loss / val_count
