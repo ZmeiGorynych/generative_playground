@@ -1,5 +1,5 @@
 import torch
-from torch import nn as nn, FloatTensor
+from torch import nn as nn
 from torch.autograd import Variable
 from torch.nn import functional as F
 
@@ -7,7 +7,7 @@ print(torch.__version__)
 import torch.nn as nn
 import torch.autograd as autograd
 
-from basic_pytorch.gpu_utils import to_gpu
+from basic_pytorch.gpu_utils import to_gpu, FloatTensor, IntTensor
 
 class LSTMModel(nn.Module):
     def __init__(self,
@@ -181,7 +181,7 @@ class SimpleRNNAttentionEncoder(nn.Module):
         :param x: a numpy array batch x seq x feature
         :return:
         '''
-        out, hidden = self.forward(Variable(FloatTensor(x)))
+        out, hidden = self.forward(to_gpu(Variable(FloatTensor(x))))
         return out.data.cpu().numpy()
 
     def init_hidden(self, batch_size):

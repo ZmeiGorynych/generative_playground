@@ -82,7 +82,8 @@ def fit(train_gen = None,
             else:
                 val_loss += this_loss
                 val_count += 1
-
+                # # TODO: remove this!
+                # save_model(model, save_path)
             try:
                 model.reset_hidden()
             except:
