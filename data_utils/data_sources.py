@@ -66,3 +66,21 @@ class DatasetFromModel(Dataset):
             return (x, y)
         else:
             raise StopIteration()
+
+
+class DuplicateIter:
+    def __init__(self, iterable):
+        self.iterable = iterable
+
+    def __iter__(self):
+        def gen():
+            iter = self.iterable.__iter__()
+            while True:
+                # TODO: cast to float earlier?
+                x = Variable(to_gpu(next(iter).float()))
+                yield (x, x)
+
+        return gen()
+
+    def __len__(self):
+        return len(self.iterable)
