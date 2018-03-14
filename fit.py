@@ -12,7 +12,8 @@ def to_variable(x):
     else:
         return x
 
-
+# The fit function is a generator, so one can call several of these in
+# the sequence one desires
 def fit(train_gen = None,
         valid_gen = None,
         model = None,
@@ -24,10 +25,14 @@ def fit(train_gen = None,
         dashboard = None,
         plot_ignore_initial=0,
         exp_smooth = 0.9,
-        batches_to_valid=10,
-        grad_clip = None):
+        batches_to_valid=9,
+        valid_batches_to_checkpoint = 100,
+        grad_clip = None,
+        plot_prefix = ''):
 
     best_valid_loss = float('inf')
+    cum_val_loss = 0
+    val_count = 0
 
     if dashboard is not None:
         vis = Dashboard(dashboard)
@@ -41,21 +46,20 @@ def fit(train_gen = None,
         train_iter = train_gen.__iter__()
         valid_iter = valid_gen.__iter__()
         done={True:False,False:False}
-        val_loss = 0
-        val_count = 0
+
         for n in range(len(train_gen) + len(valid_gen)):
             if n%(batches_to_valid + valid_batches) <batches_to_valid:
                 train = True
                 data_iter = train_iter
                 model.train()
                 loss_fn.train()
-                loss_name = 'training_loss'
+                loss_name = plot_prefix + ' training_loss'
             else:
                 train = False
                 data_iter = valid_iter
                 model.eval()
                 loss_fn.eval()
-                loss_name = 'validation_loss'
+                loss_name = plot_prefix + ' validation_loss'
 
             # get the next pair (inputs, targets)
             try:
@@ -80,10 +84,19 @@ def fit(train_gen = None,
                     torch.nn.utils.clip_grad_norm(model.parameters(), grad_clip)
                 optimizer.step()
             else:
-                val_loss += this_loss
+                cum_val_loss += this_loss
                 val_count += 1
-                # # TODO: remove this!
-                # save_model(model, save_path)
+                # after enough validation batches, see if we want to save the weights
+                if val_count >= valid_batches_to_checkpoint:
+                    valid_loss = cum_val_loss / val_count
+                    val_count = 0
+                    cum_val_loss = 0
+                    if valid_loss < best_valid_loss:
+                        best_valid_loss = valid_loss
+                        print("we're improving!", best_valid_loss)
+                        # spell_out:
+                        save_model(model, save_path)
+
             try:
                 model.reset_hidden()
             except:
@@ -92,7 +105,7 @@ def fit(train_gen = None,
             # show intermediate results
             print(loss_name, this_loss, n, get_gpu_memory_map())
             plot_counter += 1
-            if dashboard is not None and plot_counter>plot_ignore_initial:
+            if dashboard is not None and plot_counter > plot_ignore_initial:
                 try:
                     vis.append(loss_name,
                            'line',
@@ -102,19 +115,12 @@ def fit(train_gen = None,
                         vis.append(loss_name + ' metrics',
                                    'line',
                                    X=np.array([plot_counter]),
-                                   Y=np.array([[min(val,1.0) for key, val in loss_fn.metrics.items()]]),
+                                   Y=np.array([[val for key, val in loss_fn.metrics.items()]]),
                                    opts={'legend': [key for key, val in loss_fn.metrics.items()]})
                 except:
                     print('Please start a visdom server with python -m visdom.server!')
-        valid_loss = val_loss / val_count
-        if valid_loss < best_valid_loss:
-            best_valid_loss = valid_loss
-            print("we're improving!", best_valid_loss)
-            # spell_out:
-            save_model(model,save_path)
-
-        if valid_loss < 1e-10:
-            break
+            if train:
+                yield this_loss
 
 def save_model(model, save_path = 'insurance.mdl'):
     torch.save(model.state_dict(), save_path)
