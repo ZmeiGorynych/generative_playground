@@ -28,7 +28,8 @@ def fit(train_gen = None,
         batches_to_valid=9,
         valid_batches_to_checkpoint = 100,
         grad_clip = None,
-        plot_prefix = ''):
+        plot_prefix = '',
+        loss_display_cap = 1.5):
 
     best_valid_loss = float('inf')
     cum_val_loss = 0
@@ -110,7 +111,7 @@ def fit(train_gen = None,
                     vis.append(loss_name,
                            'line',
                            X=np.array([plot_counter]),
-                           Y=np.array([min(1.0, this_loss)]))
+                           Y=np.array([min(loss_display_cap, this_loss)]))
                     if hasattr(loss_fn,'metrics'):
                         vis.append(loss_name + ' metrics',
                                    'line',
