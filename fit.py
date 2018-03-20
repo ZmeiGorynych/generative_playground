@@ -26,10 +26,10 @@ def fit(train_gen = None,
         plot_ignore_initial=0,
         exp_smooth = 0.9,
         batches_to_valid=9,
-        valid_batches_to_checkpoint = 100,
+        valid_batches_to_checkpoint = 10,
         grad_clip = None,
         plot_prefix = '',
-        loss_display_cap = 1.5):
+        loss_display_cap = 4):
 
     best_valid_loss = float('inf')
     cum_val_loss = 0
@@ -40,10 +40,13 @@ def fit(train_gen = None,
     plot_counter = 0
 
     valid_batches = max(1,int(batches_to_valid*len(valid_gen)/len(train_gen)))
+    if 'ReduceLROnPlateau' in str(type(scheduler)):
+        step_scheduler_after_val = True
 
     for epoch in range(epochs):
         print('epoch ', epoch)
-        scheduler.step()
+        if not step_scheduler_after_val:
+            scheduler.step()
         train_iter = train_gen.__iter__()
         valid_iter = valid_gen.__iter__()
         done={True:False,False:False}
@@ -54,13 +57,13 @@ def fit(train_gen = None,
                 data_iter = train_iter
                 model.train()
                 loss_fn.train()
-                loss_name = plot_prefix + ' training_loss'
+                loss_name = plot_prefix + ' train_loss'
             else:
                 train = False
                 data_iter = valid_iter
                 model.eval()
                 loss_fn.eval()
-                loss_name = plot_prefix + ' validation_loss'
+                loss_name = plot_prefix + ' val_loss'
 
             # get the next pair (inputs, targets)
             try:
@@ -90,6 +93,8 @@ def fit(train_gen = None,
                 # after enough validation batches, see if we want to save the weights
                 if val_count >= valid_batches_to_checkpoint:
                     valid_loss = cum_val_loss / val_count
+                    if step_scheduler_after_val:
+                        scheduler.step(valid_loss)
                     val_count = 0
                     cum_val_loss = 0
                     if valid_loss < best_valid_loss:

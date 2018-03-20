@@ -1,6 +1,11 @@
+import math
+
 import torch
 
 # multiplies all inputs by a fixed vector
+from torch import nn as nn
+
+
 class Net(torch.nn.Module):
     def __init__(self, w):
         super().__init__()
@@ -16,3 +21,25 @@ class Net(torch.nn.Module):
         return (1,len(self.w))
 
 
+class DenseHead(nn.Module):
+    def __init__(self, body,
+                 body_out_dim=None,
+                 out_dim = 1,
+                 drop_rate =0.0,
+                 activation=nn.Sigmoid()):
+        super(DenseHead, self).__init__()
+        self.body = body
+        self.dropout1 = nn.Dropout(drop_rate)
+        hidden_dim = int(math.floor(math.sqrt(body_out_dim))+1)
+        self.dense_1 = nn.Linear(body_out_dim, hidden_dim)
+        self.dropout2 = nn.Dropout(drop_rate)
+        self.dense_2 = nn.Linear(hidden_dim, out_dim)
+        self.activation = activation
+
+    def forward(self, x):
+        body_out = self.body(x)
+        if type(body_out) == tuple:
+            body_out = body_out[0]
+        return self.activation(self.dense_2(
+                        self.dropout2(self.dense_1(
+                            self.dropout1(body_out)))))
