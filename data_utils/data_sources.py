@@ -31,8 +31,8 @@ def train_valid_loaders(dataset, valid_fraction =0.1, **kwargs):
     if not('shuffle' in kwargs and not kwargs['shuffle']):
             #np.random.seed(random_seed)
             np.random.shuffle(indices)
-    if 'num_workers' not in kwargs:
-        kwargs['num_workers'] = 1
+    # if 'num_workers' not in kwargs:
+    #     kwargs['num_workers'] = 1
 
     train_idx, valid_idx = indices[split:], indices[:split]
     train_sampler = SubsetRandomSampler(train_idx)
