@@ -101,7 +101,8 @@ def fit(train_gen = None,
                         best_valid_loss = valid_loss
                         print("we're improving!", best_valid_loss)
                         # spell_out:
-                        save_model(model, save_path)
+                        if save_path is not None:
+                            save_model(model, save_path)
 
             try:
                 model.reset_hidden()
