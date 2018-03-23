@@ -110,10 +110,15 @@ def fit(train_gen = None,
                 pass
 
             # show intermediate results
-            print(loss_name, this_loss, n, get_gpu_memory_map())
+            gpu_usage = get_gpu_memory_map()
+            print(loss_name, this_loss, n, gpu_usage )
             plot_counter += 1
             if dashboard is not None and plot_counter > plot_ignore_initial:
                 try:
+                    vis.append('gpu_usage',
+                               'line',
+                               X=np.array([plot_counter]),
+                               Y=np.array([gpu_usage[0]]))
                     vis.append(loss_name,
                            'line',
                            X=np.array([plot_counter]),
