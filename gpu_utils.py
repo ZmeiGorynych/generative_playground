@@ -1,12 +1,14 @@
 use_gpu=True
 if use_gpu:
-    from torch.cuda import FloatTensor, IntTensor
+    from torch.cuda import FloatTensor, LongTensor
     def to_gpu(x):
         return x.cuda()
 else:
-    from torch import FloatTensor, IntTensor
+    from torch import FloatTensor, LongTensor
     def to_gpu(x):
         return x.cpu()
+
+x1 = FloatTensor()
 
 # the below function is from the Pytorch forums
 # https://discuss.pytorch.org/t/access-gpu-memory-usage-in-pytorch/3192/3

@@ -80,7 +80,7 @@ def fit(train_gen = None,
             targets = to_variable(targets_)
             outputs = model(inputs)
             loss = loss_fn(outputs, targets)
-            this_loss = loss.data[0]
+            this_loss = loss.data.item()
             if train:
                 optimizer.zero_grad()
                 loss.backward()

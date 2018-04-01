@@ -7,7 +7,7 @@ print(torch.__version__)
 import torch.nn as nn
 import torch.autograd as autograd
 
-from basic_pytorch.gpu_utils import to_gpu, FloatTensor, IntTensor
+from basic_pytorch.gpu_utils import to_gpu, FloatTensor#, LongTensor
 
 class LSTMModel(nn.Module):
     def __init__(self,

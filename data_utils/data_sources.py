@@ -80,7 +80,7 @@ class DuplicateIter:
             iter = self.iterable.__iter__()
             while True:
                 # TODO: cast to float earlier?
-                x = Variable(to_gpu(next(iter).float()))
+                x = to_gpu(next(iter).float())
                 yield (x, x)
 
         return gen()
