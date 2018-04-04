@@ -87,37 +87,51 @@ class SimpleRNNDecoder(nn.Module):
                             num_layers=self.num_layers)
         self.dropout_2 = nn.Dropout(drop_rate)
         self.fc_out = nn.Linear(hidden_n, feature_len)
+        self.hidden = None
 
-    def forward(self, encoded, hidden_1):
-        _batch_size = encoded.size()[0]
+    def forward(self, encoded):#, hidden_1 = None):
+        batch_size = len(encoded)
+        if self.hidden is None:
+            self.hidden = self.init_hidden(batch_size=batch_size)
+
         # copy the latent state to length of sequence, instead of sampling inputs
         embedded = F.relu(self.fc_input(self.batch_norm(encoded))) \
-            .view(_batch_size, 1, self.hidden_n) \
+            .view(batch_size, 1, self.hidden_n) \
             .repeat(1, self.max_seq_length, 1)
         embedded =self.dropout_1(embedded)
         # run the GRU on it
-        out_3, hidden_1 = self.gru_1(embedded, hidden_1)
+        out_3, self.hidden = self.gru_1(embedded, self.hidden)
         # tmp has dim (batch_size*seq_len)xhidden_n, so we can apply the linear transform to it
         tmp = self.dropout_2(out_3.contiguous().view(-1, self.hidden_n))
-        out = self.fc_out(tmp).view(_batch_size, self.max_seq_length,
-                                self.output_feature_size)
+        out = self.fc_out(tmp).view(batch_size,
+                                    self.max_seq_length,
+                                    self.output_feature_size)
 
         # just return the logits
-        return out, hidden_1
+        #self.hidden = None
+        return out#, hidden_1
 
+    def reset_state(self):
+        self.hidden = None
+
+    # TODO: remove this method!
     def decode(self, z):
         if 'numpy' in str(type(z)):
             z = Variable(FloatTensor(z))
-        # TODO: should actually be handling single vectors, not batches, dependent on dim?
-        batch_size = z.size()[0]
-        h1 = self.init_hidden(batch_size)
-        output, h1 = self.forward(z, h1)
+        self.reset_state()
+        output = self.forward(z)
         return output.data.cpu().numpy()
 
     def init_hidden(self, batch_size):
         # NOTE: assume only 1 layer no bi-direction
         h1 = Variable(to_gpu(torch.zeros(self.num_layers, batch_size, self.hidden_n)), requires_grad=False)
         return h1
+
+class ResettingRNNDecoder(SimpleRNNDecoder):
+    def forward(self, encoded):
+        out = super().forward(encoded)
+        self.reset_state()
+        return out
 
 class SimpleRNNAttentionEncoder(nn.Module):
     # implementation matches model_eq.py _buildDecoder, at least in intent
