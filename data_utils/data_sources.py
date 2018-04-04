@@ -93,42 +93,44 @@ class IncrementingHDF5Dataset:
     def __init__(self, fname, valid_frac = None):
         '''
         An hdf5 wrapper that can be incremented on the fly,
-        works around hdf5's problems with simultaneous reads and writes
-        :param fname:
-        :param valid_frac:
+        works around hdf5's problems with simultaneous reads and writes,
+        assigning slices to train/validation on the fly
+        :param fname: hdf5 filename
+        :param valid_frac: fraction of validation samples
         '''
         self.fname = fname
         self.valid_frac = valid_frac
         self.h5f = None
-        self.data = None
-        self.idx  = None
-        self.init_read_handle()
-        self.datasets_created = False
-
-    def init_read_handle(self):
-        try:
-            if self.h5f is None:
-                self.h5f = h5py.File(self.fname, 'a')
-
-            if self.data is None:
-                try:
-                    self.data = self.h5f['data']
-                except Exception as e:
-                    pass
-            if self.valid_frac is not None and self.idx is None:
-                try:
-                    self.idx = {True: self.h5f['valid_idx'],
-                                False: self.h5f['train_idx']}
-                except:
-                    pass
-        except Exception as e:
-            print('Read open failed. Maybe you need to do some appends first?')
+        self.dataset_names = set()
+        self.idx = {True: None, False: None}
+        self.h5f = h5py.File(self.fname, 'a')
 
     def __len__(self):
-        return self.data.shape[self.len_dim]
+        if len(self.dataset_names) == 0:
+            return 0
+        else:
+            return len(self.h5f[self.dataset_names[0]])
 
-    def __getitem__(self, item):
-        return self.data[item].astype(float)
+    # def __getitem__(self, item):
+    #     return self.data[item].astype(float)
+    # TODO: does thiw work with lists of strings, FloatTensors, LongTensors?
+    def append_to_dataset(self, dataset_name, data):
+        if len(data)==0:
+            return
+
+        try:
+            self.h5f[dataset_name].resize(self.h5f[dataset_name].shape[0] + data.shape[0], axis=0)
+            self.h5f[dataset_name][-data.shape[0]:] = data
+        except: # if there is no such dataset yet
+            if len(data.shape)==1:
+                ds_dim = [None]
+            else:
+                ds_dim = [None] + list(data.shape[1:])
+            self.h5f.create_dataset(dataset_name, data=data,
+                               compression="gzip",
+                               compression_opts=9,
+                               maxshape=ds_dim)
+            self.dataset_names.add(dataset_name)
 
     def append(self, data):
         '''
@@ -140,68 +142,67 @@ class IncrementingHDF5Dataset:
         if len(data)==0:
             return
 
+        if type(data) != dict:
+            return self.append({'data':data})
+
+        a_dataset_name = list(data.keys())[0]
+
+
         try:
-            base_len = len(self.h5f["data"])
+            base_len = len(self.h5f[a_dataset_name])
         except: # if there is no such dataset yet
             base_len = 0
 
-        # TODO: replace this dirty hack with an nicer workaround
-        if self.valid_frac is not None and base_len == 0 and len(data)<2:
-            #raise ValueError("If valid_frac is set, first data batch must have at least 2 elements")
-            data=np.array([data[0],data[0]])
-        # close the read handle
-        # if self.h5f_read is not None:
-         #   self.h5f_read.close()
-        #with h5py.File(self.fname, 'a') as self.h5f:
-
-
-        try: # if dataset already created
-            self.h5f["data"].resize(self.h5f["data"].shape[0] + data.shape[0], axis=0)
-            self.h5f["data"][-data.shape[0]:] = data
-        except Exception as e:
-            if len(data.shape)==1:
-                ds_dim = [None]
+        new_len = None
+        for ds_name, new_data in data.items():
+            # all new data chunks must have the same length for train/valid indices to work
+            if new_len == None:
+                new_len = len(new_data)
             else:
-                ds_dim = [None] + list(data.shape[1:])
-            self.h5f.create_dataset('data', data=data,
-                               compression="gzip",
-                               compression_opts=9,
-                               maxshape=ds_dim)
+                assert(new_len == len(new_data))
+            self.append_to_dataset(ds_name, new_data)
 
         if self.valid_frac is not None:
-            # randomly assign data to valid/train subsets
-            is_valid = np.array([self.valid_frac >= np.random.uniform(size=len(data))])[0]
-            if base_len == 0: # want to guarantee both index sets are nonempty
-                is_valid[0] = True
-                is_valid[1] = False
+            # randomly assign new data to valid/train subsets
+            is_valid = np.array([self.valid_frac >= np.random.uniform(size=new_len)])[0]
 
-            all_ind = base_len + np.array(range(len(data)))
+            all_ind = base_len + np.array(range(new_len))
             valid_ind = all_ind[is_valid]
             train_ind = all_ind[is_valid == False]
-            for data_, ds_name in (valid_ind,'valid_idx'), (train_ind,'train_idx'):
+            for data_, ds_name, valid in (valid_ind,'valid_idx',True), \
+                                         (train_ind,'train_idx', False):
                 if not len(data_):
                     continue
-                try: # if dataset already created
-                    self.h5f[ds_name].resize(self.h5f[ds_name].shape[0] + len(data_), axis=0)
-                    self.h5f[ds_name][-data_.shape[0]:] = data_
-                except Exception as e:
-                    print(e)
-                    self.h5f.create_dataset(ds_name, data=data_,
-                                       compression="gzip",
-                                       compression_opts=9,
-                                       maxshape=tuple([None]))
-        # refresh the read handle
-        self.init_read_handle()
+                else:
+                    self.append_to_dataset(ds_name, data_)
+                    self.idx[valid] = self.h5f[ds_name]
 
-    def get_item(self, item, valid):
-        return self.data[self.idx[valid][item]]
+        # refresh the read handle
+        # self.init_read_handle()
+
+    def get_item(self, dataset, item, valid=None):
+        if valid is None:
+            return self.h5f[dataset][item]
+        elif self.idx[valid] is not None:
+            return self.h5f[dataset][self.idx[valid][item]]
+        else:
+            return None
 
     def get_len(self, valid):
-        return len(self.idx[valid])
+        if valid is None:
+            return self.__len__()
+        elif self.idx[valid] is not None:
+            return len(self.idx[valid])
+        else:
+            return 0
 
-    def get_train_valid_loaders(self, batch_size):
-        train_ds = ChildHDF5Dataset(self, False)
-        val_ds = ChildHDF5Dataset(self, True)
+    def get_train_valid_loaders(self, batch_size, dataset_name='data'):
+        train_ds = ChildHDF5Dataset(self,
+                                    valid=False,
+                                    dataset_name=dataset_name)
+        val_ds = ChildHDF5Dataset(self,
+                                  valid=True,
+                                  dataset_name=dataset_name)
         train_loader = torch.utils.data.DataLoader(train_ds,
                                                    sampler=RandomSampler(train_ds),
                                                    batch_size=batch_size,
@@ -215,15 +216,25 @@ class IncrementingHDF5Dataset:
 
 
 class ChildHDF5Dataset:
-    def __init__(self, parent, valid):
+    def __init__(self, parent, dataset_name='data', valid=None):
         self.parent = parent
         self.valid = valid
+        self.dataset_name = dataset_name
 
     def __len__(self):
-        return len(self.parent.idx[self.valid])
+        return self.parent.get_len(self.valid)
 
     def __getitem__(self, item):
         if item < self.__len__():
-            return self.parent.data[self.parent.idx[self.valid][item]]
+            # if we got this far, self.__len__() is >0 so we have indices
+            if type(self.dataset_name) == str:
+                return self.parent.get_item(self.dataset_name,
+                                            self.valid,
+                                            self.item)
+            elif type(self.dataset_name) in (tuple, list):
+                out = tuple(self.parent.get_item(dsname,
+                                            self.valid,
+                                            self.item) for dsname in self.dataset_name)
+                return out
         else:
             raise ValueError("Item exceeds dataset length")
