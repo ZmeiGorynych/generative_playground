@@ -1,7 +1,11 @@
 import torch
 from torch.autograd import Variable
 from basic_pytorch.gpu_utils import get_gpu_memory_map
-from basic_pytorch.visdom_helper.visdom_helper import Dashboard
+try:
+    from basic_pytorch.visdom_helper.visdom_helper import Dashboard
+    have_visdom = True
+except:
+    have_visdom = False
 import numpy as np
 
 def to_variable(x):
@@ -35,10 +39,10 @@ def fit(train_gen = None,
     cum_val_loss = 0
     val_count = 0
 
-    if dashboard is not None:
+    if dashboard is not None and have_visdom:
         vis = Dashboard(dashboard)
-    plot_counter = 0
 
+    plot_counter = 0
     valid_batches = max(1,int(batches_to_valid*len(valid_gen)/len(train_gen)))
     if 'ReduceLROnPlateau' in str(type(scheduler)):
         step_scheduler_after_val = True
@@ -113,7 +117,7 @@ def fit(train_gen = None,
             gpu_usage = get_gpu_memory_map()
             print(loss_name, this_loss, n, gpu_usage )
             plot_counter += 1
-            if dashboard is not None and plot_counter > plot_ignore_initial:
+            if dashboard is not None and plot_counter > plot_ignore_initial and have_visdom:
                 try:
                     vis.append('gpu_usage',
                                'line',
@@ -129,8 +133,9 @@ def fit(train_gen = None,
                                    X=np.array([plot_counter]),
                                    Y=np.array([[val for key, val in loss_fn.metrics.items()]]),
                                    opts={'legend': [key for key, val in loss_fn.metrics.items()]})
-                except:
-                    print('Please start a visdom server with python -m visdom.server!')
+                except Exception as e:
+                    print(e)
+                    visdom_exists = False
             if train:
                 yield this_loss
 
