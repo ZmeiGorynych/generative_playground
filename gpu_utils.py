@@ -31,5 +31,5 @@ def get_gpu_memory_map():
         gpu_memory = [int(x) for x in result.strip().split('\n')]
         gpu_memory_map = dict(zip(range(len(gpu_memory)), gpu_memory))
     except:
-        gpu_memory_map ={'GPU memory query doesn\'t work on Windows':0}
+        gpu_memory_map = {0: 0}
     return gpu_memory_map
