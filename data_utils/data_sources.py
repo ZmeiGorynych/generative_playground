@@ -11,15 +11,12 @@ class DatasetFromHDF5(Dataset):
     '''
     A simple Dataset wrapper around an hdf5 file
     '''
-    def __init__(self, filename, dataset, len_dim=0):
+    def __init__(self, filename, dataset):
         h5f = h5py.File(filename, 'r')
         self.data = h5f[dataset]
-        if not len_dim==0:
-            raise NotImplementedError("Don't support other batch dimensions than 0 just yet")
-        self.len_dim = len_dim
 
     def __len__(self):
-        return self.data.shape[self.len_dim]
+        return len(self.data)
 
     def __getitem__(self, item):
         return self.data[item].astype(float)
@@ -34,8 +31,6 @@ def train_valid_loaders(dataset, valid_fraction =0.1, **kwargs):
     if not('shuffle' in kwargs and not kwargs['shuffle']):
             #np.random.seed(random_seed)
             np.random.shuffle(indices)
-    # if 'num_workers' not in kwargs:
-    #     kwargs['num_workers'] = 1
 
     train_idx, valid_idx = indices[split:], indices[:split]
     train_sampler = SubsetRandomSampler(train_idx)
@@ -99,6 +94,7 @@ class IncrementingHDF5Dataset:
         '''
         self.tracked_dataset_names = set()
         self.h5f = h5py.File(fname, 'a')
+        self.append_happened = False
 
     def __len__(self):
         if len(self.tracked_dataset_names) == 0:
@@ -115,7 +111,7 @@ class IncrementingHDF5Dataset:
         try:
             self.h5f[dataset_name].resize(self.h5f[dataset_name].shape[0] + data.shape[0], axis=0)
             self.h5f[dataset_name][-data.shape[0]:] = data
-        except: # if there is no such dataset yet, create extendable datasets
+        except Exception as e: # if there is no such dataset yet, create extendable datasets
             if len(data.shape)==1:
                 ds_dim = [None]
             else:
@@ -135,7 +131,7 @@ class IncrementingHDF5Dataset:
         :return:
         '''
         if type(data) != dict:
-            self.append({'data':data})
+            return self.append({'data':data})
 
         if not enforce_length:
             # make sure we're not affecting controlled datasets
@@ -155,8 +151,10 @@ class IncrementingHDF5Dataset:
             if new_len == 0:
                 return
 
-            if len(self.tracked_dataset_names)==0: # there was no data to begin with
+            if len(self.tracked_dataset_names)==0 or not self.append_happened: # this is the first append since open
+                # tracked_dataset_names could have a guessed value from train_valid_loaders
                 self.tracked_dataset_names = set(data.keys())
+                self.append_happened = True
             else:
                 assert(set(data.keys()) == self.tracked_dataset_names)
                 old_len = None
@@ -249,7 +247,25 @@ class SamplingWrapper:
         else:
             return 0
 
+    def check_dataset_names(self, dataset_name):
+        check_list = [dataset_name] if type(dataset_name) == str else dataset_name
+        check_list = [ds_name for ds_name in check_list if ds_name != 'sample_seq_ind']
+
+        if len(self.storage.tracked_dataset_names):
+            assert (all([ds_name in self.storage.tracked_dataset_names for ds_name in check_list]))
+        else:
+            # if we never appended to this dataset, just opened it, need to init
+            for ds_name in check_list:
+                try:
+                    self.storage.h5f[ds_name]
+                    self.storage.tracked_dataset_names.add(ds_name)
+                except:
+                    raise ValueError("no dataset called " + ds_name)
+        return True # if we got this far
+
     def get_train_valid_loaders(self, batch_size, dataset_name='data'):
+        # check that the required dataset(s) actually exist
+
         train_ds = ChildHDF5Dataset(self,
                                     valid=False,
                                     dataset_name=dataset_name)
@@ -281,8 +297,11 @@ class ChildHDF5Dataset(Dataset):
         self.parent = parent
         self.valid = valid
         self.dataset_name = dataset_name
+        self.dataset_checked = False
 
     def __len__(self):
+        if not self.dataset_checked:
+            self.dataset_checked = self.parent.check_dataset_names(self.dataset_name)
         return self.parent.get_len(self.valid)
 
     def __getitem__(self, item):
