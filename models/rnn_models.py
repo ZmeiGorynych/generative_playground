@@ -73,6 +73,7 @@ class SimpleRNNDecoder(nn.Module):
                  num_layers = 3):
         super(SimpleRNNDecoder, self).__init__()
         self.max_seq_length = max_seq_length
+        self.z_size = z_size
         self.hidden_n = hidden_n
         self.num_layers = num_layers
         self.output_feature_size = feature_len
@@ -146,6 +147,7 @@ class SimpleRNNAttentionEncoder(nn.Module):
         super(SimpleRNNAttentionEncoder, self).__init__()
         self.max_seq_length = max_seq_length
         self.hidden_n = hidden_n
+        self.z_size = z_size
         self.num_layers = num_layers
         self.feature_size = feature_len
         self.bidirectional = bidirectional
