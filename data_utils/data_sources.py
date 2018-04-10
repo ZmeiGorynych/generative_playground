@@ -85,15 +85,19 @@ class DuplicateIter:
 
 
 class IncrementingHDF5Dataset:
-    def __init__(self, fname):#
+    def __init__(self, fname, mode='a'):#
         '''
         An hdf5 wrapper that can be incremented on the fly,
         works around hdf5's problems with simultaneous reads and writes,
         assigning slices to train/validation on the fly
         :param fname: hdf5 filename
+        :param mode: 'a' if you also want to append to the file while training,
+        'r' if you want to allow multiple processes to open the file
+        sadly if one process has the file open for writing, no other process can open it
         '''
         self.tracked_dataset_names = set()
-        self.h5f = h5py.File(fname, 'a')
+        self.mode = mode
+        self.h5f = h5py.File(fname, mode)
         self.append_happened = False
 
     def __len__(self):
