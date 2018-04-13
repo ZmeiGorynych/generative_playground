@@ -90,11 +90,22 @@ class SimpleRNNDecoder(nn.Module):
         self.fc_out = nn.Linear(hidden_n, feature_len)
         self.hidden = None
 
-    def forward(self, encoded):#, hidden_1 = None):
-        batch_size = len(encoded)
+    def forward(self, enc_output, last_action=None, last_action_pos=None):
+        '''
+
+        :param enc_output: batch x z_size
+        :param last_action: one-hot encoded batch x num_actions, all zeros for first step
+        :param last_action_pos: ignored, used by the attention decoder
+        :return:
+        '''
+        batch_size = len(enc_output)
         if self.hidden is None:
             self.hidden = self.init_hidden(batch_size=batch_size)
 
+        if last_action is not None:
+            encoded = torch.cat([enc_output, last_action],1)
+        else:
+            encoded = enc_output
         # copy the latent state to length of sequence, instead of sampling inputs
         embedded = F.relu(self.fc_input(self.batch_norm(encoded))) \
             .view(batch_size, 1, self.hidden_n) \
