@@ -267,15 +267,17 @@ class SamplingWrapper:
                     raise ValueError("no dataset called " + ds_name)
         return True # if we got this far
 
-    def get_train_valid_loaders(self, batch_size, dataset_name='data'):
+    def get_train_valid_loaders(self, batch_size, dataset_name='data', window=None):
         # check that the required dataset(s) actually exist
 
         train_ds = ChildHDF5Dataset(self,
                                     valid=False,
-                                    dataset_name=dataset_name)
+                                    dataset_name=dataset_name,
+                                    window=window)
         val_ds = ChildHDF5Dataset(self,
                                   valid=True,
-                                  dataset_name=dataset_name)
+                                  dataset_name=dataset_name,
+                                  window=window)
 
         train_loader = torch.utils.data.DataLoader(train_ds,
                                                    sampler=RandomSampler(train_ds),
@@ -290,7 +292,7 @@ class SamplingWrapper:
 
 
 class ChildHDF5Dataset(Dataset):
-    def __init__(self, parent, dataset_name='data', valid=None):
+    def __init__(self, parent, dataset_name='data', valid=None, window=None):
         '''
         A Dataset facade for sampling from a, potentially live incrementing, hdf5 file or similar
         :param parent: The dataset wrapper providing the actual functionality
@@ -302,14 +304,24 @@ class ChildHDF5Dataset(Dataset):
         self.valid = valid
         self.dataset_name = dataset_name
         self.dataset_checked = False
+        self.window = window
 
     def __len__(self):
         if not self.dataset_checked:
             self.dataset_checked = self.parent.check_dataset_names(self.dataset_name)
-        return self.parent.get_len(self.valid)
+        parent_len = self.parent.get_len(self.valid)
+        if self.window is None:
+            return parent_len
+        else:
+            return min(parent_len,self.window)
 
     def __getitem__(self, item):
         if item < self.__len__():
+            if self.window is not None:
+                parent_len = self.parent.get_len(self.valid)
+                if parent_len > self.window:
+                    offset = parent_len - self.window
+                    item = offset + item
             # if we got this far, self.__len__() is >0 so we have indices
             if type(self.dataset_name) == str:
                 return self.parent.get_item(self.dataset_name,
