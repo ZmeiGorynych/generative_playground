@@ -7,8 +7,8 @@ print(torch.__version__)
 import torch.nn as nn
 import torch.autograd as autograd
 
-from basic_pytorch.gpu_utils import to_gpu, FloatTensor#, LongTensor
-
+from basic_pytorch.gpu_utils import to_gpu, FloatTensor, LongTensor
+from basic_pytorch.data_utils.to_one_hot import to_one_hot
 class LSTMModel(nn.Module):
     def __init__(self,
                  input_dim=None,
@@ -70,13 +70,15 @@ class SimpleRNNDecoder(nn.Module):
                  feature_len=12,
                  max_seq_length=15,
                  drop_rate = 0.0,
-                 num_layers = 3):
+                 num_layers = 3,
+                 use_last_action = False):
         super(SimpleRNNDecoder, self).__init__()
         self.max_seq_length = max_seq_length
         self.z_size = z_size
         self.hidden_n = hidden_n
         self.num_layers = num_layers
         self.output_feature_size = feature_len
+        self.use_last_action = use_last_action
         # TODO: is the batchNorm applied on the correct dimension?
         self.batch_norm = nn.BatchNorm1d(z_size)
         self.fc_input = nn.Linear(z_size, hidden_n)
@@ -90,22 +92,37 @@ class SimpleRNNDecoder(nn.Module):
         self.fc_out = nn.Linear(hidden_n, feature_len)
         self.hidden = None
 
+    def encode(self, enc_output, last_action):
+        if not self.use_last_action:
+            return enc_output
+        else:
+            if last_action is not None and last_action[0] is not None:
+                # if the above is false, it uses the original value of self.one_hot_action, which is zeros
+                self.one_hot_action = to_one_hot(last_action,
+                                            n_dims=self.output_feature_size,
+                                            out=self.one_hot_action)
+
+            encoded = torch.cat([enc_output, self.one_hot_action], 1)
+
+        return encoded
+
+
     def forward(self, enc_output, last_action=None, last_action_pos=None):
         '''
-
-        :param enc_output: batch x z_size
-        :param last_action: one-hot encoded batch x num_actions, all zeros for first step
-        :param last_action_pos: ignored, used by the attention decoder
+        One step of the RNN model
+        :param enc_output: batch x z_size, so don't support sequences
+        :param last_action: batch of ints, all equaling None for first step
+        :param last_action_pos: ignored, used by the attention decoder, here just to get the signature right
         :return:
         '''
         batch_size = len(enc_output)
-        if self.hidden is None:
+        if self.hidden is None: # first step after reset
+            # need to do it here as batch size might be different for each sequence
             self.hidden = self.init_hidden(batch_size=batch_size)
+            self.one_hot_action = to_gpu(torch.zeros(batch_size, self.output_feature_size))
 
-        if last_action is not None:
-            encoded = torch.cat([enc_output, last_action],1)
-        else:
-            encoded = enc_output
+        encoded = self.encode(enc_output, last_action)
+
         # copy the latent state to length of sequence, instead of sampling inputs
         embedded = F.relu(self.fc_input(self.batch_norm(encoded))) \
             .view(batch_size, 1, self.hidden_n) \
