@@ -267,7 +267,10 @@ class SamplingWrapper:
                     raise ValueError("no dataset called " + ds_name)
         return True # if we got this far
 
-    def get_train_valid_loaders(self, batch_size, dataset_name='data', window=None):
+    def get_train_valid_loaders(self, batch_size, valid_batch_size = None, dataset_name='data', window=None):
+
+        if valid_batch_size is None:
+            valid_batch_size = batch_size
         # check that the required dataset(s) actually exist
 
         train_ds = ChildHDF5Dataset(self,
@@ -285,7 +288,7 @@ class SamplingWrapper:
                                                    pin_memory=use_gpu)
         valid_loader = torch.utils.data.DataLoader(val_ds,
                                                    sampler=RandomSampler(val_ds),
-                                                   batch_size=batch_size,
+                                                   batch_size=valid_batch_size,
                                                    pin_memory=use_gpu)
 
         return train_loader, valid_loader

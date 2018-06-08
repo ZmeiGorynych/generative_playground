@@ -107,7 +107,7 @@ class SimpleRNNDecoder(nn.Module):
         return encoded
 
 
-    def forward(self, enc_output, last_action=None, last_action_pos=None):
+    def forward(self, last_action=None, last_action_pos=None):
         '''
         One step of the RNN model
         :param enc_output: batch x z_size, so don't support sequences
@@ -115,24 +115,24 @@ class SimpleRNNDecoder(nn.Module):
         :param last_action_pos: ignored, used by the attention decoder, here just to get the signature right
         :return:
         '''
-        batch_size = len(enc_output)
+
         if self.hidden is None: # first step after reset
             # need to do it here as batch size might be different for each sequence
-            self.hidden = self.init_hidden(batch_size=batch_size)
-            self.one_hot_action = to_gpu(torch.zeros(batch_size, self.output_feature_size))
+            self.hidden = self.init_hidden(batch_size=self.batch_size)
+            self.one_hot_action = to_gpu(torch.zeros(self.batch_size, self.output_feature_size))
 
-        encoded = self.encode(enc_output, last_action)
+        encoded = self.encode(self.enc_output, last_action)
 
         # copy the latent state to length of sequence, instead of sampling inputs
         embedded = F.relu(self.fc_input(self.batch_norm(encoded))) \
-            .view(batch_size, 1, self.hidden_n) \
+            .view(self.batch_size, 1, self.hidden_n) \
             .repeat(1, self.max_seq_length, 1)
         embedded =self.dropout_1(embedded)
         # run the GRU on it
         out_3, self.hidden = self.gru_1(embedded, self.hidden)
         # tmp has dim (batch_size*seq_len)xhidden_n, so we can apply the linear transform to it
         tmp = self.dropout_2(out_3.contiguous().view(-1, self.hidden_n))
-        out = self.fc_out(tmp).view(batch_size,
+        out = self.fc_out(tmp).view(self.batch_size,
                                     self.max_seq_length,
                                     self.output_feature_size)
 
@@ -140,8 +140,10 @@ class SimpleRNNDecoder(nn.Module):
         #self.hidden = None
         return out#, hidden_1
 
-    def reset_state(self):
+    def init_encoder_output(self,z):
         self.hidden = None
+        self.enc_output = z
+        self.batch_size = z.size()[0]
 
     # TODO: remove this method!
     def decode(self, z):
