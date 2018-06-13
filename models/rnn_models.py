@@ -7,8 +7,8 @@ print(torch.__version__)
 import torch.nn as nn
 import torch.autograd as autograd
 
-from basic_pytorch.gpu_utils import to_gpu, FloatTensor, LongTensor
-from basic_pytorch.data_utils.to_one_hot import to_one_hot
+from generative_playground.gpu_utils import to_gpu, FloatTensor, LongTensor
+from generative_playground.data_utils.to_one_hot import to_one_hot
 class LSTMModel(nn.Module):
     def __init__(self,
                  input_dim=None,
@@ -185,6 +185,7 @@ class SimpleRNNAttentionEncoder(nn.Module):
         self.bidirectional = bidirectional
         self.bidir_mult = 2 if self.bidirectional else 1
         self.dimension_mult = self.num_layers * self.bidir_mult
+        self.output_shape = [None, hidden_n]
 
         # TODO: is the batchNorm applied on the correct dimension?
         # self.batch_norm = nn.BatchNorm1d(z_size)
@@ -200,10 +201,16 @@ class SimpleRNNAttentionEncoder(nn.Module):
         self.dropout_2 = nn.Dropout(drop_rate)
         #self.dropout_3 = nn.Dropout(drop_rate)
         self.attention_wgt = nn.Linear(hidden_n*self.bidir_mult,1)
-        self.fc_out = nn.Linear(hidden_n*self.bidir_mult, z_size)
+        self.fc_out = nn.Linear(hidden_n*self.bidir_mult, hidden_n)
 
-    def forward(self, input_seq, hidden = None):
-        # input_seq: batch_size x seq_len x feature_len
+    def forward(self, input_seq, hidden=None):
+        '''
+
+        :param input_seq: batch_size x seq_len x feature_len
+        :param hidden: hidden state from previous state - do we ever use that?
+        :return: batch_size x hidden_n
+        '''
+        # input_seq:
         batch_size = input_seq.size()[0]
         if hidden is None:
             hidden = self.init_hidden(batch_size)

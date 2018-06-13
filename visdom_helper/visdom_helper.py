@@ -6,7 +6,7 @@ from visdom import Visdom
 import numpy as np
 
 class Dashboard(Visdom):
-    def __init__(self, name, server='http://localhost'):
+    def __init__(self, name, server='http://52.213.134.161'):
         super(Dashboard, self).__init__(server=server)
         self.env = name
         self.plots = {}

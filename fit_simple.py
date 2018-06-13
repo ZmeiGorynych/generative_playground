@@ -1,7 +1,7 @@
 import torch
 from torch.autograd import Variable
-from basic_pytorch.gpu_utils import get_gpu_memory_map
-from basic_pytorch.visdom_helper.visdom_helper import Dashboard
+from generative_playground.gpu_utils import get_gpu_memory_map
+from generative_playground.visdom_helper.visdom_helper import Dashboard
 import numpy as np
 
 def to_variable(x):

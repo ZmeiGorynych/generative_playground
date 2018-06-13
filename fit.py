@@ -1,8 +1,9 @@
 import torch
 from torch.autograd import Variable
-from basic_pytorch.gpu_utils import get_gpu_memory_map
+from generative_playground.gpu_utils import get_gpu_memory_map
+
 try:
-    from basic_pytorch.visdom_helper.visdom_helper import Dashboard
+    from generative_playground.visdom_helper.visdom_helper import Dashboard
     have_visdom = True
 except:
     have_visdom = False
@@ -28,6 +29,7 @@ def fit(train_gen = None,
         save_path = None,
         dashboard = None,
         plot_ignore_initial=0,
+        save_always=False,
         exp_smooth = 0.9,
         batches_to_valid=9,
         valid_batches_to_checkpoint = 10,
@@ -89,7 +91,8 @@ def fit(train_gen = None,
                 optimizer.zero_grad()
                 loss.backward()
                 if grad_clip is not None:
-                    torch.nn.utils.clip_grad_norm(model.parameters(), grad_clip)
+                    nice_params = filter(lambda p: p.requires_grad, model.parameters())
+                    torch.nn.utils.clip_grad_norm(nice_params, grad_clip)
                 optimizer.step()
             else:
                 cum_val_loss += this_loss
@@ -101,9 +104,10 @@ def fit(train_gen = None,
                         scheduler.step(valid_loss)
                     val_count = 0
                     cum_val_loss = 0
-                    if valid_loss < best_valid_loss:
-                        best_valid_loss = valid_loss
-                        print("we're improving!", best_valid_loss)
+                    if valid_loss < best_valid_loss or save_always:
+                        if valid_loss < best_valid_loss:
+                            best_valid_loss = valid_loss
+                            print("we're improving!", best_valid_loss)
                         # spell_out:
                         if save_path is not None:
                             save_model(model, save_path)
