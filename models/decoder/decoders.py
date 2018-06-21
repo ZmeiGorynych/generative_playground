@@ -20,9 +20,9 @@ class OneStepDecoder(nn.Module):
         self.model = to_gpu(model)
         self.model.eval()
         self.max_len = max_len
-        #self.z_size = model.z_size
 
-    def init_latent(self, z):
+
+    def init_decoder_output(self, z):
         '''
         Start decoding a new batch
         :param z: batch_size x num actions or batch_size x max_input_len x num_actions encoded state
@@ -30,7 +30,7 @@ class OneStepDecoder(nn.Module):
         '''
         self.z = z
         self.z_size = z.size()[-1]
-        self.n = 0
+        #self.n = 0
         try:
             self.model.init_encoder_output(z)
         except:
@@ -43,63 +43,35 @@ class OneStepDecoder(nn.Module):
         None for the very first action choice
         :return: FloatTensor((batch_size x num_actions)), an unmasked vector of logits over next actions
         '''
-        if self.n < self.max_len:
+        #if self.n < self.max_len:
             #out = self.model(self.z)
-            out = self.model(last_action=action,
-                             last_action_pos=self.n - 1)
-            out = torch.squeeze(out,1)
-            self.n += 1
-            return out
-        else:
-            raise StopIteration()
+        out = self.model(last_action=action)#,
+                         #last_action_pos=self.n - 1)
+        out = torch.squeeze(out,1)
+        #self.n += 1
+        return out
+        # else:
+        #     raise StopIteration()
 
 
-# class OneStepDecoderUsingAction(OneStepDecoder):
-#     def __init__(self, model, max_len=None, num_actions = None):
-#         '''
-#         Base class for doing the differentiable part of one decoding step
-#         :param model: a differentiable model used in the steps
-#         '''
-#         super().__init__(model, max_len)
-#         self.num_actions = num_actions
-#
-#     def init_latent(self, z):
-#         super().init_latent(z)
-#         self.one_hot_action = to_gpu(torch.zeros(len(self.z), self.num_actions))
-#
-#     def forward(self, action):
-#         '''
-#         # the differentiable part of one decoding step
-#         :param action: LongTensor((batch_size)), last discrete action chosen by the policy,
-#         None for the very first action choice
-#         :return: FloatTensor((batch_size x num_actions)), an unmasked vector of logits over next actions
-#         '''
-#         if self.n < self.max_len:
-#             if action is not None and action[0] is not None: # if not first call
-#                 self.one_hot_action = to_one_hot(action,
-#                                             n_dims=self.num_actions,
-#                                             out=self.one_hot_action)
-#             # model_input = torch.cat([self.z,self.one_hot_action], 1)
-#             out = self.model(enc_output = self.z,
-#                              last_action = self.one_hot_action,
-#                              last_action_pos = self.n - 1)
-#             out = torch.squeeze(out, 1)
-#             self.n += 1
-#             return out
-#         else:
-#             raise StopIteration()
 
-
-class OneStepDecoderContinuous(OneStepDecoder):
+class OneStepDecoderContinuous(nn.Module):
     def __init__(self,model):
         '''
         Implementation for a continuous decoder that doesn't look at last action chosen, eg simple RNN
         :param model:
         '''
-        super().__init__(model)
+        super().__init__()
+        self.model = to_gpu(model)
+        self.model.eval()
 
-    def init_latent(self, z):
-        super().init_latent(z)
+    def init_decoder_output(self, z):
+        self.z = z
+        self.z_size = z.size()[-1]
+        try:
+            self.model.init_encoder_output(z)
+        except:
+            pass
         self.logits = self.model.forward(z)
 
     def forward(self, action=None):
@@ -114,7 +86,6 @@ class OneStepDecoderContinuous(OneStepDecoder):
             return out
         else:
             raise StopIteration()
-
 
 class SimpleDiscreteDecoder(nn.Module):
     def __init__(self, stepper:OneStepDecoder, policy: SimplePolicy, mask_gen = None, bypass_actions=False):
@@ -135,7 +106,7 @@ class SimpleDiscreteDecoder(nn.Module):
 
     def forward(self, z):
         # initialize the decoding model
-        self.stepper.init_latent(z)
+        self.stepper.init_decoder_output(z)
         if self.bypass_actions:
             return None, self.stepper.logits
         out_logits = []

@@ -4,7 +4,7 @@ from torch.autograd import Variable
 from torch.nn import functional as F
 
 from generative_playground.data_utils.to_one_hot import to_one_hot
-from generative_playground.gpu_utils import to_gpu
+from generative_playground.gpu_utils import to_gpu, FloatTensor
 
 
 class SimpleRNNDecoder(nn.Module):
@@ -60,6 +60,10 @@ class SimpleRNNDecoder(nn.Module):
         :param last_action_pos: ignored, used by the attention decoder, here just to get the signature right
         :return:
         '''
+        # check we don't exceed max sequence length
+        if self.n == self.max_seq_len:
+            raise StopIteration()
+        self.n+=1
 
         if self.hidden is None: # first step after reset
             # need to do it here as batch size might be different for each sequence
@@ -86,9 +90,16 @@ class SimpleRNNDecoder(nn.Module):
         return out#, hidden_1
 
     def init_encoder_output(self,z):
+        '''
+        Must be called at the start of each new sequence
+        :param z:
+        :return:
+        '''
         self.hidden = None
         self.enc_output = z
         self.batch_size = z.size()[0]
+        self.z_size = z.size()[-1]
+        self.n = 0
 
     # TODO: remove this method!
     def decode(self, z):

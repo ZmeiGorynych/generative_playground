@@ -6,8 +6,8 @@ from grammarVAE_pytorch.models.grammar_codec import GrammarModel, zinc_tokenizer
 from grammarVAE_pytorch.models.grammar_helper import grammar_eq, grammar_zinc
 from grammarVAE_pytorch.models.grammar_mask_gen import GrammarMaskGenerator
 from generative_playground.models.decoder.basic_rnn import SimpleRNNDecoder, ResettingRNNDecoder
-from generative_playground.models.encoders.basic_rnn import SimpleRNNAttentionEncoder
-from generative_playground.models.encoders.basic_cnn import SimpleCNNEncoder
+from generative_playground.models.encoder.basic_rnn import SimpleRNNAttentionEncoder
+from generative_playground.models.encoder.basic_cnn import SimpleCNNEncoder
 from generative_playground.models.decoder.decoders import OneStepDecoder, OneStepDecoderContinuous, \
     SimpleDiscreteDecoder
 from generative_playground.models.decoder.policy import SoftmaxRandomSamplePolicy
@@ -95,6 +95,14 @@ def get_settings(molecules = True, grammar = True):
                         'EPOCHS': 50,
                         'BATCH_SIZE': 600
                         }
+    if grammar:
+        settings['codec'] = GrammarModel(max_len=settings['max_seq_length'],
+                                         grammar = settings['grammar'],
+                                         tokenizer=settings['tokenizer'])
+    else:
+        settings['codec'] = CharacterModel(max_len=settings['max_seq_length'],
+                                           charlist=settings['charlist'])
+
 
     return settings
 
@@ -145,7 +153,7 @@ def get_model(molecules=True,
     if grammar:
         wrapper_model = GrammarModel(max_len=settings['max_seq_length'],
                                  grammar=settings['grammar'],
-                                 tokenizer=zinc_tokenizer if molecules else eq_tokenizer,
+                                 tokenizer=settings['tokenizer'],#zinc_tokenizer if molecules else eq_tokenizer,
                                  model=model)
     else:
         wrapper_model=CharacterModel(max_len=settings['max_seq_length'],
@@ -198,7 +206,7 @@ def get_encoder_decoder(molecules = True,
             pre_decoder = SimpleRNNDecoder(z_size=z_size,
                                               hidden_n=decoder_hidden_n,
                                               feature_len=feature_len,
-                                              max_seq_length=1,
+                                              max_seq_length=1, #TODO: WHY???
                                               drop_rate=drop_rate,
                                            use_last_action=False)
 
@@ -224,7 +232,7 @@ def get_encoder_decoder(molecules = True,
 
     decoder = to_gpu(SimpleDiscreteDecoder(stepper, policy, mask_gen))#, bypass_actions=True))
 
-    return encoder, decoder
+    return encoder, decoder, pre_decoder
 
 if __name__=='__main__':
     for molecules in [True, False]:
