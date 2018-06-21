@@ -3,8 +3,8 @@ from torch.autograd import Variable
 import torch.nn as nn
 from torch.nn import functional as F
 from generative_playground.gpu_utils import FloatTensor, to_gpu
-from grammarVAE_pytorch.models.decoders import OneStepDecoderContinuous, SimpleDiscreteDecoder
-from grammarVAE_pytorch.models.policy import SoftmaxRandomSamplePolicy, PolicyFromTarget
+from generative_playground.models.decoder.decoders import OneStepDecoderContinuous, SimpleDiscreteDecoder
+from generative_playground.models.decoder.policy import SoftmaxRandomSamplePolicy, PolicyFromTarget
 import math
 
 # TODO: model already outputs values!

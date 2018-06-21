@@ -61,7 +61,7 @@ class SimpleRNNDecoder(nn.Module):
         :return:
         '''
         # check we don't exceed max sequence length
-        if self.n == self.max_seq_len:
+        if self.n == self.max_seq_length:
             raise StopIteration()
         self.n+=1
 
@@ -118,5 +118,5 @@ class SimpleRNNDecoder(nn.Module):
 class ResettingRNNDecoder(SimpleRNNDecoder):
     def forward(self, encoded):
         out = super().forward(encoded)
-        self.reset_state()
+        #self.reset_state()
         return out

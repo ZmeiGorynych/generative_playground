@@ -31,6 +31,7 @@ def get_settings(molecules = True, grammar = True):
                         'data_path':root_location + 'data/zinc_grammar_dataset.h5',
                         'filename_stub': 'gramar_zinc_',
                         'grammar': grammar_zinc,
+                        'tokenizer': zinc_tokenizer,
                         'z_size': 56,
                         'decoder_hidden_n': 501, #mkusner/grammarVAE has 501 but that eats too much GPU :)
                         'feature_len': len(grammar_zinc.GCFG.productions()),
@@ -67,6 +68,7 @@ def get_settings(molecules = True, grammar = True):
                         'data_path': root_location + 'data/eq2_grammar_dataset.h5',
                         'filename_stub': 'grammar_eq_',
                         'grammar': grammar_eq,
+                        'tokenizer': eq_tokenizer,
                         'z_size': 25,
                         'decoder_hidden_n': 100,
                         'feature_len': len(grammar_eq.GCFG.productions()),
@@ -109,7 +111,7 @@ def get_settings(molecules = True, grammar = True):
 def get_model_args(molecules, grammar,
                    drop_rate=0.5,
                    sample_z = False,
-                   rnn_encoder =True):
+                   rnn_encoder ='rnn'):
 
     settings = get_settings(molecules,grammar)
     model_args = {'z_size': settings['z_size'],
@@ -136,7 +138,7 @@ def get_model(molecules=True,
         if key in model_args:
             model_args[key] = value
     sample_z = model_args.pop('sample_z')
-    encoder, decoder = get_encoder_decoder(molecules,
+    encoder, decoder, _ = get_encoder_decoder(molecules,
                                            grammar,
                                            decoder_type=decoder_type,
                                            **model_args)

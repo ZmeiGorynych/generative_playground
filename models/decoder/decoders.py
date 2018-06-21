@@ -66,6 +66,7 @@ class OneStepDecoderContinuous(nn.Module):
         self.model.eval()
 
     def init_decoder_output(self, z):
+        self.n = 0
         self.z = z
         self.z_size = z.size()[-1]
         try:
