@@ -1,8 +1,8 @@
 import torch
-
+import numpy as np
 from deep_rl import BaseTask
 from models.model_settings import get_settings
-
+from gpu_utils import FloatTensor
 
 class SequenceEnvironment:
     def __init__(self,
@@ -15,7 +15,7 @@ class SequenceEnvironment:
         self.state_dim = self.action_dim
         self._max_episode_steps = settings['feature_len']
         self.codec = settings['codec']
-        self.reward_fun = reward_fun,
+        self.reward_fun = reward_fun
         self.batch_size = batch_size
         self.reset()
 
@@ -26,26 +26,35 @@ class SequenceEnvironment:
 
     def step(self, action):
         '''
-
-        :param action: LongTensor(batch_size), last discrete action chosen
+        Convention says environment outputs np.arrays
+        :param action: LongTensor(batch_size), or np.array(batch_sizelast discrete action chosen
         :return:
         '''
+        try:
+            action = action.cpu().to_numpy()
+        except:
+            pass
+
         self.actions.append(action)
+
         next_state = action
         if len(self.actions) < self._max_episode_steps:
             done = action == self.action_dim-1 # max index is padding, by convention
         else:
-            done = torch.ones_like(action)
+            done = np.ones_like(action)
 
-        rewards = torch.zeros_like(action).type(FloatTensor)
+        reward = np.zeros_like(action)
 
         # for those sequences just computed, calculate the reward
-        for i in range(action):
+        for i in range(len(action)):
             if self.done_rewards[i] is None and done[i]:
-                this_action_seq = [action[i] for action in self.actions]
+                this_action_seq = np.concatenate(self.actions, axis=1)[i,:]
                 this_char_seq = self.codec.decode_from_actions([this_action_seq]) # codec expects a batch
                 this_reward = self.reward_fun(this_char_seq)
                 self.done_rewards[i] = this_reward
+                reward[i] = this_reward
+
+        return next_state, reward[:,0], done, None
 
     def seed(self, random_seed):
         return random_seed
@@ -58,7 +67,7 @@ class SequenceGenerationTask(BaseTask):
                  reward_fun = None,
                  batch_size = 1,
                  log_dir=None):
-        super().__init__(self)
+        super().__init__()
         self.name = name
         self.env = SequenceEnvironment(molecules,
                                        grammar,

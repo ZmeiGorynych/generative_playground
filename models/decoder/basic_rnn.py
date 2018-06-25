@@ -38,6 +38,7 @@ class SimpleRNNDecoder(nn.Module):
         self.dropout_2 = nn.Dropout(drop_rate)
         self.fc_out = nn.Linear(hidden_n, feature_len)
         self.hidden = None
+        self.output_shape = [None, self.steps, feature_len]
 
     def encode(self, enc_output, last_action):
         if not self.use_last_action:

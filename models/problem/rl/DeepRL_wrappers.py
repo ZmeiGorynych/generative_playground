@@ -1,4 +1,6 @@
 from torch import nn
+import torch
+from gpu_utils import to_gpu
 from deep_rl.agent.A2C_agent import A2CAgent
 
 class BodyAdapter(nn.Module):
@@ -23,7 +25,7 @@ class MyA2CAgent(A2CAgent):
         '''
         super().__init__(config)
         try:
-            dummy_enc_output = torch.zeros()# TODO what shape???)
-            self.network.phi_body.init_encoder_output(dummy_enc_output)
+            dummy_enc_output = to_gpu(torch.zeros(config.num_workers,5)) # 5 just because :)
+            self.network.network.phi_body.model.init_encoder_output(dummy_enc_output)
         except:
             pass
