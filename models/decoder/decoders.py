@@ -4,68 +4,68 @@ from torch import nn as nn
 from generative_playground.gpu_utils import to_gpu, FloatTensor
 from generative_playground.models.decoder.policy import SimplePolicy
 
-# TODO: merge this and UsingAction, make UsingAction into a bool
-class OneStepDecoder(nn.Module):
-    '''
-    One step of a decoder into a discrete space, suitable for use with autoencoders
-    (so the encoded state is a vector not a sequence)
-    '''
-    def __init__(self, model, max_len=None):
-        '''
-        Base class for doing the differentiable part of one decoding step
-        :param model: a differentiable model used in the steps
-        '''
-        super().__init__()
-        self.n = 0
-        self.model = to_gpu(model)
-        self.model.eval()
-        self.max_len = max_len
-
-
-    def init_decoder_output(self, z):
-        '''
-        Start decoding a new batch
-        :param z: batch_size x num actions or batch_size x max_input_len x num_actions encoded state
-        :return: None
-        '''
-        self.z = z
-        self.z_size = z.size()[-1]
-        #self.n = 0
-        try:
-            self.model.init_encoder_output(z)
-        except:
-            pass
-
-    def forward(self, action):
-        '''
-        # the differentiable part of one decoding step
-        :param action: LongTensor((batch_size)), last discrete action chosen by the policy,
-        None for the very first action choice
-        :return: FloatTensor((batch_size x num_actions)), an unmasked vector of logits over next actions
-        '''
-        #if self.n < self.max_len:
-            #out = self.model(self.z)
-        out = self.model(last_action=action)#,
-                         #last_action_pos=self.n - 1)
-        out = torch.squeeze(out,1)
-        #self.n += 1
-        return out
-        # else:
-        #     raise StopIteration()
+# # TODO: merge this and UsingAction, make UsingAction into a bool
+# class OneStepDecoder(nn.Module):
+#     '''
+#     One step of a decoder into a discrete space, suitable for use with autoencoders
+#     (so the encoded state is a vector not a sequence)
+#     '''
+#     def __init__(self, model, max_len=None):
+#         '''
+#         Base class for doing the differentiable part of one decoding step
+#         :param model: a differentiable model used in the steps
+#         '''
+#         super().__init__()
+#         self.n = 0
+#         self.model = to_gpu(model)
+#         self.model.eval()
+#         self.max_len = max_len
+#
+#
+#     def init_decoder_output(self, z):
+#         '''
+#         Start decoding a new batch
+#         :param z: batch_size x num actions or batch_size x max_input_len x num_actions encoded state
+#         :return: None
+#         '''
+#         self.z = z
+#         self.z_size = z.size()[-1]
+#         #self.n = 0
+#         try:
+#             self.model.init_encoder_output(z)
+#         except:
+#             pass
+#
+#     def forward(self, action):
+#         '''
+#         # the differentiable part of one decoding step
+#         :param action: LongTensor((batch_size)), last discrete action chosen by the policy,
+#         None for the very first action choice
+#         :return: FloatTensor((batch_size x num_actions)), an unmasked vector of logits over next actions
+#         '''
+#         #if self.n < self.max_len:
+#             #out = self.model(self.z)
+#         out = self.model(last_action=action)#,
+#                          #last_action_pos=self.n - 1)
+#         out = torch.squeeze(out,1)
+#         #self.n += 1
+#         return out
+#         # else:
+#         #     raise StopIteration()
 
 
 
 class OneStepDecoderContinuous(nn.Module):
     def __init__(self,model):
         '''
-        Implementation for a continuous decoder that doesn't look at last action chosen, eg simple RNN
+        Wrapper for a continuous decoder that doesn't look at last action chosen, eg simple RNN
         :param model:
         '''
         super().__init__()
         self.model = to_gpu(model)
         self.model.eval()
 
-    def init_decoder_output(self, z):
+    def init_encoder_output(self, z):
         self.n = 0
         self.z = z
         self.z_size = z.size()[-1]
@@ -89,7 +89,7 @@ class OneStepDecoderContinuous(nn.Module):
             raise StopIteration()
 
 class SimpleDiscreteDecoder(nn.Module):
-    def __init__(self, stepper:OneStepDecoder, policy: SimplePolicy, mask_gen = None, bypass_actions=False):
+    def __init__(self, stepper, policy: SimplePolicy, mask_gen = None, bypass_actions=False):
         '''
         A simple discrete decoder, alternating getting logits from model and actions from policy
         :param stepper:
@@ -107,7 +107,7 @@ class SimpleDiscreteDecoder(nn.Module):
 
     def forward(self, z):
         # initialize the decoding model
-        self.stepper.init_decoder_output(z)
+        self.stepper.init_encoder_output(z)
         if self.bypass_actions:
             return None, self.stepper.logits
         out_logits = []
@@ -118,8 +118,10 @@ class SimpleDiscreteDecoder(nn.Module):
         while True:
             try:
   #          if True:
-                # dimension batch x num_actions
+                #  batch x num_actions
                 next_logits = self.stepper(last_action)
+                # just in case we were returned a sequence of length 1
+                next_logits = torch.squeeze(next_logits, 1)
                 if self.mask_gen is not None:
                     # mask_gen might return a numpy mask
                     mask = FloatTensor(self.mask_gen(last_action))

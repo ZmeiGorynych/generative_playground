@@ -13,12 +13,14 @@ class SimpleRNNDecoder(nn.Module):
                  z_size=200,
                  hidden_n=200,
                  feature_len=12,
-                 max_seq_length=15,
+                 max_seq_length=15, # total max sequence length
+                 steps = 1, # how many steps to do at each call
                  drop_rate = 0.0,
                  num_layers = 3,
                  use_last_action = False):
         super(SimpleRNNDecoder, self).__init__()
         self.max_seq_length = max_seq_length
+        self.steps = steps
         self.z_size = z_size
         self.hidden_n = hidden_n
         self.num_layers = num_layers
@@ -63,7 +65,7 @@ class SimpleRNNDecoder(nn.Module):
         # check we don't exceed max sequence length
         if self.n == self.max_seq_length:
             raise StopIteration()
-        self.n+=1
+        self.n+=self.steps
 
         if self.hidden is None: # first step after reset
             # need to do it here as batch size might be different for each sequence
@@ -75,14 +77,14 @@ class SimpleRNNDecoder(nn.Module):
         # copy the latent state to length of sequence, instead of sampling inputs
         embedded = F.relu(self.fc_input(self.batch_norm(encoded))) \
             .view(self.batch_size, 1, self.hidden_n) \
-            .repeat(1, self.max_seq_length, 1)
+            .repeat(1, self.steps, 1)
         embedded =self.dropout_1(embedded)
         # run the GRU on it
         out_3, self.hidden = self.gru_1(embedded, self.hidden)
         # tmp has dim (batch_size*seq_len)xhidden_n, so we can apply the linear transform to it
         tmp = self.dropout_2(out_3.contiguous().view(-1, self.hidden_n))
         out = self.fc_out(tmp).view(self.batch_size,
-                                    self.max_seq_length,
+                                    self.steps,
                                     self.output_feature_size)
 
         # just return the logits

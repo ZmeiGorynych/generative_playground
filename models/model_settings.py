@@ -8,7 +8,7 @@ from grammarVAE_pytorch.models.grammar_mask_gen import GrammarMaskGenerator
 from generative_playground.models.decoder.basic_rnn import SimpleRNNDecoder, ResettingRNNDecoder
 from generative_playground.models.encoder.basic_rnn import SimpleRNNAttentionEncoder
 from generative_playground.models.encoder.basic_cnn import SimpleCNNEncoder
-from generative_playground.models.decoder.decoders import OneStepDecoder, OneStepDecoderContinuous, \
+from generative_playground.models.decoder.decoders import OneStepDecoderContinuous, \
     SimpleDiscreteDecoder
 from generative_playground.models.decoder.policy import SoftmaxRandomSamplePolicy
 from transformer.OneStepAttentionDecoder import SelfAttentionDecoderStep
@@ -201,6 +201,7 @@ def get_encoder_decoder(molecules = True,
                                            hidden_n=decoder_hidden_n,
                                            feature_len=feature_len,
                                            max_seq_length=max_seq_length,
+                                          steps=max_seq_length,
                                            drop_rate=drop_rate)
         stepper = OneStepDecoderContinuous(pre_decoder)
     else:
@@ -208,7 +209,7 @@ def get_encoder_decoder(molecules = True,
             pre_decoder = SimpleRNNDecoder(z_size=z_size,
                                               hidden_n=decoder_hidden_n,
                                               feature_len=feature_len,
-                                              max_seq_length=1, #TODO: WHY???
+                                              max_seq_length=max_seq_length, #TODO: WHY???
                                               drop_rate=drop_rate,
                                            use_last_action=False)
 
@@ -216,7 +217,7 @@ def get_encoder_decoder(molecules = True,
             pre_decoder = SimpleRNNDecoder(z_size=z_size + feature_len,
                                            hidden_n=decoder_hidden_n,
                                            feature_len=feature_len,
-                                           max_seq_length=1,
+                                           max_seq_length=max_seq_length,
                                            drop_rate=drop_rate,
                                            use_last_action=True)
         elif decoder_type == 'attention':
@@ -224,8 +225,10 @@ def get_encoder_decoder(molecules = True,
                                                    max_seq_len=max_seq_length,
                                                    drop_rate=drop_rate)
 
-        stepper = OneStepDecoder(pre_decoder, max_len=max_seq_length)
-
+        else:
+            raise NotImplementedError('Unknown decoder type: ' + str(decoder_type))
+        #stepper = OneStepDecoder(pre_decoder, max_len=max_seq_length)
+        stepper = pre_decoder
     if grammar:
         mask_gen = GrammarMaskGenerator(max_seq_length, grammar=settings['grammar'])
     else:
