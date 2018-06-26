@@ -13,7 +13,8 @@ class BodyAdapter(nn.Module):
         self.feature_dim = model.output_shape[-1]
 
     def forward(self, x):
-        return self.model(x)
+        # if the internal model returns a sequence of one element, squeeze that out
+        return self.model(x).squeeze(1)
 
 class MyA2CAgent(A2CAgent):
     def __init__(self, config):
@@ -25,7 +26,20 @@ class MyA2CAgent(A2CAgent):
         '''
         super().__init__(config)
         try:
-            dummy_enc_output = to_gpu(torch.zeros(config.num_workers,5)) # 5 just because :)
-            self.network.network.phi_body.model.init_encoder_output(dummy_enc_output)
+            self.dummy_enc_output = to_gpu(torch.zeros(config.num_workers,5)) # 5 just because :)
+            self.network.network.phi_body.model.init_encoder_output(self.dummy_enc_output)
         except:
             pass
+
+    def iteration(self):
+        # iterate until max_len is reached, through the whole game sequence
+        while True:
+            try:
+                super().iteration()
+            except StopIteration:
+                # reset the stateful network
+                self.network.network.phi_body.model.init_encoder_output(self.dummy_enc_output)
+                self.last_episode_rewards = self.episode_rewards
+                self.reset_state()
+                break
+

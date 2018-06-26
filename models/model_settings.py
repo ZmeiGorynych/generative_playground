@@ -214,7 +214,7 @@ def get_encoder_decoder(molecules = True,
                                            use_last_action=False)
 
         elif decoder_type=='action':
-            pre_decoder = SimpleRNNDecoder(z_size=z_size + feature_len,
+            pre_decoder = SimpleRNNDecoder(z_size=z_size,# + feature_len,
                                            hidden_n=decoder_hidden_n,
                                            feature_len=feature_len,
                                            max_seq_length=max_seq_length,

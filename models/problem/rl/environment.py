@@ -1,8 +1,6 @@
-import torch
 import numpy as np
-from deep_rl import BaseTask
+
 from models.model_settings import get_settings
-from gpu_utils import FloatTensor
 
 class SequenceEnvironment:
     def __init__(self,
@@ -30,12 +28,12 @@ class SequenceEnvironment:
         :param action: LongTensor(batch_size), or np.array(batch_sizelast discrete action chosen
         :return:
         '''
-        try:
+        try: # in case action is a torch.Tensor
             action = action.cpu().to_numpy()
         except:
             pass
 
-        self.actions.append(action)
+        self.actions.append(action[:,None])
 
         next_state = action
         if len(self.actions) < self._max_episode_steps:
@@ -44,35 +42,17 @@ class SequenceEnvironment:
             done = np.ones_like(action)
 
         reward = np.zeros_like(action)
-
         # for those sequences just computed, calculate the reward
         for i in range(len(action)):
             if self.done_rewards[i] is None and done[i]:
-                this_action_seq = np.concatenate(self.actions, axis=1)[i,:]
-                this_char_seq = self.codec.decode_from_actions([this_action_seq]) # codec expects a batch
-                this_reward = self.reward_fun(this_char_seq)
+                this_action_seq = np.concatenate(self.actions, axis=1)[i:(i+1),:]
+                this_char_seq = self.codec.decode_from_actions(this_action_seq) # codec expects a batch
+                #print('this_char_seq:', this_char_seq)
+                this_reward = self.reward_fun(this_char_seq)[0]
                 self.done_rewards[i] = this_reward
                 reward[i] = this_reward
 
-        return next_state, reward[:,0], done, None
+        return next_state, reward, done, None
 
     def seed(self, random_seed):
         return random_seed
-
-
-class SequenceGenerationTask(BaseTask):
-    def __init__(self, name='seq_gen',
-                 molecules = True,
-                 grammar = False,
-                 reward_fun = None,
-                 batch_size = 1,
-                 log_dir=None):
-        super().__init__()
-        self.name = name
-        self.env = SequenceEnvironment(molecules,
-                                       grammar,
-                                       reward_fun=reward_fun,
-                                       batch_size=batch_size)
-        self.action_dim = self.env.action_dim
-        self.state_dim = self.env.state_dim
-        self.env = self.set_monitor(self.env, log_dir)

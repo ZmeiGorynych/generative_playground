@@ -21,14 +21,18 @@ class SimpleRNNDecoder(nn.Module):
         super(SimpleRNNDecoder, self).__init__()
         self.max_seq_length = max_seq_length
         self.steps = steps
+        if use_last_action:
+            eff_z_size = z_size + feature_len
+        else:
+            eff_z_size = z_size
         self.z_size = z_size
         self.hidden_n = hidden_n
         self.num_layers = num_layers
         self.output_feature_size = feature_len
         self.use_last_action = use_last_action
         # TODO: is the batchNorm applied on the correct dimension?
-        self.batch_norm = nn.BatchNorm1d(z_size)
-        self.fc_input = nn.Linear(z_size, hidden_n)
+        self.batch_norm = nn.BatchNorm1d(eff_z_size)
+        self.fc_input = nn.Linear(eff_z_size, hidden_n)
         self.dropout_1 = nn.Dropout(drop_rate)
         self.gru_1 = nn.GRU(input_size=hidden_n,
                             hidden_size=hidden_n,
@@ -38,6 +42,7 @@ class SimpleRNNDecoder(nn.Module):
         self.dropout_2 = nn.Dropout(drop_rate)
         self.fc_out = nn.Linear(hidden_n, feature_len)
         self.hidden = None
+        self.remember_step = True
         self.output_shape = [None, self.steps, feature_len]
 
     def encode(self, enc_output, last_action):
@@ -80,8 +85,10 @@ class SimpleRNNDecoder(nn.Module):
             .view(self.batch_size, 1, self.hidden_n) \
             .repeat(1, self.steps, 1)
         embedded =self.dropout_1(embedded)
-        # run the GRU on it
-        out_3, self.hidden = self.gru_1(embedded, self.hidden)
+        # run the GRU on i
+        out_3, new_hidden = self.gru_1(embedded, self.hidden)
+        if self.remember_step:
+            self.hidden = new_hidden
         # tmp has dim (batch_size*seq_len)xhidden_n, so we can apply the linear transform to it
         tmp = self.dropout_2(out_3.contiguous().view(-1, self.hidden_n))
         out = self.fc_out(tmp).view(self.batch_size,
