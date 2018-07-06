@@ -1,7 +1,10 @@
 import copy
-from deep_rl.network.network_utils import *
-from deep_rl.network.network_bodies import *
+#from deep_rl.network.network_utils import *
+from deep_rl.network.network_bodies import layer_init,BaseNet
+import torch
+from torch import nn
 from generative_playground.gpu_utils import to_gpu
+from generative_playground.models.problem.rl.DeepRL_wrappers import DummyBody
 
 
 class ActorCriticNet(nn.Module):
@@ -35,20 +38,20 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
         self.mask_gen = mask_gen
         #self.to(Config.DEVICE)
 
-    def predict(self, obs, action=None):
+    def predict(self, obs, action=None, remember_step=True):
         #obs_orig = obs
         try:
             # past actions come in as numpy
             obs = to_gpu(torch.from_numpy(obs))
         except:
             pass # None actions for the first step
-        phi = self.network.phi_body(obs)
-        phi_a = self.network.actor_body(phi)
-        phi_v = self.network.critic_body(phi)
+        phi = self.network.phi_body(obs, remember_step=remember_step)
+        phi_a = self.network.actor_body(phi, remember_step=remember_step)
+        phi_v = self.network.critic_body(phi, remember_step=remember_step)
         logits = self.network.fc_action(phi_a)
         v = self.network.fc_critic(phi_v)
         if self.mask_gen is not None:
-            if not self.remember_step:
+            if not remember_step:
                 # mask_gen is stateful, so need to copy it if don't want to remember the step
                 tmp_mask_gen = copy.deepcopy(self.mask_gen)
                 mask = tmp_mask_gen(obs)

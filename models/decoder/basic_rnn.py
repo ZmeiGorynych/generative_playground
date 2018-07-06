@@ -60,7 +60,7 @@ class SimpleRNNDecoder(nn.Module):
         return encoded
 
 
-    def forward(self, last_action=None, last_action_pos=None):
+    def forward(self, last_action=None, last_action_pos=None, remember_step=True):
         '''
         One step of the RNN model
         :param enc_output: batch x z_size, so don't support sequences
@@ -87,7 +87,7 @@ class SimpleRNNDecoder(nn.Module):
         embedded =self.dropout_1(embedded)
         # run the GRU on i
         out_3, new_hidden = self.gru_1(embedded, self.hidden)
-        if self.remember_step:
+        if remember_step:
             self.hidden = new_hidden
         # tmp has dim (batch_size*seq_len)xhidden_n, so we can apply the linear transform to it
         tmp = self.dropout_2(out_3.contiguous().view(-1, self.hidden_n))

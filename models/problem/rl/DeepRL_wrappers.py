@@ -3,6 +3,16 @@ import torch
 from generative_playground.gpu_utils import to_gpu
 from generative_playground.models.problem.rl.A2C_agent import A2CAgent
 
+class DummyBody(nn.Module):
+    def __init__(self, state_dim):
+        super(DummyBody, self).__init__()
+        self.feature_dim = state_dim
+
+
+    def forward(self, x, remember_step=True):
+        return x
+
+
 class BodyAdapter(nn.Module):
     '''
     Converts from output_shape convention we use to DeepRL feature_dim convention
@@ -12,9 +22,14 @@ class BodyAdapter(nn.Module):
         self.model = model
         self.feature_dim = model.output_shape[-1]
 
-    def forward(self, x):
-        # if the internal model returns a sequence of one element, squeeze that out
-        return self.model(x).squeeze(1)
+
+    def forward(self, x, remember_step=True):
+        try:
+            # if the internal model returns a sequence of one element, squeeze that out
+            return self.model(x,remember_step=True).squeeze(1)
+        except: #in case the wrapped model doesn't have that arg
+            return self.model(x).squeeze(1)
+
 
 class MyA2CAgent(A2CAgent):
     def __init__(self, config):

@@ -59,9 +59,9 @@ class A2CAgent(BaseAgent):
 
 
         self.states = states
-        self.remember_step(False)
-        pending_value = self.network.predict(config.state_normalizer(states))[-1]
-        self.remember_step(True)
+        #self.remember_step(False)
+        pending_value = self.network.predict(config.state_normalizer(states), remember_step=False)[-1]
+        #self.remember_step(True)
         rollout.append([None, pending_value, None, None, None, None])
 
         processed_rollout = [None] * (len(rollout) - 1)
