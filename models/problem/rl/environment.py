@@ -7,11 +7,15 @@ class SequenceEnvironment:
                  molecules=True,
                  grammar=True,
                  reward_fun = None,
-                 batch_size=1):
+                 batch_size=1,
+                 max_steps = None):
         settings = get_settings(molecules, grammar)
         self.action_dim = settings['feature_len']
         self.state_dim = self.action_dim
-        self._max_episode_steps = settings['feature_len']
+        if max_steps is None:
+            self._max_episode_steps = settings['max_seq_length']
+        else:
+            self._max_episode_steps = max_steps
         self.codec = settings['codec']
         self.reward_fun = reward_fun
         self.batch_size = batch_size
@@ -41,7 +45,7 @@ class SequenceEnvironment:
         else:
             done = np.ones_like(action)
 
-        reward = np.zeros_like(action)
+        reward = np.zeros_like(action, dtype=np.float)
         # for those sequences just computed, calculate the reward
         for i in range(len(action)):
             if self.done_rewards[i] is None and done[i]:

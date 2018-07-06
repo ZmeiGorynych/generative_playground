@@ -7,13 +7,15 @@ class SequenceGenerationTask(BaseTask):
                  grammar = False,
                  reward_fun = None,
                  batch_size = 1,
-                 log_dir=None):
+                 log_dir=None,
+                 max_steps = None):
         super().__init__()
         self.name = name
         self.env = SequenceEnvironment(molecules,
                                        grammar,
                                        reward_fun=reward_fun,
-                                       batch_size=batch_size)
+                                       batch_size=batch_size,
+                                       max_steps=max_steps)
         self.action_dim = self.env.action_dim
         self.state_dim = self.env.state_dim
         self.env = self.set_monitor(self.env, log_dir)

@@ -26,7 +26,7 @@ class BodyAdapter(nn.Module):
     def forward(self, x, remember_step=True):
         try:
             # if the internal model returns a sequence of one element, squeeze that out
-            return self.model(x,remember_step=True).squeeze(1)
+            return self.model(x,remember_step=remember_step).squeeze(1)
         except: #in case the wrapped model doesn't have that arg
             return self.model(x).squeeze(1)
 

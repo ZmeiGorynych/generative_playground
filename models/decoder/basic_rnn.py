@@ -71,7 +71,8 @@ class SimpleRNNDecoder(nn.Module):
         # check we don't exceed max sequence length
         if self.n == self.max_seq_length:
             raise StopIteration()
-        self.n+=self.steps
+        if remember_step:
+            self.n+=self.steps
 
         if self.hidden is None: # first step after reset
             # need to do it here as batch size might be different for each sequence
