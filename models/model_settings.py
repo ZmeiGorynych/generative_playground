@@ -1,10 +1,10 @@
 import os, inspect
 
 from generative_playground.models.problem import variational_autoencoder as models_torch
-from grammarVAE_pytorch.models.character_codec import CharacterModel
-from grammarVAE_pytorch.models.grammar_codec import GrammarModel, zinc_tokenizer, eq_tokenizer
-from grammarVAE_pytorch.models.grammar_helper import grammar_eq, grammar_zinc
-from grammarVAE_pytorch.models.grammar_mask_gen import GrammarMaskGenerator
+from grammarVAE_pytorch.codec.character_codec import CharacterModel
+from grammarVAE_pytorch.codec.grammar_codec import GrammarModel, zinc_tokenizer, eq_tokenizer
+from grammarVAE_pytorch.codec.grammar_helper import grammar_eq, grammar_zinc
+from grammarVAE_pytorch.codec.grammar_mask_gen import GrammarMaskGenerator
 from generative_playground.models.decoder.basic_rnn import SimpleRNNDecoder, ResettingRNNDecoder
 from generative_playground.models.encoder.basic_rnn import SimpleRNNAttentionEncoder
 from generative_playground.models.encoder.basic_cnn import SimpleCNNEncoder
@@ -14,7 +14,7 @@ from generative_playground.models.decoder.policy import SoftmaxRandomSamplePolic
 from transformer.OneStepAttentionDecoder import SelfAttentionDecoderStep
 from transformer.Models import Encoder
 from generative_playground.gpu_utils import to_gpu
-# in the desired end state, this file will contain every single difference between the different models
+# in the desired end state, this file will contain every single difference between the different codec
 
 root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 root_location = root_location + '/../../grammarVAE_pytorch/'
@@ -44,7 +44,7 @@ def get_settings(molecules = True, grammar = True):
                         'BATCH_SIZE': 300
                         }
         else:
-            #from grammarVAE_pytorch.models.character_ed_models import ZincCharacterModel as ThisModel
+            #from grammarVAE_pytorch.codec.character_ed_models import ZincCharacterModel as ThisModel
             settings = {'source_data': root_location + 'data/250k_rndm_zinc_drugs_clean.smi',
                         'data_path': root_location + 'data/zinc_str_dataset.h5',
                         'filename_stub': 'char_zinc_',

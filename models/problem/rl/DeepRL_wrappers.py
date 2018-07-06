@@ -1,7 +1,7 @@
 from torch import nn
 import torch
-from gpu_utils import to_gpu
-from deep_rl.agent.A2C_agent import A2CAgent
+from generative_playground.gpu_utils import to_gpu
+from generative_playground.models.problem.rl.A2C_agent import A2CAgent
 
 class BodyAdapter(nn.Module):
     '''

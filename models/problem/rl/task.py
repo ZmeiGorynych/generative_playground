@@ -1,5 +1,5 @@
 from deep_rl import BaseTask
-from models.problem.rl.environment import SequenceEnvironment
+from generative_playground.models.problem.rl.environment import SequenceEnvironment
 
 class SequenceGenerationTask(BaseTask):
     def __init__(self, name='seq_gen',

@@ -1,6 +1,6 @@
 import numpy as np
 
-from models.model_settings import get_settings
+from generative_playground.models.model_settings import get_settings
 
 class SequenceEnvironment:
     def __init__(self,
