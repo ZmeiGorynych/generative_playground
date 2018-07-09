@@ -174,7 +174,7 @@ def get_encoder_decoder(molecules = True,
                                                'filters': (2, 3, 4),
                                                'dense_size': 100},
                  drop_rate = 0.0,
-                 rnn_encoder = False,
+                 rnn_encoder ='cnn',
                  rnn_encoder_hidden_n = 200,
                         decoder_type='step'):
     settings = get_settings(molecules,grammar)

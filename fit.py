@@ -65,11 +65,12 @@ def fit(train_gen = None,
                 loss_fn.train()
                 loss_name = plot_prefix + ' train_loss'
             else:
-                train = False
-                data_iter = valid_iter
-                model.eval()
-                loss_fn.eval()
-                loss_name = plot_prefix + ' val_loss'
+                with torch.no_grad():
+                    train = False
+                    data_iter = valid_iter
+                    model.eval()
+                    loss_fn.eval()
+                    loss_name = plot_prefix + ' val_loss'
 
             # get the next pair (inputs, targets)
             try:
