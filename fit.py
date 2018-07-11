@@ -2,11 +2,7 @@ import torch
 from torch.autograd import Variable
 from generative_playground.gpu_utils import get_gpu_memory_map
 
-try:
-    from generative_playground.visdom_helper.visdom_helper import Dashboard
-    have_visdom = True
-except:
-    have_visdom = False
+
 import numpy as np
 
 def to_variable(x):
@@ -27,24 +23,25 @@ def fit(train_gen = None,
         epochs = None,
         loss_fn = None,
         save_path = None,
-        dashboard = None,
-        plot_ignore_initial=0,
         save_always=False,
-        exp_smooth = 0.9,
         batches_to_valid=9,
         valid_batches_to_checkpoint = 10,
         grad_clip = None,
-        plot_prefix = '',
-        loss_display_cap = 4):
+        plot_prefix='',
+        loss_display_cap=4,
+        dashboard_name=None,
+        plot_ignore_initial=0
+        ):
+
+    metric_plotter = MetricPlotter(plot_prefix=plot_prefix,
+                                   loss_display_cap=loss_display_cap,
+                                   dashboard_name=dashboard_name,
+                                   plot_ignore_initial=plot_ignore_initial)
 
     best_valid_loss = float('inf')
     cum_val_loss = 0
     val_count = 0
 
-    if dashboard is not None and have_visdom:
-        vis = Dashboard(dashboard)
-
-    plot_counter = 0
     valid_batches = max(1,int(batches_to_valid*len(valid_gen)/len(train_gen)))
     if 'ReduceLROnPlateau' in str(type(scheduler)):
         step_scheduler_after_val = True
@@ -63,14 +60,12 @@ def fit(train_gen = None,
                 data_iter = train_iter
                 model.train()
                 loss_fn.train()
-                loss_name = plot_prefix + ' train_loss'
             else:
                 with torch.no_grad():
                     train = False
                     data_iter = valid_iter
                     model.eval()
                     loss_fn.eval()
-                    loss_name = plot_prefix + ' val_loss'
 
             # get the next pair (inputs, targets)
             try:
@@ -113,36 +108,74 @@ def fit(train_gen = None,
                         if save_path is not None:
                             save_model(model, save_path)
 
-            try:
-                model.reset_hidden()
-            except:
-                pass
+            # try:
+            #     model.reset_hidden()
+            # except:
+            #     pass
+            # plot the intermediate metrics
+            metric_plotter(train, this_loss, loss_fn.metrics if hasattr(loss_fn, 'metrics') else None)
 
-            # show intermediate results
-            gpu_usage = get_gpu_memory_map()
-            print(loss_name, this_loss, n, gpu_usage )
-            plot_counter += 1
-            if dashboard is not None and plot_counter > plot_ignore_initial and have_visdom:
-                try:
-                    vis.append('gpu_usage',
-                               'line',
-                               X=np.array([plot_counter]),
-                               Y=np.array([gpu_usage[0]]))
-                    vis.append(loss_name,
-                           'line',
-                           X=np.array([plot_counter]),
-                           Y=np.array([min(loss_display_cap, this_loss)]))
-                    if hasattr(loss_fn,'metrics'):
-                        vis.append(loss_name + ' metrics',
-                                   'line',
-                                   X=np.array([plot_counter]),
-                                   Y=np.array([[val for key, val in loss_fn.metrics.items()]]),
-                                   opts={'legend': [key for key, val in loss_fn.metrics.items()]})
-                except Exception as e:
-                    print(e)
-                    visdom_exists = False
             if train:
                 yield this_loss
+
+class MetricPlotter:
+    def __init__(self,
+                 plot_prefix = '',
+                 loss_display_cap = 4,
+                 dashboard_name=None,
+                 plot_ignore_initial=0):
+        self.plot_prefix = plot_prefix
+        self.plot_ignore_initial = plot_ignore_initial
+        self.loss_display_cap = loss_display_cap
+        self.plot_counter = 0
+        try:
+            from generative_playground.visdom_helper.visdom_helper import Dashboard
+            if dashboard_name is not None:
+                self.vis = Dashboard(dashboard_name)
+                self.have_visdom = True
+        except:
+            self.have_visdom = False
+            self.vis = None
+
+    def __call__(self, train, this_loss, metrics):
+        '''
+        Plot the results of the latest batch
+        :param train: bool: was this a traning batch?
+        :param this_loss: float: latest loss
+        :param metrics: dict {str:float} with any additional metrics
+        :return: None
+        '''
+        if not self.have_visdom:
+            return
+
+        if train:
+            loss_name = self.plot_prefix + ' train_loss'
+        else:
+            loss_name = self.plot_prefix + ' val_loss'
+
+        # show intermediate results
+        gpu_usage = get_gpu_memory_map()
+        print(loss_name, this_loss, self.plot_counter, gpu_usage)
+        self.plot_counter += 1
+        if self.vis is not None and self.plot_counter > self.plot_ignore_initial and self.have_visdom:
+            #try:
+                self.vis.append('gpu_usage',
+                           'line',
+                           X=np.array([self.plot_counter]),
+                           Y=np.array([gpu_usage[0]]))
+                self.vis.append(loss_name,
+                           'line',
+                           X=np.array([self.plot_counter]),
+                           Y=np.array([min(self.loss_display_cap, this_loss)]))
+                if metrics is not None:
+                    self.vis.append(loss_name + ' metrics',
+                               'line',
+                               X=np.array([self.plot_counter]),
+                               Y=np.array([[val for key, val in metrics.items()]]),
+                               opts={'legend': [key for key, val in metrics.items()]})
+            # except Exception as e:
+            #     print(e)
+            #     visdom_exists = False
 
 def save_model(model, save_path = 'insurance.mdl'):
     torch.save(model.state_dict(), save_path)
