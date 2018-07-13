@@ -5,7 +5,7 @@ from grammarVAE_pytorch.codec.character_codec import CharacterModel
 from grammarVAE_pytorch.codec.grammar_codec import GrammarModel, zinc_tokenizer, eq_tokenizer
 from grammarVAE_pytorch.codec.grammar_helper import grammar_eq, grammar_zinc
 from grammarVAE_pytorch.codec.grammar_mask_gen import GrammarMaskGenerator
-from generative_playground.models.decoder.basic_rnn import SimpleRNNDecoder, ResettingRNNDecoder
+from generative_playground.models.decoder.basic_rnn import SimpleRNNDecoder, ResettingRNNDecoder,RNNDecoderWithLayerNorm
 from generative_playground.models.encoder.basic_rnn import SimpleRNNAttentionEncoder
 from generative_playground.models.encoder.basic_cnn import SimpleCNNEncoder
 from generative_playground.models.decoder.decoders import OneStepDecoderContinuous, \
@@ -213,13 +213,22 @@ def get_encoder_decoder(molecules = True,
                                               drop_rate=drop_rate,
                                            use_last_action=False)
 
-        elif decoder_type=='action':
-            pre_decoder = SimpleRNNDecoder(z_size=z_size,# + feature_len,
-                                           hidden_n=decoder_hidden_n,
-                                           feature_len=feature_len,
-                                           max_seq_length=max_seq_length,
-                                           drop_rate=drop_rate,
-                                           use_last_action=True)
+        elif decoder_type == 'action':
+            pre_decoder = SimpleRNNDecoder(z_size=z_size,  # + feature_len,
+                                       hidden_n=decoder_hidden_n,
+                                       feature_len=feature_len,
+                                       max_seq_length=max_seq_length,
+                                       drop_rate=drop_rate,
+                                       use_last_action=True)
+
+        elif decoder_type == 'action_resnet':
+            pre_decoder = RNNDecoderWithLayerNorm(z_size=z_size,  # + feature_len,
+                                       hidden_n=decoder_hidden_n,
+                                       feature_len=feature_len,
+                                       max_seq_length=max_seq_length,
+                                       drop_rate=drop_rate,
+                                       use_last_action=True)
+
         elif decoder_type == 'attention':
             pre_decoder = SelfAttentionDecoderStep(num_actions=feature_len,
                                                    max_seq_len=max_seq_length,
