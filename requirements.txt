@@ -1,0 +1,11 @@
+h5py
+nltk
+numpy
+scipy
+scikit-learn
+matplotlib
+pandas
+tables
+argparse
+gpy
+
