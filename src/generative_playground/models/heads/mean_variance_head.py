@@ -5,10 +5,11 @@ from generative_playground.utils.gpu_utils import to_gpu
 
 
 class MeanVarianceHead(nn.Module):
-    def __init__(self, model, output_dim):
+    def __init__(self, model, output_dim, drop_rate=0.2):
         super().__init__()
         self.z_size = output_dim
         self.model = model
+        #self.dropout = nn.Dropout(drop_rate)
         self.fc_mu = to_gpu(nn.Linear(self.model.output_shape[-1], output_dim))
         self.fc_var = to_gpu(nn.Linear(self.model.output_shape[-1], output_dim))
         self.output_shape = [None, output_dim]
@@ -25,6 +26,7 @@ class MeanVarianceHead(nn.Module):
         if isinstance(out,tuple) or isinstance(out, list):
             out = out[0]
 
+        #out = self.dropout(out)
         my_size = out.size()
         if len(my_size)==3 and my_size[1]==1:
             #flatten sequences of one element

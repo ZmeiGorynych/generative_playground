@@ -21,6 +21,38 @@ class DatasetFromHDF5(Dataset):
     def __getitem__(self, item):
         return self.data[item].astype(float)
 
+
+# TODo: this is very crude, need to convert hdf5 types to pytorch-compatible in a nicer way
+def try_float(x):
+    try:
+        return x.float()
+    except:
+        if isinstance(x, bytes):
+            return x.decode("utf-8")
+        else:
+            return x
+
+
+class MultiDatasetFromHDF5(Dataset):
+    '''
+    A simple Dataset wrapper around an hdf5 file
+    '''
+    def __init__(self, filename, datasets):
+        '''
+        An hdf5 wrapper that allows to sample from multiple datasets in sync
+        We assume all datasets have the same lengths
+        :param filename: the hdf5 filename
+        :param datasets: list of dataset names
+        '''
+        self.h5f = h5py.File(filename, 'r')
+        self.datasets = datasets
+
+    def __len__(self):
+        return len(self.h5f[self.datasets[0]])
+
+    def __getitem__(self, item):
+        return {ds_name: try_float(self.h5f[ds_name][item]) for ds_name in self.datasets}
+
 def train_valid_loaders(dataset, valid_fraction =0.1, **kwargs):
     # num_workers
     # batch_size
@@ -83,6 +115,25 @@ class DuplicateIter:
     def __len__(self):
         return len(self.iterable)
 
+class IterableTransform:
+    '''
+    Takes an iterable, eg a DataLoader, and returns another iterable that transforms the results
+    '''
+    def __init__(self, iterable, transform = None):
+        self.iterable = iterable
+        self.transform = transform
+
+    def __iter__(self):
+        def gen():
+            iter = self.iterable.__iter__()
+            while True:
+                # TODO: cast to float earlier?
+                x = next(iter)
+                yield self.transform(x)
+        return gen()
+
+    def __len__(self):
+        return len(self.iterable)
 
 class IncrementingHDF5Dataset:
     def __init__(self, fname, mode='a'):#

@@ -1,13 +1,12 @@
-import torch.nn as nn
+from collections.__init__ import OrderedDict
 
-class VariationalLoss(nn.Module):
-    def __init__(self):
-        super().__init__()
+import torch
+from torch import nn as nn
+from torch.autograd import Variable
+from torch.nn import functional as F
 
-    def forward(self, model_out, target_x):
-        mean, logvar = model_out
-        err = (mean - target_x)
-        loss = err*err/logvar.exp() + logvar
+from generative_playground.utils.gpu_utils import to_gpu
+
 
 class VAELoss(nn.Module):
     # matches the impelentation in model_eq.py

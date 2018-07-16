@@ -1,6 +1,6 @@
 import os, inspect
 
-from generative_playground.models.problem import variational_autoencoder as models_torch
+import generative_playground.models.heads.vae
 from generative_playground.codec.character_codec import CharacterModel
 from generative_playground.codec.grammar_codec import GrammarModel, zinc_tokenizer, eq_tokenizer
 from generative_playground.codec.grammar_helper import grammar_eq, grammar_zinc
@@ -113,7 +113,7 @@ def get_settings(molecules = True, grammar = True):
 def get_model_args(molecules, grammar,
                    drop_rate=0.5,
                    sample_z = False,
-                   rnn_encoder ='rnn'):
+                   encoder_type ='rnn'):
 
     settings = get_settings(molecules,grammar)
     model_args = {'z_size': settings['z_size'],
@@ -123,7 +123,7 @@ def get_model_args(molecules, grammar,
                   'cnn_encoder_params':  settings['cnn_encoder_params'],
                   'drop_rate': drop_rate,
                   'sample_z': sample_z,
-                  'rnn_encoder': rnn_encoder,
+                  'encoder_type': encoder_type,
                   'rnn_encoder_hidden_n': settings['rnn_encoder_hidden_n']}
 
     return model_args
@@ -145,7 +145,7 @@ def get_model(molecules=True,
                     'max_seq_length',
                     'cnn_encoder_params',
                     'drop_rate',
-                    'rnn_encoder',
+                    'encoder_type',
                     'rnn_encoder_hidden_n']
     encoder = get_encoder(**{key:value for key, value in model_args.items()
                              if key in encoder_args})
@@ -158,11 +158,11 @@ def get_model(molecules=True,
                                 if key in decoder_args}
                              )
 
-    model = models_torch.GrammarVariationalAutoEncoder(encoder=encoder,
-                                                       decoder=decoder,
-                                                       sample_z=sample_z,
-                                                       epsilon_std=epsilon_std,
-                                                       z_size=model_args['z_size'])
+    model = generative_playground.models.heads.vae.VariationalAutoEncoderHead(encoder=encoder,
+                                                                              decoder=decoder,
+                                                                              sample_z=sample_z,
+                                                                              epsilon_std=epsilon_std,
+                                                                              z_size=model_args['z_size'])
 
     if weights_file is not None:
         model.load(weights_file)

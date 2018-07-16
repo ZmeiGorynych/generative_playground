@@ -60,14 +60,14 @@ class ResNetRNNDecoder(nn.Module):
         self.z_size = z_size
         self.hidden_n = hidden_n
         self.num_layers = num_layers
-        #self.output_feature_size = feature_len
+        self.output_feature_size = feature_len
         self.use_last_action = use_last_action
         # TODO: is the batchNorm applied on the correct dimension?
         #self.batch_norm = nn.BatchNorm1d(eff_z_size)
         self.fc_input = nn.Linear(eff_z_size, hidden_n)
         self.dropout_1 = nn.Dropout(drop_rate)
         self.layer_stack = nn.ModuleList([NormGRUStepLayer(hidden_n, drop_rate) for _ in range(num_layers)])
-        #self.fc_out = nn.Linear(hidden_n, feature_len)
+        self.fc_out = nn.Linear(hidden_n, feature_len)
         self.output_shape = [None, 1, hidden_n] #[None, 1, feature_len]
 
     def encode(self, enc_output, last_action):
@@ -118,12 +118,10 @@ class ResNetRNNDecoder(nn.Module):
         # tmp has dim (batch_size*seq_len)xhidden_n, so we can apply the linear transform to it
         #tmp = self.dropout_2(out.contiguous().view(-1, self.hidden_n))
 
-        # Don't need the below as the vae head maps to output_feature_size
-        # tmp = out.contiguous().view(-1, self.hidden_n)
-        # out = self.fc_out(tmp).view(self.batch_size,
-        #                             1,
-        #                             self.output_feature_size)
-
+        tmp = out.contiguous().view(-1, self.hidden_n)
+        out = self.fc_out(tmp).view(self.batch_size,
+                                    1,
+                                    self.output_feature_size)
 
         return out
 

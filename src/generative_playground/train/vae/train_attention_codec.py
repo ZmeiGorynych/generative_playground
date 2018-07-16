@@ -21,10 +21,10 @@ save_file =settings['filename_stub'] + 'dr0.2_attn.h5'
 
 model, fitter, main_dataset = train_vae(molecules=molecules,
                                         BATCH_SIZE=18,  # it's a bit of a GPU RAM hog
-                                        drop_rate=0.1,
+                                        drop_rate=0.2,
                                         save_file=save_file,
                                         sample_z=False,
-                                        reg_weight=0.01,
+                                        reg_weight=1, # with 0.01 and do 0.1 had real trouble generalizing?
                                         encoder_type='attention',
                                         decoder_type='attention',
                                         lr=1e-4,

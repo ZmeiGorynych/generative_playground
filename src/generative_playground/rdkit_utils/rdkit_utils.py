@@ -3,7 +3,7 @@ import networkx as nx
 import numpy as np
 from rdkit.Chem import Descriptors, rdmolops
 from rdkit.Chem.rdmolfiles import MolFromSmiles
-
+import rdkit.Chem.rdMolDescriptors as desc
 from generative_playground.rdkit_utils import sascorer as sascorer
 
 
@@ -83,3 +83,19 @@ class NormalizedScorer:
             if np.isnan(norm_scores[i]):
                 norm_scores[i] = self.invalid_value
         return norm_scores
+
+def property_scorer(smiles):
+    mols = mol_from_smiles(smiles)
+    function_list = [
+        desc.CalcNumAliphaticRings,
+        desc.CalcNumAromaticRings,
+        desc.CalcNumRotatableBonds
+    ]
+    out = []
+    for mol in mols:
+        if mol is None:
+            out.append([0] * (1 + len(function_list)))
+        else:
+            out.append([1] + [f(mol) for f in function_list])
+
+    return np.array(out)

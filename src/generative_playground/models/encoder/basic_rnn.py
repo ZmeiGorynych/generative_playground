@@ -32,6 +32,12 @@ class SimpleRNN(nn.Module):
                             num_layers=num_layers,
                             bidirectional=bidirectional)
 
+        def init_weights(m):
+            if hasattr(m,'weight'):
+                torch.nn.init.xavier_uniform(m.weight)
+
+        self.gru_1.apply(init_weights)
+
 
     def forward(self, input_seq, hidden=None):
         '''

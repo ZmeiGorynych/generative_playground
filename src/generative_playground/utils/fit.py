@@ -1,5 +1,6 @@
 import torch
 from torch.autograd import Variable
+from generative_playground.utils.gpu_utils import to_gpu
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -7,6 +8,8 @@ def count_parameters(model):
 def to_variable(x):
     if type(x)==tuple:
         return tuple([to_variable(xi) for xi in x])
+    elif 'ndarray'in str(type(x)):
+        return to_gpu(torch.from_numpy(x))
     elif 'Variable' not in str(type(x)):
         return Variable(x)
     else:

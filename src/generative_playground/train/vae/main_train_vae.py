@@ -2,7 +2,7 @@ import os, inspect
 import torch.optim as optim
 from torch.optim import lr_scheduler
 
-from generative_playground.models.problem.variational_autoencoder import VAELoss
+from generative_playground.models.losses.vae_loss import VAELoss
 from generative_playground.utils.fit import fit
 from generative_playground.data_utils.data_sources import DatasetFromHDF5, train_valid_loaders, DuplicateIter
 from generative_playground.utils.gpu_utils import use_gpu
