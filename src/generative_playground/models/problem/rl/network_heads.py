@@ -3,7 +3,7 @@ import copy
 from deep_rl.network.network_bodies import layer_init,BaseNet
 import torch
 from torch import nn
-from generative_playground.gpu_utils import to_gpu
+from generative_playground.utils.gpu_utils import to_gpu
 from generative_playground.models.problem.rl.DeepRL_wrappers import DummyBody
 
 

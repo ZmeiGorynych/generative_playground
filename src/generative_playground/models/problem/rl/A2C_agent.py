@@ -5,10 +5,9 @@
 #######################################################################
 
 from deep_rl.network import *
-from deep_rl.component import *
 from deep_rl.agent.BaseAgent import *
 
-from generative_playground.gpu_utils import to_gpu, FloatTensor
+from generative_playground.utils.gpu_utils import to_gpu, FloatTensor
 
 class A2CAgent(BaseAgent):
     def __init__(self, config):

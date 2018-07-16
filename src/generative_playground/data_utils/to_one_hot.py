@@ -1,6 +1,6 @@
 import torch
 from torch.autograd import Variable
-from generative_playground.gpu_utils import to_gpu, FloatTensor, LongTensor
+from generative_playground.utils.gpu_utils import LongTensor
 
 def to_one_hot(y, n_dims=None, out = None):
     """

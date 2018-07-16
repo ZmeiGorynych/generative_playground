@@ -9,7 +9,6 @@ except:
     import sys, os, inspect
     my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     sys.path.append('../../..')
-    sys.path.append('../../../../../DeepRL')
     sys.path.append('../../../../../transformer_pytorch')
 
 from generative_playground.train.vae.main_train_vae import train_vae
@@ -21,17 +20,18 @@ settings = get_settings(molecules,grammar)
 
 save_file =settings['filename_stub'] + 'baseline.h5'
 model, fitter, _ = train_vae(molecules=molecules,
-                          grammar=grammar,
-                          BATCH_SIZE=500, # a p2.xlarge won't bear any bigger batches
-                          save_file=save_file,
-                          sample_z=True,
-                          rnn_encoder='cnn',
+                             grammar=grammar,
+                             BATCH_SIZE=500,  # max 500 on a p2.xlarge
+                             save_file=save_file,
+                             sample_z=True,
+                             encoder_type='cnn',
                              decoder_type='step',
-                          lr=5e-4,
-                          plot_prefix='baseline lr 5e-4 KLW 0.01',
-                          KL_weight = 1,
+                             lr=5e-4,
+                             plot_prefix='baseline lr 5e-4 KLW 0.01',
+                             reg_weight= 1,
                              epsilon_std = 0.01,
-                             dashboard='main')
+                             dashboard='main',
+                             preload_weights=False)
 
 while True:
     next(fitter)

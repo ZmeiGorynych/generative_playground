@@ -18,7 +18,7 @@ from generative_playground.models.problem.rl.task import SequenceGenerationTask
 from generative_playground.models.model_settings import get_settings
 from generative_playground.codec.grammar_mask_gen import GrammarMaskGenerator
 from generative_playground.visdom_helper.visdom_helper import Dashboard
-from generative_playground.gpu_utils import to_gpu
+from generative_playground.utils.gpu_utils import to_gpu
 
 
 import logging
@@ -96,7 +96,7 @@ def a2c_sequence(name = 'a2c_sequence', task=None, body=None):
 #                                        max_seq_len=task.env._max_episode_steps,
 #                                        drop_rate=drop_rate)
 
-from generative_playground.models.decoder.basic_rnn import SimpleRNNDecoder
+from generative_playground.models.decoder.rnn import SimpleRNNDecoder
 decoder = SimpleRNNDecoder(z_size=5,
                                hidden_n=512,
                                feature_len=task.env.action_dim,

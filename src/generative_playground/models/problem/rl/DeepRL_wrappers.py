@@ -1,6 +1,6 @@
 from torch import nn
 import torch
-from generative_playground.gpu_utils import to_gpu
+from generative_playground.utils.gpu_utils import to_gpu
 from generative_playground.models.problem.rl.A2C_agent import A2CAgent
 
 class DummyBody(nn.Module):

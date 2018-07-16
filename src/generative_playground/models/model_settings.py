@@ -5,15 +5,17 @@ from generative_playground.codec.character_codec import CharacterModel
 from generative_playground.codec.grammar_codec import GrammarModel, zinc_tokenizer, eq_tokenizer
 from generative_playground.codec.grammar_helper import grammar_eq, grammar_zinc
 from generative_playground.codec.grammar_mask_gen import GrammarMaskGenerator
-from generative_playground.models.decoder.basic_rnn import SimpleRNNDecoder, ResettingRNNDecoder,RNNDecoderWithLayerNorm
-from generative_playground.models.encoder.basic_rnn import SimpleRNNAttentionEncoder
+from generative_playground.models.decoder.rnn import SimpleRNNDecoder, ResettingRNNDecoder
+from generative_playground.models.decoder.resnet_rnn import ResNetRNNDecoder
+from generative_playground.models.encoder.basic_rnn import SimpleRNN
+from generative_playground.models.heads.attention_aggregating_head import AttentionAggregatingHead
 from generative_playground.models.encoder.basic_cnn import SimpleCNNEncoder
 from generative_playground.models.decoder.decoders import OneStepDecoderContinuous, \
     SimpleDiscreteDecoder
 from generative_playground.models.decoder.policy import SoftmaxRandomSamplePolicy
 from transformer.OneStepAttentionDecoder import SelfAttentionDecoderStep
 from transformer.Models import Encoder
-from generative_playground.gpu_utils import to_gpu
+from generative_playground.utils.gpu_utils import to_gpu
 # in the desired end state, this file will contain every single difference between the different codec
 
 root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
@@ -29,7 +31,7 @@ def get_settings(molecules = True, grammar = True):
         if grammar:
             settings = {'source_data': root_location + 'data/250k_rndm_zinc_drugs_clean.smi',
                         'data_path':root_location + 'data/zinc_grammar_dataset.h5',
-                        'filename_stub': 'gramar_zinc_',
+                        'filename_stub': 'grammar_zinc_',
                         'grammar': grammar_zinc,
                         'tokenizer': zinc_tokenizer,
                         'z_size': 56,
@@ -138,10 +140,24 @@ def get_model(molecules=True,
         if key in model_args:
             model_args[key] = value
     sample_z = model_args.pop('sample_z')
-    encoder, decoder, _ = get_encoder_decoder(molecules,
-                                           grammar,
-                                           decoder_type=decoder_type,
-                                           **model_args)
+
+    encoder_args = ['feature_len',
+                    'max_seq_length',
+                    'cnn_encoder_params',
+                    'drop_rate',
+                    'rnn_encoder',
+                    'rnn_encoder_hidden_n']
+    encoder = get_encoder(**{key:value for key, value in model_args.items()
+                             if key in encoder_args})
+
+    decoder_args = ['z_size','decoder_hidden_n','feature_len','max_seq_length','drop_rate']
+    decoder, _ = get_decoder(molecules,
+                             grammar,
+                             decoder_type=decoder_type,
+                             **{key:value for key, value in model_args.items()
+                                if key in decoder_args}
+                             )
+
     model = models_torch.GrammarVariationalAutoEncoder(encoder=encoder,
                                                        decoder=decoder,
                                                        sample_z=sample_z,
@@ -164,38 +180,48 @@ def get_model(molecules=True,
                                      )
     return model, wrapper_model
 
-def get_encoder_decoder(molecules = True,
+
+def get_encoder(feature_len=12,
+                max_seq_length=15,
+                cnn_encoder_params={'kernel_sizes': (2, 3, 4),
+                                               'filters': (2, 3, 4),
+                                               'dense_size': 100},
+                drop_rate = 0.0,
+                encoder_type ='cnn',
+                rnn_encoder_hidden_n = 200):
+
+    if encoder_type == 'rnn':
+        rnn_model = SimpleRNN(hidden_n=rnn_encoder_hidden_n,
+                                           feature_len=feature_len,
+                                           drop_rate=drop_rate)
+        encoder = to_gpu(AttentionAggregatingHead(rnn_model, drop_rate=drop_rate))
+
+    elif encoder_type == 'cnn':
+        encoder = to_gpu(SimpleCNNEncoder(params=cnn_encoder_params,
+                                               max_seq_length=max_seq_length,
+                                               feature_len=feature_len,
+                                               drop_rate=drop_rate))
+    elif encoder_type == 'attention':
+        encoder = to_gpu(AttentionAggregatingHead(Encoder(feature_len,
+                                                          max_seq_length,
+                                                          dropout=drop_rate,
+                                                          padding_idx=feature_len-1),
+                                                  drop_rate=drop_rate))
+
+    else:
+        raise NotImplementedError()
+
+    return encoder
+
+def get_decoder(molecules = True,
                         grammar=True,
                         z_size=200,
                  decoder_hidden_n=200,
                  feature_len=12,
                  max_seq_length=15,
-                 cnn_encoder_params={'kernel_sizes': (2, 3, 4),
-                                               'filters': (2, 3, 4),
-                                               'dense_size': 100},
                  drop_rate = 0.0,
-                 rnn_encoder ='cnn',
-                 rnn_encoder_hidden_n = 200,
                         decoder_type='step'):
     settings = get_settings(molecules,grammar)
-    if rnn_encoder == 'rnn':
-        encoder = to_gpu(SimpleRNNAttentionEncoder(max_seq_length=max_seq_length,
-                                                        hidden_n=rnn_encoder_hidden_n,
-                                                        feature_len=feature_len,
-                                                        drop_rate=drop_rate))
-    elif rnn_encoder == 'cnn':
-        encoder = to_gpu(SimpleCNNEncoder(params=cnn_encoder_params,
-                                               max_seq_length=max_seq_length,
-                                               feature_len=feature_len,
-                                               drop_rate=drop_rate))
-    elif rnn_encoder == 'attention':
-        encoder = to_gpu(Encoder(feature_len,
-                                 max_seq_length,
-                                 dropout=drop_rate,
-                                 padding_idx=feature_len-1))
-    else:
-        raise NotImplementedError()
-
     if decoder_type=='old':
         pre_decoder = ResettingRNNDecoder(z_size=z_size,
                                            hidden_n=decoder_hidden_n,
@@ -222,17 +248,18 @@ def get_encoder_decoder(molecules = True,
                                        use_last_action=True)
 
         elif decoder_type == 'action_resnet':
-            pre_decoder = RNNDecoderWithLayerNorm(z_size=z_size,  # + feature_len,
-                                       hidden_n=decoder_hidden_n,
-                                       feature_len=feature_len,
-                                       max_seq_length=max_seq_length,
-                                       drop_rate=drop_rate,
-                                       use_last_action=True)
+            pre_decoder = ResNetRNNDecoder(z_size=z_size,  # + feature_len,
+                                           hidden_n=decoder_hidden_n,
+                                           feature_len=feature_len,
+                                           max_seq_length=max_seq_length,
+                                           drop_rate=drop_rate,
+                                           use_last_action=True)
 
         elif decoder_type == 'attention':
             pre_decoder = SelfAttentionDecoderStep(num_actions=feature_len,
                                                    max_seq_len=max_seq_length,
-                                                   drop_rate=drop_rate)
+                                                   drop_rate=drop_rate,
+                                                   enc_output_size=z_size)
 
         else:
             raise NotImplementedError('Unknown decoder type: ' + str(decoder_type))
@@ -246,7 +273,8 @@ def get_encoder_decoder(molecules = True,
 
     decoder = to_gpu(SimpleDiscreteDecoder(stepper, policy, mask_gen))#, bypass_actions=True))
 
-    return encoder, decoder, pre_decoder
+    return decoder, pre_decoder
+
 
 if __name__=='__main__':
     for molecules in [True, False]:

@@ -1,6 +1,6 @@
 import torch
 from torch.autograd import Variable
-from generative_playground.gpu_utils import get_gpu_memory_map
+from generative_playground.utils.gpu_utils import get_gpu_memory_map
 from generative_playground.visdom_helper.visdom_helper import Dashboard
 import numpy as np
 

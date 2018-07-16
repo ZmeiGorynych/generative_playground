@@ -18,18 +18,18 @@ molecules = True
 grammar = True
 settings = get_settings(molecules,grammar)
 
-save_file =settings['filename_stub'] + 'dr0.2_rnn.h5'
+save_file =settings['filename_stub'] + 'dr0.2_rnn_sam.h5'
 
 model, fitter, main_dataset = train_vae(molecules=molecules,
                                         BATCH_SIZE=250, # 250 max for p2.xlarge
                                         drop_rate=0.2,
                                         save_file=save_file,
-                                        sample_z=False,
-                                        reg_weight=0.1,
+                                        sample_z=True,
+                                        epsilon_std=0.001,
                                         encoder_type='rnn',
                                         decoder_type='action',
                                         lr=1e-4,
-                                        plot_prefix='rnn do0.2 no_sam 1e-4',
+                                        plot_prefix='rnn do0.2 1e-4',
                                         preload_weights=False)
 
 while True:

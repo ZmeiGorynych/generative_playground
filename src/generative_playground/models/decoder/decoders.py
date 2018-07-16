@@ -1,7 +1,7 @@
 import torch
 from torch import nn as nn
 
-from generative_playground.gpu_utils import to_gpu, FloatTensor
+from generative_playground.utils.gpu_utils import to_gpu, FloatTensor
 from generative_playground.models.decoder.policy import SimplePolicy
 
 # # TODO: merge this and UsingAction, make UsingAction into a bool

@@ -3,7 +3,7 @@ import h5py
 import math
 import numpy as np
 from torch.autograd import Variable
-from generative_playground.gpu_utils import to_gpu, use_gpu
+from generative_playground.utils.gpu_utils import to_gpu, use_gpu
 from torch.utils.data.dataset import Dataset
 from torch.utils.data.sampler import SubsetRandomSampler, RandomSampler
 

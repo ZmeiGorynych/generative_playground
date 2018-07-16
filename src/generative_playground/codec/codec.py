@@ -1,4 +1,4 @@
-from generative_playground.gpu_utils import FloatTensor, to_gpu, LongTensor
+from generative_playground.utils.gpu_utils import FloatTensor, to_gpu, LongTensor
 import torch
 import numpy as np
 

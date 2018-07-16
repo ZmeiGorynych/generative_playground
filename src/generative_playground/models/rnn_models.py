@@ -1,5 +1,4 @@
 import torch
-from torch import nn as nn
 from torch.autograd import Variable
 from torch.nn import functional as F
 
@@ -7,7 +6,7 @@ print(torch.__version__)
 import torch.nn as nn
 import torch.autograd as autograd
 
-from generative_playground.gpu_utils import to_gpu, FloatTensor, LongTensor
+from generative_playground.utils.gpu_utils import to_gpu, FloatTensor
 from generative_playground.data_utils.to_one_hot import to_one_hot
 class LSTMModel(nn.Module):
     def __init__(self,

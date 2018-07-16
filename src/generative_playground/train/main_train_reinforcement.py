@@ -2,7 +2,7 @@ import os, inspect
 import torch.optim as optim
 from torch.optim import lr_scheduler
 
-from generative_playground.fit import fit
+from generative_playground.utils.fit import fit
 from generative_playground.data_utils.data_sources import SamplingWrapper
 from generative_playground.models.model_settings import get_settings
 from generative_playground.data_utils.mixed_loader import CombinedLoader

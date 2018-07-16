@@ -1,9 +1,9 @@
 import torch
 from torch import nn as nn
 
-from generative_playground.gpu_utils import to_gpu
+from generative_playground.utils.gpu_utils import to_gpu
 from generative_playground.models.decoder.decoders import OneStepDecoderContinuous, SimpleDiscreteDecoder
-from generative_playground.models.decoder.policy import SoftmaxRandomSamplePolicy, PolicyFromTarget
+from generative_playground.models.decoder.policy import SoftmaxRandomSamplePolicy
 
 
 class DummyMaskGenerator(nn.Module):

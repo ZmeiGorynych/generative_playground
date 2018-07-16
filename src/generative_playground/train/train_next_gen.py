@@ -18,7 +18,7 @@ from generative_playground.codec.grammar_codec import ZincGrammarModel
 from generative_playground.rdkit_utils.rdkit_utils import fraction_valid
 from generative_playground.models.simple_models import DenseHead
 import numpy as np
-from generative_playground.gpu_utils import to_gpu
+from generative_playground.utils.gpu_utils import to_gpu
 
 molecules = True
 grammar = True
@@ -27,16 +27,16 @@ settings = get_settings(molecules, grammar)
 dash_name = 'test'
 visdom = Dashboard(dash_name)
 model, fitter, main_dataset = train_vae(molecules=True,
-                          grammar=True,
-                          BATCH_SIZE=150,
-                          drop_rate=0.3,
-                          sample_z=True,
-                          save_file='next_gen.h5',
-                          rnn_encoder=False,
-                          lr=5e-4,
-                          plot_prefix='RNN enc lr 1e-4',
-                          dashboard=dash_name,
-                          preload_weights=False)
+                                        grammar=True,
+                                        BATCH_SIZE=150,
+                                        drop_rate=0.3,
+                                        sample_z=True,
+                                        save_file='next_gen.h5',
+                                        encoder_type=False,
+                                        lr=5e-4,
+                                        plot_prefix='RNN enc lr 1e-4',
+                                        dashboard=dash_name,
+                                        preload_weights=False)
 # this is a wrapper for encoding/decodng
 grammar_model = ZincGrammarModel(model=model)
 validity_model = to_gpu(DenseHead(model.encoder,

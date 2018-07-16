@@ -3,7 +3,7 @@ from torch import nn as nn
 from torch.autograd import Variable
 from torch.distributions import Gumbel
 
-from generative_playground.gpu_utils import to_gpu
+from generative_playground.utils.gpu_utils import to_gpu
 
 
 class SimplePolicy(nn.Module):

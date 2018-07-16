@@ -3,9 +3,9 @@ import torch.optim as optim
 from torch.optim import lr_scheduler
 import torch.nn as nn
 
-from generative_playground.fit import fit
-from generative_playground.data_utils.data_sources import train_valid_loaders, DuplicateIter
-from generative_playground.gpu_utils import use_gpu
+from generative_playground.utils.fit import fit
+from generative_playground.data_utils.data_sources import train_valid_loaders
+from generative_playground.utils.gpu_utils import use_gpu
 from generative_playground.models.model_settings import get_settings
 from generative_playground.data_utils.mixed_loader import MixedLoader
 

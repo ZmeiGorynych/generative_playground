@@ -1,12 +1,12 @@
 from collections import OrderedDict
 
 import torch
-from torch import nn as nn
 from torch.autograd import Variable
 import torch.nn as nn
 from torch.nn import functional as F
 from generative_playground.models.decoder.policy import PolicyFromTarget
-from generative_playground.gpu_utils import FloatTensor, LongTensor, to_gpu
+from generative_playground.models.heads.mean_variance_head import MeanVarianceHead
+from generative_playground.utils.gpu_utils import FloatTensor, to_gpu
 
 
 class GrammarVariationalAutoEncoder(nn.Module):
@@ -28,22 +28,11 @@ class GrammarVariationalAutoEncoder(nn.Module):
         self.encoder = to_gpu(encoder)
         self.decoder = to_gpu(decoder)
         self.epsilon_std = epsilon_std
-        self.z_size = z_size
-        self.fc_mu = to_gpu(nn.Linear(self.encoder.output_shape[-1], z_size))
-        self.fc_var = to_gpu(nn.Linear(self.encoder.output_shape[-1], z_size))
+        self.mu_var_layer = to_gpu(MeanVarianceHead(self.encoder, z_size))
         self.output_shape = [None, z_size]
 
     def forward(self, x):
-        out = self.encoder(x)
-
-        if isinstance(out,tuple) or isinstance(out, list):
-            out = out[0]
-
-        if len(out.size())==3: # if we got a whole sequence
-            out = out[:, -1, :] # take the last element
-
-        mu = self.fc_mu(out)
-        log_var = self.fc_var(out)
+        mu, log_var = self.mu_var_layer(x)
 
         # only sample when training, I regard sampling as a regularization technique so unneeded during validation
         if self.sample_z and self.training:
@@ -73,14 +62,14 @@ class GrammarVariationalAutoEncoder(nn.Module):
 
 class VAELoss(nn.Module):
     # matches the impelentation in model_eq.py
-    def __init__(self, grammar=None, sample_z=False, KL_weight = 0.01):
+    def __init__(self, grammar=None, sample_z=False, reg_weight = 0.01):
         '''
         :param masks: array of allowed transition rules from a given symbol
         '''
         super(VAELoss, self).__init__()
         self.sample_z = sample_z
         self.bce_loss = nn.BCELoss(size_average = True) #following mkusner/grammarVAE
-        self.KL_weight = KL_weight
+        self.reg_weight = reg_weight
         # if grammar is not None:
         #     self.masks = FloatTensor(grammar.masks)
         #     self.ind_to_lhs_ind = LongTensor(grammar.ind_to_lhs_ind)
@@ -110,9 +99,9 @@ class VAELoss(nn.Module):
             KLD_element = (1 + log_var - mu*mu - log_var.exp())
             KLD = -0.5 * torch.mean(KLD_element)
             KLD_ = KLD.data.item()
-            my_loss = BCE + self.KL_weight * KLD
+            my_loss = BCE + self.reg_weight * KLD
         else:
-            my_loss = BCE + mom_err
+            my_loss = BCE + self.reg_weight * mom_err
             KLD_ = 0
         if not self.training:
             # ignore regularizers when computing validation loss

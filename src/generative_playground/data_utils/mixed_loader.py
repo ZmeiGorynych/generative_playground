@@ -1,5 +1,5 @@
 import torch
-from generative_playground.gpu_utils import FloatTensor, to_gpu
+from generative_playground.utils.gpu_utils import to_gpu
 class MixedLoader:
     def __init__(self, main_loader, valid_ds, invalid_ds):
         self.main_loader = main_loader

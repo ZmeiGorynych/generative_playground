@@ -11,25 +11,24 @@ except:
     sys.path.append('../../..')
     sys.path.append('../../../../../transformer_pytorch')
 from generative_playground.train.vae.main_train_vae import train_vae
-
 from generative_playground.models.model_settings import get_settings
 
 molecules = True
 grammar = True
 settings = get_settings(molecules,grammar)
 
-save_file =settings['filename_stub'] + 'dr0.2_rnn.h5'
+save_file =settings['filename_stub'] + 'dr0.2_attn.h5'
 
 model, fitter, main_dataset = train_vae(molecules=molecules,
-                                        BATCH_SIZE=250, # 250 max for p2.xlarge
-                                        drop_rate=0.2,
+                                        BATCH_SIZE=18,  # it's a bit of a GPU RAM hog
+                                        drop_rate=0.1,
                                         save_file=save_file,
                                         sample_z=False,
-                                        reg_weight=0.1,
-                                        encoder_type='rnn',
-                                        decoder_type='action',
+                                        reg_weight=0.01,
+                                        encoder_type='attention',
+                                        decoder_type='attention',
                                         lr=1e-4,
-                                        plot_prefix='rnn do0.2 no_sam 1e-4',
+                                        plot_prefix='attn do=0.2 no_sam 1e-4',
                                         preload_weights=False)
 
 while True:

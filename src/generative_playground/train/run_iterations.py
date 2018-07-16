@@ -1,8 +1,7 @@
 from deep_rl.utils.misc import random_seed
 import numpy as np
 import pickle
-from generative_playground.visdom_helper.visdom_helper import Dashboard
-from generative_playground.gpu_utils import get_gpu_memory_map
+from generative_playground.utils.gpu_utils import get_gpu_memory_map
 
 def run_iterations(agent, visdom = None, invalid_value = None):
     if visdom is not None:

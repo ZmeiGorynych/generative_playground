@@ -1,13 +1,11 @@
 from torch import nn as nn
-from torch.autograd import Variable
 from torch.nn import functional as F
-from generative_playground.gpu_utils import FloatTensor
+
 
 class SimpleCNNEncoder(nn.Module):
     def __init__(self,
                  max_seq_length=None,
                  params = {},
-                 z_size=200,
                  feature_len=None,
                  drop_rate = 0.0):
         super(SimpleCNNEncoder, self).__init__()
@@ -61,11 +59,11 @@ class SimpleCNNEncoder(nn.Module):
         h = self.dropout5(h)
         return h
 
-    def encode(self,x):
-        '''
-        # TODO this is broken for now, as mu and sigma are now mapped inside vae
-        :param x: a numpy array batch x seq x feature
-        :return:
-        '''
-        mu_, var_ = self.forward(Variable(FloatTensor(x)))
-        return mu_.data.cpu().numpy()
+    # def encode(self,x):
+    #     '''
+    #     # TODO this is broken for now, as mu and sigma are now mapped inside vae
+    #     :param x: a numpy array batch x seq x feature
+    #     :return:
+    #     '''
+    #     mu_, var_ = self.forward(Variable(FloatTensor(x)))
+    #     return mu_.data.cpu().numpy()

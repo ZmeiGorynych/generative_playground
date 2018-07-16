@@ -6,11 +6,11 @@ from generative_playground.models.problem.variational_autoencoder import VAELoss
 from generative_playground.utils.fit import fit
 from generative_playground.data_utils.data_sources import DatasetFromHDF5, train_valid_loaders, DuplicateIter
 from generative_playground.utils.gpu_utils import use_gpu
-from generative_playground.models.model_settings import get_settings, get_model
+from generative_playground.models.model_settings import get_settings, get_encoder
 from generative_playground.utils.metric_monitor import MetricPlotter
 from generative_playground.utils.checkpointer import Checkpointer
-def train_vae(molecules = True,
-              grammar = True,
+from generative_playground.models.heads.mean_variance_head import MeanVarianceHead
+def train_vae(grammar = True,
               EPOCHS = None,
               BATCH_SIZE = None,
               lr = 2e-4,
@@ -26,7 +26,7 @@ def train_vae(molecules = True,
               plot_prefix = '',
               dashboard = 'main',
               preload_weights=False):
-
+    molecules = True
     root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     root_location = root_location + '/../'
     save_path = root_location + 'pretrained/' + save_file
@@ -45,15 +45,16 @@ def train_vae(molecules = True,
         settings['BATCH_SIZE'] = BATCH_SIZE
 
 
-    model,_ = get_model(molecules=molecules,
-                        grammar=grammar,
+    pre_model = get_encoder(feature_len=settings['feature_len'],
+                        max_seq_length=settings['max_seq_length'],
+                        cnn_encoder_params={'kernel_sizes': (2, 3, 4),
+                                            'filters': (2, 3, 4),
+                                            'dense_size': 100},
                         drop_rate=drop_rate,
-                        sample_z = sample_z,
-                        rnn_encoder=encoder_type,
-                        decoder_type = decoder_type,
-                        weights_file=preload_path if preload_weights else None,
-                        epsilon_std=epsilon_std
+                        encoder_type=encoder_type
                         )
+
+    model = MeanVarianceHead(pre_model, drop_rate=drop_rate)
 
     nice_params = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = optim.Adam(nice_params, lr=lr)
