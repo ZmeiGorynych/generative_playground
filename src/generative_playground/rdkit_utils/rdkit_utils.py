@@ -96,6 +96,7 @@ def property_scorer(smiles):
         if mol is None:
             out.append([0] * (1 + len(function_list)))
         else:
-            out.append([1] + [f(mol) for f in function_list])
+            out.append([1] + list(get_score_components_from_mol(mol)))
+                #[f(mol) for f in function_list])
 
     return np.array(out)

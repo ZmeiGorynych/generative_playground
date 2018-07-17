@@ -25,7 +25,7 @@ def fit(train_gen = None,
         epochs = None,
         loss_fn = None,
         batches_to_valid=9,
-        grad_clip = None,
+        grad_clip = 5,
         metric_monitor = None,
         checkpointer = None
         ):
