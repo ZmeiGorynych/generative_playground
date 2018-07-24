@@ -41,7 +41,12 @@ class SoftmaxRandomSamplePolicy(SimplePolicy):
     def __init__(self):
         super().__init__()
         self.gumbel = Gumbel(loc=0, scale=1)
-    def forward(self, logits:Variable):
+    def forward(self, logits: Variable):
+        '''
+
+        :param logits: Logits to generate probabilities from
+        :return:
+        '''
         _, out = torch.max(to_gpu(self.gumbel.sample(logits.shape)) + logits, -1)
         return out
 
