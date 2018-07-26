@@ -20,7 +20,7 @@ settings = get_settings(molecules,grammar)
 save_file =settings['filename_stub'] + 'dr0.2_attn.h5'
 
 model, fitter, main_dataset = train_vae(molecules=molecules,
-                                        BATCH_SIZE=18,  # it's a bit of a GPU RAM hog
+                                        BATCH_SIZE=10,  # it's a bit of a GPU RAM hog
                                         drop_rate=0.2,
                                         save_file=save_file,
                                         sample_z=False,

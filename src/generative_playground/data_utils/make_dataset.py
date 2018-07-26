@@ -6,10 +6,6 @@ except:
     import os, inspect, sys
     my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     sys.path.append('../..')
-try:
-    import transformer
-except:
-    sys.path.append('../../attention-is-all-you-need-pytorch')
 
 from generative_playground.models.model_settings import get_settings, get_model
 from generative_playground.data_utils.data_sources import IncrementingHDF5Dataset

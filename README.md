@@ -12,9 +12,11 @@ generalize the code to work with both equations and molecules, and fix a minor b
 ## Requirements
 
 * `pip install -r requirements.txt`
-* `pip install gpyopt` : need to do separately, after the other requirements (that's been fixed in gpyopt source apparently, issue 143, but not yet in the package)
-* pytorch 0.4 and visdom
+* pytorch: [0.4 packaged version](https://pytorch.org/#pip-install-pytorch) appears to have a bug loading saved weights
+for modules with batch_norm in them, so I recommend you build from source instead
 * rdkit: `conda install -c rdkit rdkit`
+* To run the Transformer modules, you'll also need to check out https://github.com/ZmeiGorynych/transformer_pytorch.git
+and add the transformer_pytorch (top) directory to your path
 
 ## How to run
 * `data_utils/make_dataset.py` creates the hd5 datasets necessary to train the models. 

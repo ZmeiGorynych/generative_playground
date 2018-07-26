@@ -12,6 +12,7 @@ from generative_playground.models.heads.attention_aggregating_head import Attent
 from generative_playground.models.encoder.basic_cnn import SimpleCNNEncoder
 from generative_playground.models.decoder.decoders import OneStepDecoderContinuous, \
     SimpleDiscreteDecoder
+from generative_playground.models.heads.masking_head import MaskingHead
 from generative_playground.models.decoder.policy import SoftmaxRandomSamplePolicy
 from transformer.OneStepAttentionDecoder import SelfAttentionDecoderStep
 from transformer.Models import Encoder
@@ -265,13 +266,14 @@ def get_decoder(molecules = True,
             raise NotImplementedError('Unknown decoder type: ' + str(decoder_type))
         #stepper = OneStepDecoder(pre_decoder, max_len=max_seq_length)
         stepper = pre_decoder
+
     if grammar:
         mask_gen = GrammarMaskGenerator(max_seq_length, grammar=settings['grammar'])
-    else:
-        mask_gen = None
+        stepper = MaskingHead(stepper, mask_gen)
+
     policy = SoftmaxRandomSamplePolicy()
 
-    decoder = to_gpu(SimpleDiscreteDecoder(stepper, policy, mask_gen))#, bypass_actions=True))
+    decoder = to_gpu(SimpleDiscreteDecoder(stepper, policy))#, bypass_actions=True))
 
     return decoder, pre_decoder
 

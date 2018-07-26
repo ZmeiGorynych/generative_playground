@@ -4,7 +4,7 @@ from torch.autograd import Variable
 
 from generative_playground.models.decoder.policy import PolicyFromTarget
 from generative_playground.models.heads.mean_variance_head import MeanVarianceHead
-from generative_playground.utils.gpu_utils import to_gpu
+from generative_playground.utils.gpu_utils import to_gpu, FloatTensor
 
 
 class VariationalAutoEncoderHead(nn.Module):

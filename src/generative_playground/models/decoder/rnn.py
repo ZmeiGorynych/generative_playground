@@ -118,13 +118,13 @@ class SimpleRNNDecoder(nn.Module):
         self.z_size = z.size()[-1]
         self.n = 0
 
-    # TODO: remove this method!
-    def decode(self, z):
-        if 'numpy' in str(type(z)):
-            z = Variable(FloatTensor(z))
-        self.reset_state()
-        output = self.forward(z)
-        return output.data.cpu().numpy()
+    # # TODO: remove this method!
+    # def decode(self, z):
+    #     if 'numpy' in str(type(z)):
+    #         z = Variable(FloatTensor(z))
+    #     self.reset_state()
+    #     output = self.forward(z)
+    #     return output.data.cpu().numpy()
 
     def init_hidden(self, batch_size):
         # NOTE: assume only 1 layer no bi-direction

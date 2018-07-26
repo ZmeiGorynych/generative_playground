@@ -8,4 +8,5 @@ pandas
 tables
 argparse
 gpy
-
+gpyopt
+visdom

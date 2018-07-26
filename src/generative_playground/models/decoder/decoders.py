@@ -1,6 +1,5 @@
 import torch
 from torch import nn as nn
-from torch import functional as F
 
 from generative_playground.utils.gpu_utils import to_gpu, FloatTensor
 from generative_playground.models.decoder.policy import SimplePolicy
@@ -41,7 +40,7 @@ class OneStepDecoderContinuous(nn.Module):
             raise StopIteration()
 
 class SimpleDiscreteDecoder(nn.Module):
-    def __init__(self, stepper, policy: SimplePolicy, mask_gen = None, bypass_actions=False):
+    def __init__(self, stepper, policy: SimplePolicy, bypass_actions=False): #mask_gen = None,
         '''
         A simple discrete decoder, alternating getting logits from model and actions from policy
         :param stepper:
@@ -54,7 +53,7 @@ class SimpleDiscreteDecoder(nn.Module):
         self.stepper = to_gpu(stepper)
         #self.z_size = self.stepper.z_size
         self.policy = policy
-        self.mask_gen = mask_gen
+        #self.mask_gen = mask_gen
         self.bypass_actions = bypass_actions
 
     def forward(self, z):
@@ -71,30 +70,31 @@ class SimpleDiscreteDecoder(nn.Module):
             try:
   #          if True:
                 #  batch x num_actions
-                next_logits = self.stepper(last_action)
-                # just in case we were returned a sequence of length 1
-                next_logits = torch.squeeze(next_logits, 1)
-                if self.mask_gen is not None:
-                    # mask_gen might return a numpy mask
-                    mask = FloatTensor(self.mask_gen(last_action))
-                    masked_logits = next_logits - 1e4*(1-mask)
-                else:
-                    masked_logits = next_logits
+                next_logits = self.stepper(last_action=last_action)
+                # # just in case we were returned a sequence of length 1
+                # next_logits = torch.squeeze(next_logits, 1)
+                # if self.mask_gen is not None:
+                #     # mask_gen might return a numpy mask
+                #     mask = FloatTensor(self.mask_gen(last_action))
+                #     masked_logits = next_logits - 1e4*(1-mask)
+                # else:
+                #     masked_logits = next_logits
 
-                next_action = self.policy(masked_logits)
-                out_logits.append(torch.unsqueeze(masked_logits,1))
+                next_action = self.policy(next_logits)
+                out_logits.append(torch.unsqueeze(next_logits,1))
                 out_actions.append(torch.unsqueeze(next_action,1))
                 last_action = next_action
             except StopIteration as e:
+                # StopIteration is how the model signals it's done
                 #print(e)
                 break
-        if self.mask_gen is not None:
-            self.mask_gen.reset()
+        # if self.mask_gen is not None:
+        #     self.mask_gen.reset()
         out_actions_all = torch.cat(out_actions, 1)
         out_logits_all = torch.cat(out_logits, 1)
         return out_actions_all, out_logits_all
 
-class SimpleDiscreteDecoderWithEvnv(nn.Module):
+class SimpleDiscreteDecoderWithEnv(nn.Module):
     def __init__(self,
                  stepper,
                  policy: SimplePolicy,
@@ -153,35 +153,22 @@ class SimpleDiscreteDecoderWithEvnv(nn.Module):
                 else:
                     # TODO does that play nicely after sequence end?
                     last_state, rewards, terminals, _ = self.task.step(next_action.detach().cpu().numpy())
-                    out_rewards.append(rewards)
-                    out_terminals.append(terminals)
+                    out_rewards.append(to_pytorch(rewards))
+                    out_terminals.append(to_pytorch(terminals))
             except StopIteration as e:
                 #print(e)
                 break
-        if self.mask_gen is not None:
-            self.mask_gen.reset()
+        # if self.mask_gen is not None:
+        #     self.mask_gen.reset()
         out_actions_all = torch.cat(out_actions, 1)
         out_logits_all = torch.cat(out_logits, 1)
-        return out_actions_all, out_logits_all
+        out_rewards_all = torch.cat(out_rewards, 1)
+        out_terminals_all = torch.cat(out_terminals, 1)
 
-class PolicyGradientLoss(nn.Module):
-    def forward(self, logits, actions, rewards, terminals):
-        '''
-        Calculate a policy gradient loss given the logits
-        :param logits: batch x seq_length x num_actions floats
-        :param actions: batch x seq_length ints
-        :param rewards: batch x seq_len floats
-        :param terminals: batch x seq_len x num_action True if
-        :return:
-        '''
-        log_p = torch.nn.LogSoftmax(logits, dim=2)
-        total_rewards = rewards.sum(1)
-        term_mask = ...
-        total_loss = 0
-        masked_logp = log_p * term_mask
-        for i in range(logits.size()[1]):
-            dloss = -masked_logp[:, i, actions[:,i]].mean()
-            total_loss += dloss
+        return out_actions_all, out_logits_all, out_rewards_all, out_terminals_all
 
-        total_loss *= total_rewards
-        return total_loss
+def to_pytorch(x):
+    if 'ndarray' in str(type(x)):
+        return to_gpu(torch.from_numpy(x))
+    else:
+        return x

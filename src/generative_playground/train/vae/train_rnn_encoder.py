@@ -21,7 +21,7 @@ settings = get_settings(molecules,grammar)
 save_file =settings['filename_stub'] + 'dr0.2_rnn.h5'
 
 model, fitter, main_dataset = train_vae(molecules=molecules,
-                                        BATCH_SIZE=250, # 250 max for p2.xlarge
+                                        BATCH_SIZE=150, # 250 max for p2.xlarge
                                         drop_rate=0.2,
                                         save_file=save_file,
                                         sample_z=False,
