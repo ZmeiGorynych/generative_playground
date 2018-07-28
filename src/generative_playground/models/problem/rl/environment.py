@@ -19,11 +19,13 @@ class SequenceEnvironment:
         self.codec = settings['codec']
         self.reward_fun = reward_fun
         self.batch_size = batch_size
+        self.smiles = []
         self.reset()
 
     def reset(self):
         self.actions = []
         self.done_rewards = [None for _ in range(self.batch_size)]
+        self.smiles = []
         return [None]*self.batch_size
 
     def step(self, action):
@@ -43,7 +45,7 @@ class SequenceEnvironment:
         if len(self.actions) < self._max_episode_steps:
             done = action == self.action_dim-1 # max index is padding, by convention
         else:
-            done = np.ones_like(action)
+            done = np.ones_like(action) == 1
 
         reward = np.zeros_like(action, dtype=np.float)
         # for those sequences just computed, calculate the reward
@@ -51,7 +53,7 @@ class SequenceEnvironment:
             if self.done_rewards[i] is None and done[i]:
                 this_action_seq = np.concatenate(self.actions, axis=1)[i:(i+1),:]
                 this_char_seq = self.codec.decode_from_actions(this_action_seq) # codec expects a batch
-                #print('this_char_seq:', this_char_seq)
+                self.smiles += this_char_seq
                 this_reward = self.reward_fun(this_char_seq)[0]
                 self.done_rewards[i] = this_reward
                 reward[i] = this_reward

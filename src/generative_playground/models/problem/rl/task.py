@@ -1,4 +1,4 @@
-from deep_rl import BaseTask
+from generative_playground.models.problem.rl.base_task import BaseTask
 from generative_playground.models.problem.rl.environment import SequenceEnvironment
 
 class SequenceGenerationTask(BaseTask):
@@ -18,4 +18,4 @@ class SequenceGenerationTask(BaseTask):
                                        max_steps=max_steps)
         self.action_dim = self.env.action_dim
         self.state_dim = self.env.state_dim
-        self.env = self.set_monitor(self.env, log_dir)
+        #self.env = self.set_monitor(self.env, log_dir)

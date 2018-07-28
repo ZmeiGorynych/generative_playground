@@ -21,7 +21,7 @@ settings = get_settings(molecules,grammar)
 save_file =settings['filename_stub'] + 'baseline__.h5'
 model, fitter, _ = train_vae(molecules=molecules,
                              grammar=grammar,
-                             BATCH_SIZE=250,  # max 500 on a p2.xlarge
+                             BATCH_SIZE=50,  # max 500 on a p2.xlarge
                              save_file=save_file,
                              sample_z=True,
                              encoder_type='cnn',

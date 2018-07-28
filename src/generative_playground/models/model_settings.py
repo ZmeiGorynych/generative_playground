@@ -11,7 +11,7 @@ from generative_playground.models.encoder.basic_rnn import SimpleRNN
 from generative_playground.models.heads.attention_aggregating_head import AttentionAggregatingHead
 from generative_playground.models.encoder.basic_cnn import SimpleCNNEncoder
 from generative_playground.models.decoder.decoders import OneStepDecoderContinuous, \
-    SimpleDiscreteDecoder
+    SimpleDiscreteDecoderWithEnv
 from generative_playground.models.heads.masking_head import MaskingHead
 from generative_playground.models.decoder.policy import SoftmaxRandomSamplePolicy
 from transformer.OneStepAttentionDecoder import SelfAttentionDecoderStep
@@ -221,7 +221,8 @@ def get_decoder(molecules = True,
                  feature_len=12,
                  max_seq_length=15,
                  drop_rate = 0.0,
-                        decoder_type='step'):
+                        decoder_type='step',
+                task = None):
     settings = get_settings(molecules,grammar)
     if decoder_type=='old':
         pre_decoder = ResettingRNNDecoder(z_size=z_size,
@@ -264,7 +265,7 @@ def get_decoder(molecules = True,
 
         else:
             raise NotImplementedError('Unknown decoder type: ' + str(decoder_type))
-        #stepper = OneStepDecoder(pre_decoder, max_len=max_seq_length)
+
         stepper = pre_decoder
 
     if grammar:
@@ -273,7 +274,7 @@ def get_decoder(molecules = True,
 
     policy = SoftmaxRandomSamplePolicy()
 
-    decoder = to_gpu(SimpleDiscreteDecoder(stepper, policy))#, bypass_actions=True))
+    decoder = to_gpu(SimpleDiscreteDecoderWithEnv(stepper, policy, task=task))#, bypass_actions=True))
 
     return decoder, pre_decoder
 

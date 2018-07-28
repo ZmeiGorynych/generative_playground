@@ -25,10 +25,12 @@ class MaskingHead(nn.Module):
         :return:
         '''
         next_logits = self.model(*args, **kwargs)
-        # just in case we were returned a sequence of length 1 rather than a straight batch_size x num_actions
-        next_logits = torch.squeeze(next_logits, 1)
 
-        mask = FloatTensor(self.mask_gen(kwargs['last_action']))
+        if 'last_action' in kwargs:
+            last_action = kwargs['last_action']
+        else:
+            last_action = args[0]
+
+        mask = FloatTensor(self.mask_gen(last_action))
         masked_logits = next_logits - 1e4 * (1 - mask)
         return masked_logits
-

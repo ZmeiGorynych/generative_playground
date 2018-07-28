@@ -19,7 +19,7 @@ except:
 import torch
 from generative_playground.data_utils.data_sources import IncrementingHDF5Dataset
 from generative_playground.visdom_helper.visdom_helper import Dashboard
-from generative_playground.train.main_train_reinforcement import train_reinforcement
+from generative_playground.train.rl.main_train_reinforcement import train_reinforcement
 from generative_playground.models.model_settings import get_settings, get_model
 from generative_playground.models.problem.rl.reinforcement import ReinforcementModel
 from generative_playground.rdkit_utils.rdkit_utils import fraction_valid

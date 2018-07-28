@@ -57,6 +57,8 @@ class GrammarMaskGenerator:
         return mask#.astype(int)
 
 
+
+
 def pop_or_nothing(S):
     if len(S):
         return S.pop()

@@ -11,7 +11,7 @@ except:
 from deep_rl import Config
 import torch
 from generative_playground.models.problem.rl.network_heads import CategoricalActorCriticNet
-from generative_playground.train.run_iterations import run_iterations
+from generative_playground.train.rl.run_iterations import run_iterations
 from generative_playground.rdkit_utils.rdkit_utils import num_atoms, NormalizedScorer
 from generative_playground.models.problem.rl.DeepRL_wrappers import BodyAdapter, MyA2CAgent
 from generative_playground.models.problem.rl.task import SequenceGenerationTask
