@@ -15,7 +15,7 @@ from generative_playground.models.model_settings import get_decoder
 from generative_playground.models.losses.policy_gradient_loss import PolicyGradientLoss
 from generative_playground.models.decoder.policy import SoftmaxRandomSamplePolicy, PolicyFromTarget
 from generative_playground.data_utils.data_sources import MultiDatasetFromHDF5, train_valid_loaders, IterableTransform
-
+from generative_playground.data_utils.data_sources import IncrementingHDF5Dataset
 
 def train_policy_gradient(molecules = True,
               grammar = True,
@@ -31,11 +31,13 @@ def train_policy_gradient(molecules = True,
               decoder_type='action',
               plot_prefix = '',
               dashboard = 'policy gradient',
+                          smiles_save_file=None,
               preload_weights=False):
 
     root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     root_location = root_location + '/../'
     save_path = root_location + 'pretrained/' + save_file
+    smiles_save_path = root_location + 'pretrained/' + smiles_save_file
     if preload_file is None:
         preload_path = save_path
     else:
@@ -48,11 +50,14 @@ def train_policy_gradient(molecules = True,
     if BATCH_SIZE is not None:
         settings['BATCH_SIZE'] = BATCH_SIZE
 
+    save_dataset = IncrementingHDF5Dataset(smiles_save_path)
+
     task = SequenceGenerationTask(molecules=molecules,
                                   grammar=grammar,
                                   reward_fun=reward_fun,
                                   batch_size=BATCH_SIZE,
-                                  max_steps=max_steps)
+                                  max_steps=max_steps,
+                                  save_dataset=save_dataset)
 
     model, _ = get_decoder(molecules,
                            grammar,

@@ -65,9 +65,11 @@ class CombinedLoader:
 
                 if type(x_list[0]) == tuple or type(x_list[0]) == list:
                     x = tuple(to_gpu(torch.cat(elem, dim=0)) for elem in zip(*x_list))
+                    yield (x[0], (x[1:] if len(x) > 2 else x[1]))
                 else:
                     x = to_gpu(torch.cat(x_list, dim=0))
+                    yield x
 
-                yield (x[0], x[1:])
+
 
         return gen()

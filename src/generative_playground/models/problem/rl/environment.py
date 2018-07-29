@@ -2,13 +2,15 @@ import numpy as np
 
 from generative_playground.models.model_settings import get_settings
 
+
 class SequenceEnvironment:
     def __init__(self,
                  molecules=True,
                  grammar=True,
-                 reward_fun = None,
+                 reward_fun=None,
                  batch_size=1,
-                 max_steps = None):
+                 max_steps=None,
+                 save_dataset=None):
         settings = get_settings(molecules, grammar)
         self.action_dim = settings['feature_len']
         self.state_dim = self.action_dim
@@ -19,13 +21,20 @@ class SequenceEnvironment:
         self.codec = settings['codec']
         self.reward_fun = reward_fun
         self.batch_size = batch_size
-        self.smiles = []
+        self.save_dataset = save_dataset
+        self.smiles = None
+        self.seq_len = None
+        self.valid = None
+        self.actions = None
+        self.done_rewards = None
         self.reset()
 
     def reset(self):
         self.actions = []
         self.done_rewards = [None for _ in range(self.batch_size)]
         self.smiles = []
+        self.seq_len = np.zeros([self.batch_size])
+        self.valid = np.zeros([self.batch_size])
         return [None]*self.batch_size
 
     def step(self, action):
@@ -57,6 +66,14 @@ class SequenceEnvironment:
                 this_reward = self.reward_fun(this_char_seq)[0]
                 self.done_rewards[i] = this_reward
                 reward[i] = this_reward
+                self.seq_len[i] = len(self.actions)
+
+        if len(self.actions) == self._max_episode_steps:
+            # dump the whole batch to disk
+            append_data = {'smiles': np.array(self.smiles, dtype='S'),
+                           'actions': np.concatenate(self.actions, axis=1),
+                           'seq_len': self.seq_len}
+            self.save_dataset.append(append_data)
 
         return next_state, reward, done, None
 

@@ -34,7 +34,7 @@ def reward_length(smiles):
 
 
 
-batch_size = 10
+batch_size = 40
 drop_rate = 0.3
 molecules = True
 grammar = True
@@ -54,7 +54,8 @@ model, fitter = train_policy_gradient(molecules,
               decoder_type='attention',
               plot_prefix = '',
               dashboard = 'policy gradient',
-                                      save_file='dummy.h5')
+                                      save_file='dummy.h5',
+                                      smiles_save_file='pg_smiles.h5')
 
 while True:
     next(fitter)

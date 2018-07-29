@@ -22,12 +22,12 @@ class DatasetFromHDF5(Dataset):
         return self.data[item].astype(float)
 
 
-# TODo: this is very crude, need to convert hdf5 types to pytorch-compatible in a nicer way
+# TODO: this is very crude, need to convert hdf5 types to pytorch-compatible in a nicer way
 def try_float(x):
     try:
         return x.float()
     except:
-        if isinstance(x, bytes):
+        if 'bytes' in str(type(x)):
             return x.decode("utf-8")
         else:
             return x
@@ -122,6 +122,10 @@ class IterableTransform:
     def __init__(self, iterable, transform = None):
         self.iterable = iterable
         self.transform = transform
+        try: # if the iterable is a loader, it will have a batch size
+            self.batch_size = iterable.batch_size
+        except:
+            pass
 
     def __iter__(self):
         def gen():
@@ -286,9 +290,9 @@ class SamplingWrapper:
             dataset = self.storage.h5f[ds_name]
 
         if valid is None:
-            return dataset[item]
+            return try_float(dataset[item])
         elif self.idx[valid] is not None:
-            return dataset[self.idx[valid][item]]
+            return try_float(dataset[self.idx[valid][item]])
         else:
             return None
 
