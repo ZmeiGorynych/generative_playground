@@ -25,6 +25,8 @@ class MaskingHead(nn.Module):
         :return:
         '''
         next_logits = self.model(*args, **kwargs)
+        # just in case we were returned a sequence of length 1 rather than a straight batch_size x num_actions
+        next_logits = torch.squeeze(next_logits, 1)
 
         if 'last_action' in kwargs:
             last_action = kwargs['last_action']

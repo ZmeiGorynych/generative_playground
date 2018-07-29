@@ -17,7 +17,7 @@ molecules = True
 grammar = True
 settings = get_settings(molecules,grammar)
 
-save_file =settings['filename_stub'] + 'dr0.2_attn.h5'
+save_file =settings['filename_stub'] + 'dr0.2_attn__.h5'
 
 model, fitter, main_dataset = train_vae(molecules=molecules,
                                         BATCH_SIZE=10,  # it's a bit of a GPU RAM hog

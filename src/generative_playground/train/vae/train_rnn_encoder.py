@@ -18,7 +18,7 @@ molecules = True
 grammar = True
 settings = get_settings(molecules,grammar)
 
-save_file =settings['filename_stub'] + 'dr0.2_rnn.h5'
+save_file =settings['filename_stub'] + 'dr0.2_rnn__.h5'
 
 model, fitter, main_dataset = train_vae(molecules=molecules,
                                         BATCH_SIZE=150, # 250 max for p2.xlarge

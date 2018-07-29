@@ -127,11 +127,11 @@ class SimpleDiscreteDecoderWithEnv(nn.Module):
                     last_state = to_pytorch(last_state)
                 #  batch x num_actions
                 next_logits = self.stepper(last_state)
-                # just in case we were returned a sequence of length 1 rather than a straight batch_size x num_actions
-                next_logits = torch.squeeze(next_logits, 1)
-                if self.mask_gen is not None:
-                    mask = FloatTensor(self.mask_gen(last_state))
-                    next_logits = next_logits - 1e4 * (1 - mask)
+                # #just in case we were returned a sequence of length 1 rather than a straight batch_size x num_actions
+                # next_logits = torch.squeeze(next_logits, 1)
+                # if self.mask_gen is not None:
+                #     mask = FloatTensor(self.mask_gen(last_state))
+                #     next_logits = next_logits - 1e4 * (1 - mask)
 
                 next_action = self.policy(next_logits)
                 out_logits.append(next_logits)

@@ -18,7 +18,7 @@ molecules = True
 grammar = True
 settings = get_settings(molecules,grammar)
 
-save_file =settings['filename_stub'] + 'dr0.4_rnn_resnet.h5'
+save_file =settings['filename_stub'] + 'dr0.4_rnn_resnet__.h5'
 
 model, fitter, main_dataset = train_vae(molecules=molecules,
                                         BATCH_SIZE=100, # max 200 on p2.xlarge
