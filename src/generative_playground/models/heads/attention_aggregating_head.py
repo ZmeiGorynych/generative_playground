@@ -6,6 +6,7 @@ class AttentionAggregatingHead(nn.Module):
     def __init__(self, model, drop_rate=0.1):
         super().__init__()
         self.model = model
+        self.model_out_transform = lambda x: x[0] if isinstance(x, tuple) else x
         feature_len = model.output_shape[-1]
         self.attention_wgt = nn.Linear(feature_len,1)
         self.dropout_1 = nn.Dropout(drop_rate)
@@ -19,8 +20,8 @@ class AttentionAggregatingHead(nn.Module):
         :return: batch x feature_len
         '''
         model_out = self.model(x)
-        if isinstance(model_out, tuple): # some models return extra info, which we now discard
-            model_out=model_out[0]
+        model_out = self.model_out_transform(model_out)
+
         assert(len(model_out.size())==3, 'AttentionAggregatingHead needs sequences as inputs')
         model_out = self.dropout_1(model_out.contiguous())
         batch_size = model_out.size()[0]

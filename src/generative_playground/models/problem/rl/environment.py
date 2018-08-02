@@ -73,7 +73,8 @@ class SequenceEnvironment:
             append_data = {'smiles': np.array(self.smiles, dtype='S'),
                            'actions': np.concatenate(self.actions, axis=1),
                            'seq_len': self.seq_len}
-            self.save_dataset.append(append_data)
+            if self.save_dataset is not None:
+                self.save_dataset.append(append_data)
 
         return next_state, reward, done, None
 

@@ -4,6 +4,10 @@ import torch.nn.functional as F
 
 
 class PolicyGradientLoss(nn.Module):
+    def __init__(self, loss_type='mean'):
+        super().__init__()
+        self.loss_type = loss_type
+
     def forward(self, model_out):
         '''
         Calculate a policy gradient loss given the logits
@@ -25,4 +29,10 @@ class PolicyGradientLoss(nn.Module):
         total_loss *= total_rewards
         self.metrics = {'avg reward': total_rewards.mean().data.item(),
                         'max reward': total_rewards.max().data.item()}
-        return total_loss.mean()
+        if self.loss_type == 'mean':
+            my_loss = total_loss.mean()
+        elif self.loss_type == 'best':
+            best_ind = torch.argmax(total_rewards)
+            my_loss = total_loss[best_ind]
+
+        return my_loss

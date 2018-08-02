@@ -151,7 +151,7 @@ def get_model(molecules=True,
     encoder = get_encoder(**{key:value for key, value in model_args.items()
                              if key in encoder_args})
 
-    decoder_args = ['z_size','decoder_hidden_n','feature_len','max_seq_length','drop_rate']
+    decoder_args = ['z_size','decoder_hidden_n','feature_len','max_seq_length','drop_rate','batch_size']
     decoder, _ = get_decoder(molecules,
                              grammar,
                              decoder_type=decoder_type,
@@ -222,7 +222,8 @@ def get_decoder(molecules = True,
                  max_seq_length=15,
                  drop_rate = 0.0,
                         decoder_type='step',
-                task = None):
+                task = None,
+                batch_size=None):
     settings = get_settings(molecules,grammar)
     if decoder_type=='old':
         pre_decoder = ResettingRNNDecoder(z_size=z_size,
@@ -246,8 +247,7 @@ def get_decoder(molecules = True,
                                        hidden_n=decoder_hidden_n,
                                        feature_len=feature_len,
                                        max_seq_length=max_seq_length,
-                                       drop_rate=drop_rate,
-                                       use_last_action=True)
+                                       drop_rate=drop_rate)
 
         elif decoder_type == 'action_resnet':
             pre_decoder = ResNetRNNDecoder(z_size=z_size,  # + feature_len,
@@ -274,7 +274,10 @@ def get_decoder(molecules = True,
 
     policy = SoftmaxRandomSamplePolicy()
 
-    decoder = to_gpu(SimpleDiscreteDecoderWithEnv(stepper, policy, task=task))#, bypass_actions=True))
+    decoder = to_gpu(SimpleDiscreteDecoderWithEnv(stepper,
+                                                  policy,
+                                                  task=task,
+                                                  batch_size=batch_size))#, bypass_actions=True))
 
     return decoder, pre_decoder
 

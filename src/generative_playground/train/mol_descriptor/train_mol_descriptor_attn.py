@@ -27,7 +27,7 @@ aux_dataset = IncrementingHDF5Dataset(save_path)
 
 model, fitter, _ = train_mol_descriptor(grammar=True,
                                         EPOCHS=100,
-                                        BATCH_SIZE=10,
+                                        BATCH_SIZE=35,
                                         lr=5e-5,
                                         gradient_clip=0.1,
               drop_rate = 0.1,

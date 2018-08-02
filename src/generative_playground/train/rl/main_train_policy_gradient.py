@@ -32,16 +32,13 @@ def train_policy_gradient(molecules = True,
               plot_prefix = '',
               dashboard = 'policy gradient',
                           smiles_save_file=None,
-              preload_weights=False):
+                          on_policy_loss_type='best',
+                          off_policy_loss_type='mean'):
 
     root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     root_location = root_location + '/../'
     save_path = root_location + 'pretrained/' + save_file
     smiles_save_path = root_location + 'pretrained/' + smiles_save_file
-    if preload_file is None:
-        preload_path = save_path
-    else:
-        preload_path = root_location + 'pretrained/' + preload_file
 
     settings = get_settings(molecules=molecules,grammar=grammar)
 
@@ -68,35 +65,45 @@ def train_policy_gradient(molecules = True,
                            drop_rate=drop_rate,
                            decoder_type=decoder_type,
                            task=task)
+    if preload_file is not None:
+        try:
+            preload_path = root_location + 'pretrained/' + preload_file
+            model.load_state_dict(torch.load(preload_path))
+        except:
+            pass
 
-    nice_params = filter(lambda p: p.requires_grad, model.parameters())
-    optimizer = optim.Adam(nice_params, lr=lr)
-    scheduler = lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.99)
+    def get_fitter(model, loss_obj, fit_plot_prefix=''):
+        nice_params = filter(lambda p: p.requires_grad, model.parameters())
+        optimizer = optim.Adam(nice_params, lr=lr)
+        scheduler = lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.99)
 
-    loss_obj = PolicyGradientLoss()
 
-    metric_monitor = MetricPlotter(plot_prefix=plot_prefix,
-                                   loss_display_cap=float('inf'),
-                                   dashboard_name=dashboard,
-                                   plot_ignore_initial=plot_ignore_initial)
 
-    checkpointer = Checkpointer(valid_batches_to_checkpoint=1,
-                                save_path=save_path)
+        metric_monitor = MetricPlotter(plot_prefix=fit_plot_prefix,
+                                       loss_display_cap=float('inf'),
+                                       dashboard_name=dashboard,
+                                       plot_ignore_initial=plot_ignore_initial)
 
-    def my_gen():
-        for _ in range(1000):
-            yield to_gpu(torch.zeros(BATCH_SIZE, settings['z_size']))
+        checkpointer = Checkpointer(valid_batches_to_checkpoint=1,
+                                    save_path=save_path)
 
-    fitter = fit_rl(train_gen=my_gen,
-                 model=model,
-                 optimizer=optimizer,
-                 scheduler=scheduler,
-                 epochs=EPOCHS,
-                 loss_fn=loss_obj,
-                 grad_clip=5,
-                 metric_monitor=metric_monitor,
-                 checkpointer=checkpointer)
+        def my_gen():
+            for _ in range(1000):
+                yield to_gpu(torch.zeros(BATCH_SIZE, settings['z_size']))
 
+        fitter = fit_rl(train_gen=my_gen,
+                     model=model,
+                     optimizer=optimizer,
+                     scheduler=scheduler,
+                     epochs=EPOCHS,
+                     loss_fn=loss_obj,
+                     grad_clip=5,
+                     metric_monitor=metric_monitor,
+                     checkpointer=checkpointer)
+
+        return fitter
+
+    fitter1 = get_fitter(model, PolicyGradientLoss(on_policy_loss_type),  plot_prefix + 'on-policy')
     # get existing molecule data to add training
     main_dataset = DatasetFromHDF5(settings['data_path'], 'actions')
 
@@ -106,19 +113,23 @@ def train_policy_gradient(molecules = True,
                                                      batch_size=BATCH_SIZE,
                                                      pin_memory=use_gpu)
 
+    fitter2 = get_fitter(model, PolicyGradientLoss(off_policy_loss_type), plot_prefix + ' off-policy')
 
-    def optimizer_gen(fitter, data_gen, model):
+    def on_policy_gen(fitter, model):
+        while True:
+            model.policy = SoftmaxRandomSamplePolicy()
+            yield next(fitter)
+
+    def off_policy_gen(fitter, data_gen, model):
         while True:
             data_iter = data_gen.__iter__()
             try:
-                model.policy = SoftmaxRandomSamplePolicy()
-                yield next(fitter)
                 x_actions = next(data_iter).to(torch.int64)
                 model.policy = PolicyFromTarget(x_actions)
                 yield next(fitter)
             except StopIteration:
                 data_iter = data_gen.__iter__()
 
-    return model, optimizer_gen(fitter, train_loader, model)
+    return model, on_policy_gen(fitter1, model), off_policy_gen(fitter2, train_loader, model)
 
 

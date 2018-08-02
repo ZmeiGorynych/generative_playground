@@ -86,7 +86,8 @@ class SimpleDiscreteDecoderWithEnv(nn.Module):
                  stepper,
                  policy: SimplePolicy,
                  task=None,
-                 mask_gen=None):
+                 mask_gen=None,
+                 batch_size=None):
         '''
         A simple discrete decoder, alternating getting logits from model and actions from policy
         :param stepper:
@@ -102,6 +103,8 @@ class SimpleDiscreteDecoderWithEnv(nn.Module):
         self.task = task
         self.bypass_actions = False # legacy
         self.mask_gen = mask_gen
+        self.output_shape = [None, None, self.stepper.output_shape[-1]]
+        self.batch_size = batch_size
 
     def forward(self, z=None):
         # initialize the decoding model
@@ -118,6 +121,8 @@ class SimpleDiscreteDecoderWithEnv(nn.Module):
             last_state = self.task.reset()
         elif z is not None:
             last_state = [None]*len(z)
+        else:
+            last_state = [None]*self.batch_size
 
         step = 0
         # as it's PyTorch, can determine max_len dynamically, by when the stepper raises StopIteration

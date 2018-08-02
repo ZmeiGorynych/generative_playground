@@ -7,6 +7,7 @@ class MaskingHead(nn.Module):
         super().__init__()
         self.mask_gen = mask_gen
         self.model = model
+        self.output_shape = self.model.output_shape
 
     def init_encoder_output(self, z):
         '''

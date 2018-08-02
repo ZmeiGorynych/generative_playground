@@ -31,6 +31,15 @@ def num_atoms(smiles):
     sizes = [None if m is None else len(m.GetAtoms()) for m in mols]
     return sizes
 
+def num_aromatic_rings(smiles):
+    '''
+    Returns number of atoms in each molecule if valid, None otherwise
+    :param smiles: list of strings
+    :return: list of float or None, same length
+    '''
+    mols = mol_from_smiles(smiles)
+    sizes = [None if m is None else Descriptors.NumAromaticRings(m) for m in mols]
+    return sizes
 
 def get_score_components_from_mol(this_mol):
     try:
@@ -78,7 +87,7 @@ class NormalizedScorer:
         mols = [MolFromSmiles(s) for s in smiles]
         scores = np.array([get_score_components_from_mol(mol) if mol is not None else [float('nan')]*3
                                 for mol in mols])
-        norm_scores = ((scores - self.means)/self.stds).sum(1)
+        norm_scores = ((scores - self.means)/self.stds).mean(1)
         for i in range(len(norm_scores)):
             if np.isnan(norm_scores[i]):
                 norm_scores[i] = self.invalid_value
