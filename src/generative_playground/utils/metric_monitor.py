@@ -8,12 +8,14 @@ import os, inspect
 
 class MetricPlotter:
     def __init__(self,
-                 plot_prefix = '',
-                 save_file = None,
-                 loss_display_cap = 4,
+                 plot_prefix='',
+                 save_file=None,
+                 loss_display_cap=4,
                  dashboard_name=None,
-                 plot_ignore_initial=0):
+                 plot_ignore_initial=0,
+                 process_model_fun=None):
         self.plot_prefix = plot_prefix
+        self.process_model_fun = process_model_fun
         if save_file is not None:
             self.save_file = save_file
         else:
@@ -35,7 +37,7 @@ class MetricPlotter:
             self.have_visdom = False
             self.vis = None
 
-    def __call__(self, train, loss, metrics):
+    def __call__(self, train, loss, metrics=None, model_out=None):
         '''
         Plot the results of the latest batch
         :param train: bool: was this a traning batch?
@@ -63,13 +65,14 @@ class MetricPlotter:
                            'line',
                                 X=np.array([self.plot_counter]),
                                 Y=np.array([min(self.loss_display_cap, loss)]))
-                if metrics is not None:
+                if metrics is not None and len(metrics)>0:
                     self.vis.append(loss_name + ' metrics',
                                'line',
                                X=np.array([self.plot_counter]),
                                Y=np.array([[val for key, val in metrics.items()]]),
                                opts={'legend': [key for key, val in metrics.items()]})
-
+                if self.process_model_fun is not None:
+                    self.process_model_fun(model_out, self.vis, self.plot_counter)
         metrics =  {} if metrics is None else copy.copy(metrics)
         metrics['train'] = train
         metrics['gpu_usage'] = gpu_usage[0]

@@ -29,7 +29,7 @@ class Dashboard(Visdom):
                                  'refer to visdom documentation.'.format(type))
 
     def append(self, name, type, *args, **kwargs):
-        if name in self.plots:
+        if name in self.plots and type != 'svg':
             self.plot(name, type, *args, update='append', **kwargs)
         else:
             self.plot(name, type, *args, **kwargs)

@@ -5,6 +5,7 @@ from rdkit.Chem import Descriptors, rdmolops
 from rdkit.Chem.rdmolfiles import MolFromSmiles
 import rdkit.Chem.rdMolDescriptors as desc
 from generative_playground.rdkit_utils import sascorer as sascorer
+from generative_playground.models.model_settings import get_settings
 
 
 def fraction_valid(smiles):
@@ -71,14 +72,15 @@ def get_score_components(smiles):
 
 
 class NormalizedScorer:
-    def __init__(self, filename, invalid_value=-2):
-        h5f = h5py.File(filename, 'r')
+    def __init__(self, invalid_value=-2):
+        settings = get_settings(True, True)
+        h5f = h5py.File(settings['data_path'], 'r')
         self.means = np.array(h5f['score_mean'])
         self.stds = np.array(h5f['score_std'])
         self.invalid_value = invalid_value
         h5f.close()
 
-    def __call__(self, smiles):
+    def get_scores(self, smiles):
         '''
         get normalized score
         :param smiles: a list of strings
@@ -87,11 +89,18 @@ class NormalizedScorer:
         mols = [MolFromSmiles(s) for s in smiles]
         scores = np.array([get_score_components_from_mol(mol) if mol is not None else [float('nan')]*3
                                 for mol in mols])
-        norm_scores = ((scores - self.means)/self.stds).mean(1)
-        for i in range(len(norm_scores)):
-            if np.isnan(norm_scores[i]):
-                norm_scores[i] = self.invalid_value
-        return norm_scores
+        norm_scores = (scores - self.means)/self.stds
+
+        return scores, norm_scores
+
+    def __call__(self,smiles):
+        scores, norm_scores = self.get_scores(smiles)
+        norm_score = norm_scores.mean(1)
+        for i in range(len(norm_score)):
+            if np.isnan(norm_score[i]):
+                norm_score[i] = self.invalid_value
+
+        return norm_score
 
 def property_scorer(smiles):
     mols = mol_from_smiles(smiles)

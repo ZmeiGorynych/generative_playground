@@ -1,7 +1,7 @@
 import numpy as np
 
 from generative_playground.models.model_settings import get_settings
-
+from rdkit import Chem
 
 class SequenceEnvironment:
     def __init__(self,
@@ -32,7 +32,7 @@ class SequenceEnvironment:
     def reset(self):
         self.actions = []
         self.done_rewards = [None for _ in range(self.batch_size)]
-        self.smiles = []
+        self.smiles = [None for _ in range(self.batch_size)]
         self.seq_len = np.zeros([self.batch_size])
         self.valid = np.zeros([self.batch_size])
         return [None]*self.batch_size
@@ -62,7 +62,12 @@ class SequenceEnvironment:
             if self.done_rewards[i] is None and done[i]:
                 this_action_seq = np.concatenate(self.actions, axis=1)[i:(i+1),:]
                 this_char_seq = self.codec.decode_from_actions(this_action_seq) # codec expects a batch
-                self.smiles += this_char_seq
+                self.smiles[i] = this_char_seq[0]
+                this_mol = Chem.MolFromSmiles(self.smiles[i])
+                if this_mol is None:
+                    self.valid[i] = 0
+                else:
+                    self.valid[i] = 1
                 this_reward = self.reward_fun(this_char_seq)[0]
                 self.done_rewards[i] = this_reward
                 reward[i] = this_reward
@@ -76,7 +81,7 @@ class SequenceEnvironment:
             if self.save_dataset is not None:
                 self.save_dataset.append(append_data)
 
-        return next_state, reward, done, None
+        return next_state, reward, done, (self.smiles, self.valid)
 
     def seed(self, random_seed):
         return random_seed

@@ -17,22 +17,36 @@ class PolicyGradientLoss(nn.Module):
         :param terminals: batch x seq_len True if sequence has terminated at that step or earlier
         :return: float loss
         '''
-        actions, logits, rewards, terminals = model_out
+        actions, logits, rewards, terminals, info = model_out
+        smiles, valid = info
         batch_size, seq_len, num_actions = logits.size()
         log_p = F.log_softmax(logits, dim=2) * (1-terminals.unsqueeze(2))
         total_rewards = rewards.sum(1)
-        total_loss = 0
+        total_logp = 0
         for i in range(seq_len):
             dloss = torch.diag(-log_p[:, i, actions[:,i]]) # batch_size, hopefully
-            total_loss += dloss
+            total_logp += dloss
 
-        total_loss *= total_rewards
-        self.metrics = {'avg reward': total_rewards.mean().data.item(),
-                        'max reward': total_rewards.max().data.item()}
-        if self.loss_type == 'mean':
-            my_loss = total_loss.mean()
-        elif self.loss_type == 'best':
+        rewardloss =total_logp * total_rewards
+        if sum(valid) > 0:
+            self.metrics = {'avg reward': total_rewards.mean().data.item() - 2.5,
+                        'max reward': total_rewards.max().data.item() - 2.5}
+        else:
+            self.metrics = {}
+        my_loss = 0
+
+        if 'mean' in self.loss_type:
+            mean_loss = rewardloss.mean()
+            my_loss += mean_loss
+        if 'best' in self.loss_type:
             best_ind = torch.argmax(total_rewards)
-            my_loss = total_loss[best_ind]
+            best_loss = rewardloss[best_ind]
+            if valid[best_ind] == 0:
+                best_loss *= 0.0
+            my_loss += best_loss
+        if 'valid' in self.loss_type:
+            valid_reward = 2*valid - 1
+            valid_loss = (valid_reward*total_logp).mean()
+            my_loss += valid_loss
 
         return my_loss

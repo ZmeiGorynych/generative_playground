@@ -58,7 +58,10 @@ def fit_rl(train_gen = None,
                 avg_loss = checkpointer(this_loss, model)
 
             if metric_monitor is not None:
-                metric_monitor(True, this_loss, loss_fn.metrics if hasattr(loss_fn, 'metrics') else None)
+                metric_monitor(True,
+                               this_loss,
+                               loss_fn.metrics if hasattr(loss_fn, 'metrics') else None,
+                               outputs)
             yield this_loss
 
 

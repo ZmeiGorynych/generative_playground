@@ -145,7 +145,7 @@ class SimpleDiscreteDecoderWithEnv(nn.Module):
                     last_state = next_action
                 else:
                     # TODO does that play nicely after sequence end?
-                    last_state, rewards, terminals, _ = self.task.step(next_action.detach().cpu().numpy())
+                    last_state, rewards, terminals, info = self.task.step(next_action.detach().cpu().numpy())
                     out_rewards.append(to_pytorch(rewards))
                     out_terminals.append(to_pytorch(terminals))
             except StopIteration as e:
@@ -161,7 +161,7 @@ class SimpleDiscreteDecoderWithEnv(nn.Module):
         else:
             out_rewards_all = torch.cat([x.unsqueeze(1) for x in out_rewards], 1)
             out_terminals_all = torch.cat([x.unsqueeze(1) for x in out_terminals], 1)
-            return out_actions_all, out_logits_all, out_rewards_all, out_terminals_all
+            return out_actions_all, out_logits_all, out_rewards_all, out_terminals_all, (info[0], to_pytorch(info[1]))
 
 def to_pytorch(x):
     if 'ndarray' in str(type(x)):
