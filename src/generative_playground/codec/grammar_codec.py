@@ -52,7 +52,11 @@ class GrammarModel(GenericCodec):
                     for index in range(actions.shape[0])]
         out = []
         for ip, prods in enumerate(prod_seq):
-            out.append(prods_to_eq(prods))
+            grammar_out = prods_to_eq(prods)
+            # as NLTK doesn't allow empty strings as terminals, we used 'h' for implicit hydrogen
+            # now need to purge these
+            grammar_out = grammar_out.replace('h', '')
+            out.append(grammar_out)
 
         return out
 
@@ -66,9 +70,10 @@ def eq_tokenizer(s):
 
 
 def get_zinc_tokenizer(cfg):
-    long_tokens = [a for a in cfg._lexical_index.keys() if  len(a) > 1 ] #filter(lambda a: len(a) > 1, cfg._lexical_index.keys())
+    long_tokens = [a for a in cfg._lexical_index.keys() if len(a) > 1 ] #filter(lambda a: len(a) > 1, cfg._lexical_index.keys())
     replacements = ['$','%','^'] # ,'&']
-    assert len(long_tokens) == len(replacements)
+    # TODO: revisit this when parsing into the new grammar
+    #assert len(long_tokens) == len(replacements)
     for token in replacements:
         #assert not cfg._lexical_index.has_key(token)
         assert not token in cfg._lexical_index

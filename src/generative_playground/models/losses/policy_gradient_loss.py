@@ -27,10 +27,10 @@ class PolicyGradientLoss(nn.Module):
             dloss = torch.diag(-log_p[:, i, actions[:,i]]) # batch_size, hopefully
             total_logp += dloss
 
-        rewardloss =total_logp * total_rewards
+        rewardloss = total_logp * total_rewards
         if sum(valid) > 0:
-            self.metrics = {'avg reward': total_rewards.mean().data.item() - 2.5,
-                        'max reward': total_rewards.max().data.item() - 2.5}
+            self.metrics = {'avg reward': total_rewards.mean().data.item(),
+                        'max reward': total_rewards.max().data.item()}
         else:
             self.metrics = {}
         my_loss = 0

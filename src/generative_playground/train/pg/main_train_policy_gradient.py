@@ -103,8 +103,8 @@ def train_policy_gradient(molecules = True,
             visdom.append('score component',
                             'line',
                             X=np.array([n]),
-                            Y=np.array([[x for x in norm_scores[0]] + [desc.CalcNumAromaticRings(mol)]]),
-                            opts={'legend': ['logP','SA','cycle','Aromatic rings']})
+                            Y=np.array([[x for x in norm_scores[0]] + [norm_scores[0].mean()] + [desc.CalcNumAromaticRings(mol)]]),
+                            opts={'legend': ['logP','SA','cycle','mean_reward','Aromatic rings']})
             visdom.append('fraction valid',
                           'line',
                           X=np.array([n]),

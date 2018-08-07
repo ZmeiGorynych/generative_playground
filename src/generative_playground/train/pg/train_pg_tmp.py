@@ -33,7 +33,7 @@ def reward_aromatic_rings(smiles):
     if not len(smiles):
         return -1 # an empty string is invalid for our purposes
     atoms = num_aromatic_rings(smiles)
-    return [-1 if num is None else num+0.5 for num in atoms]
+    return np.array([-1 if num is None else num+0.5 for num in atoms])
 
 
 
@@ -54,7 +54,7 @@ def second_score(smiles):
             score[i] = -1
     return score
 
-reward_fun = lambda x: 2.5 + scorer(x)#lambda x: reward_aromatic_rings(x)#
+reward_fun = lambda x: 2.5 + scorer(x)# + 0.05*reward_aromatic_rings(x)#lambda x: reward_aromatic_rings(x)# #lambda x: reward_aromatic_rings(x)#
 
 
 model, fitter1, fitter2 = train_policy_gradient(molecules,
@@ -64,9 +64,9 @@ model, fitter1, fitter2 = train_policy_gradient(molecules,
                                                 reward_fun_on=reward_fun,
                                                 max_steps=max_steps,
                                                 lr_off=1e-4,
-                                                lr_on=1e-6,
+                                                lr_on=1e-4,
                                                 drop_rate = drop_rate,
-                                                decoder_type='random',#''attention',
+                                                decoder_type='attention',#'random',#
                                                 plot_prefix='tmp ',
                                                 dashboard='tmp',
                                                 save_file='policy_gradient_tmp.h5',
