@@ -7,9 +7,6 @@ except:
     sys.path.append('../../../../../transformer_pytorch')
 
 import numpy as np
-#from deep_rl import *
-#from generative_playground.models.problem.rl.network_heads import CategoricalActorCriticNet
-#from generative_playground.train.rl.run_iterations import run_iterations
 from generative_playground.rdkit_utils.rdkit_utils import num_atoms, num_aromatic_rings, NormalizedScorer
 #from generative_playground.models.problem.rl.DeepRL_wrappers import BodyAdapter, MyA2CAgent
 from generative_playground.models.model_settings import get_settings
@@ -43,7 +40,7 @@ def reward_aromatic_rings(smiles):
 batch_size = 40
 drop_rate = 0.3
 molecules = True
-grammar = True
+grammar = 'new'#True#
 settings = get_settings(molecules, grammar)
 invalid_value = -3.5
 scorer = NormalizedScorer(invalid_value=invalid_value)
@@ -70,14 +67,14 @@ model, fitter1, fitter2 = train_policy_gradient(molecules,
                                                 lr_on=1e-6,
                                                 drop_rate = drop_rate,
                                                 decoder_type='random',#''attention',
-                                                plot_prefix='pg weak ',
-                                                dashboard='pg weak',
-                                                save_file='policy_gradient_weak.h5',
-                                                smiles_save_file='pg_smiles_weak.h5',
+                                                plot_prefix='tmp ',
+                                                dashboard='tmp',
+                                                save_file='policy_gradient_tmp.h5',
+                                                smiles_save_file='pg_smiles_tmp.h5',
                                                 on_policy_loss_type='best',
                                                 off_policy_loss_type='mean',
-                                                preload_file='policy_gradient_weak.h5')
+                                                preload_file='policy_gradient_tmp.h5')
 
 while True:
     next(fitter1)
-    next(fitter2)
+    #next(fitter2)

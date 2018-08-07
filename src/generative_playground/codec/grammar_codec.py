@@ -16,7 +16,7 @@ class GrammarModel(GenericCodec):
         self.grammar = grammar
         #self._model = model
         self._tokenize = tokenizer
-        self.MAX_LEN = max_len
+        #self.MAX_LEN = max_len
         self._productions = self.grammar.GCFG.productions()
         self._prod_map = {}
         for ix, prod in enumerate(self._productions):

@@ -3,8 +3,8 @@ from generative_playground.models.problem.rl.environment import SequenceEnvironm
 
 class SequenceGenerationTask(BaseTask):
     def __init__(self, name='seq_gen',
-                 molecules = True,
-                 grammar = False,
+                 molecules=True,
+                 grammar= False,
                  reward_fun = None,
                  batch_size = 1,
                  log_dir=None,

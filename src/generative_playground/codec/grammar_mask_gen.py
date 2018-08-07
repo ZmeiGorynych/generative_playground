@@ -52,11 +52,8 @@ class GrammarMaskGenerator:
             if self.tdist_reduction[ix]:
                 mask[ix] *= self.grammar.terminal_mask[0]
 
-
         self.t += 1
         return mask#.astype(int)
-
-
 
 
 def pop_or_nothing(S):

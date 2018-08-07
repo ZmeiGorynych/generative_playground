@@ -62,15 +62,15 @@ class SimpleDiscreteDecoderWithEnv(nn.Module):
         self.policy = policy
         self.task = task
         self.bypass_actions = False # legacy
-        self.mask_gen = mask_gen
+        #self.mask_gen = mask_gen
         self.output_shape = [None, None, self.stepper.output_shape[-1]]
         self.batch_size = batch_size
 
     def forward(self, z=None):
         # initialize the decoding model
         self.stepper.init_encoder_output(z)
-        if self.mask_gen is not None:
-            self.mask_gen.reset()
+        # if self.mask_gen is not None:
+        #     self.mask_gen.reset()
         if self.bypass_actions:
             return None, self.stepper.logits
         out_logits = []
@@ -112,7 +112,6 @@ class SimpleDiscreteDecoderWithEnv(nn.Module):
                 #print(e)
                 break
             out_actions_all = torch.cat([x.unsqueeze(1) for x in out_actions] , 1)
-            #out_logits_all = torch.cat(out_logits, 1)
             out_logits_all = torch.cat([x.unsqueeze(1) for x in out_logits], 1)
 
 
