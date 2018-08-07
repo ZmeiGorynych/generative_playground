@@ -3,6 +3,8 @@ import numpy as np
 import six
 import pdb
 
+from generative_playground.codec.smiles_grammar_new import grammar_string_zinc_new
+
 # the zinc grammar
 grammar_string_zinc = """smiles -> chain
 atom -> bracket_atom
@@ -182,5 +184,7 @@ class GrammarHelper:
         else:
             return 0
 
+
 grammar_zinc = GrammarHelper(grammar_string_zinc, molecule_tweak=True)
-grammar_eq = GrammarHelper(grammar_string_eq, molecule_tweak=False)
+grammar_zinc_new = GrammarHelper(grammar_string_zinc_new)
+grammar_eq = GrammarHelper(grammar_string_eq)

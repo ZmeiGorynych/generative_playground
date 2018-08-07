@@ -87,7 +87,10 @@ def get_zinc_tokenizer(cfg):
 
     return tokenize
 
+
 zinc_tokenizer = get_zinc_tokenizer(grammar_helper.grammar_zinc.GCFG)
+zinc_tokenizer_new = get_zinc_tokenizer(grammar_helper.grammar_zinc_new.GCFG)
+
 
 def prods_to_eq(prods):
     seq = [prods[0].lhs()]

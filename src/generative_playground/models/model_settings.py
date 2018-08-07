@@ -2,8 +2,8 @@ import os, inspect
 
 import generative_playground.models.heads.vae
 from generative_playground.codec.character_codec import CharacterModel
-from generative_playground.codec.grammar_codec import GrammarModel, zinc_tokenizer, eq_tokenizer
-from generative_playground.codec.grammar_helper import grammar_eq, grammar_zinc
+from generative_playground.codec.grammar_codec import GrammarModel, zinc_tokenizer, eq_tokenizer, zinc_tokenizer_new
+from generative_playground.codec.grammar_helper import grammar_eq, grammar_zinc, grammar_zinc_new
 from generative_playground.codec.grammar_mask_gen import GrammarMaskGenerator
 from generative_playground.models.decoder.rnn import SimpleRNNDecoder, ResettingRNNDecoder
 from generative_playground.models.decoder.resnet_rnn import ResNetRNNDecoder
@@ -28,11 +28,22 @@ zinc_charlist =  ['C', '(', ')', 'c', '1', '2', 'o', '=', 'O', 'N', '3', 'F', '[
                              '@', 'H', ']', 'n', '-', '#', 'S', 'l', '+', 's', 'B', 'r', '/',
                              '4', '\\', '5', '6', '7', 'I', 'P', '8', ' ']
 
-def get_settings(molecules = True, grammar = True):
+
+def get_data_location(molecules=True):
     if molecules:
-        if grammar:
-            settings = {'source_data': root_location + 'data/250k_rndm_zinc_drugs_clean.smi',
-                        'data_path':root_location + 'data/zinc_grammar_dataset.h5',
+        return {'source_data': root_location + 'data/250k_rndm_zinc_drugs_clean.smi',
+                        'data_path':root_location + 'data/zinc_grammar_dataset.h5'}
+    else:
+        return {'source_data': root_location + 'data/equation2_15_dataset.txt',
+                        'data_path': root_location + 'data/eq2_str_dataset.h5'}
+
+
+def get_settings(molecules=True, grammar = True):
+    data_location = get_data_location(molecules)
+    if molecules:
+        if grammar == True:
+            settings = {'source_data': data_location['source_data'],
+                        'data_path': data_location['data_path'],
                         'filename_stub': 'grammar_zinc_',
                         'grammar': grammar_zinc,
                         'tokenizer': zinc_tokenizer,
@@ -47,10 +58,27 @@ def get_settings(molecules = True, grammar = True):
                         'EPOCHS': 100,
                         'BATCH_SIZE': 300
                         }
+        elif grammar == 'new':
+            settings = {'source_data': data_location['source_data'],
+                        'data_path': data_location['data_path'],
+                        'filename_stub': 'grammar_zinc_',
+                        'grammar': grammar_zinc_new,
+                        'tokenizer': zinc_tokenizer_new,
+                        'z_size': 56,
+                        'decoder_hidden_n': 501,  # mkusner/grammarVAE has 501 but that eats too much GPU :)
+                        'feature_len': len(grammar_zinc_new.GCFG.productions()),
+                        'max_seq_length': 277,
+                        'cnn_encoder_params': {'kernel_sizes': (9, 9, 11),
+                                               'filters': (9, 9, 10),
+                                               'dense_size': 435},
+                        'rnn_encoder_hidden_n': 200,
+                        'EPOCHS': 100,
+                        'BATCH_SIZE': 300
+                        }
         else:
             #from generative_playground.codec.character_ed_models import ZincCharacterModel as ThisModel
-            settings = {'source_data': root_location + 'data/250k_rndm_zinc_drugs_clean.smi',
-                        'data_path': root_location + 'data/zinc_str_dataset.h5',
+            settings = {'source_data': data_location['source_data'],
+                        'data_path': data_location['data_path'],
                         'filename_stub': 'char_zinc_',
                         'charlist': zinc_charlist,
                         'grammar': None,
@@ -68,8 +96,8 @@ def get_settings(molecules = True, grammar = True):
                         }
     else:
         if grammar:
-            settings = {'source_data': root_location + 'data/equation2_15_dataset.txt',
-                        'data_path': root_location + 'data/eq2_grammar_dataset.h5',
+            settings = {'source_data': data_location['source_data'],
+                        'data_path': data_location['data_path'],
                         'filename_stub': 'grammar_eq_',
                         'grammar': grammar_eq,
                         'tokenizer': eq_tokenizer,
@@ -85,8 +113,8 @@ def get_settings(molecules = True, grammar = True):
                         'BATCH_SIZE':600
                         }
         else:
-            settings = {'source_data': root_location + 'data/equation2_15_dataset.txt',
-                        'data_path': root_location + 'data/eq2_str_dataset.h5',
+            settings = {'source_data': data_location['source_data'],
+                        'data_path': data_location['data_path'],
                         'filename_stub': 'char_eq_',
                         'charlist': eq_charlist,
                         'grammar': None,
