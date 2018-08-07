@@ -66,3 +66,4 @@ class PolicyFromTarget(SimplePolicy):
             return out
         else:
             raise StopIteration
+

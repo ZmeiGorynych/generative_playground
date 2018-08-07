@@ -7,6 +7,7 @@ from generative_playground.codec.grammar_helper import grammar_eq, grammar_zinc
 from generative_playground.codec.grammar_mask_gen import GrammarMaskGenerator
 from generative_playground.models.decoder.rnn import SimpleRNNDecoder, ResettingRNNDecoder
 from generative_playground.models.decoder.resnet_rnn import ResNetRNNDecoder
+from generative_playground.models.decoder.random import RandomDecoder
 from generative_playground.models.encoder.basic_rnn import SimpleRNN
 from generative_playground.models.heads.attention_aggregating_head import AttentionAggregatingHead
 from generative_playground.models.encoder.basic_cnn import SimpleCNNEncoder
@@ -262,7 +263,10 @@ def get_decoder(molecules = True,
                                                    max_seq_len=max_seq_length,
                                                    drop_rate=drop_rate,
                                                    enc_output_size=z_size)
-
+        elif decoder_type == 'random':
+            pre_decoder = RandomDecoder(feature_len=feature_len,
+                                        max_seq_length=max_seq_length
+                                        )
         else:
             raise NotImplementedError('Unknown decoder type: ' + str(decoder_type))
 

@@ -40,47 +40,7 @@ class OneStepDecoderContinuous(nn.Module):
         else:
             raise StopIteration()
 
-# class SimpleDiscreteDecoder(nn.Module):
-#     def __init__(self, stepper, policy: SimplePolicy, bypass_actions=False): #mask_gen = None,
-#         '''
-#         A simple discrete decoder, alternating getting logits from model and actions from policy
-#         :param stepper:
-#         :param policy: choose an action from the logits, can be max, or random sample,
-#         or choose from pre-determined target sequence. Only depends on current logits + history,
-#         can't handle multi-step strategies like beam search
-#         :param mask_fun: takes in one-hot encoding of previous action (for now that's all we care about)
-#         '''
-#         super().__init__()
-#         self.stepper = to_gpu(stepper)
-#         self.policy = policy
-#         self.bypass_actions = bypass_actions
-#
-#     def forward(self, z):
-#         # initialize the decoding model
-#         self.stepper.init_encoder_output(z)
-#         if self.bypass_actions:
-#             return None, self.stepper.logits
-#         out_logits = []
-#         out_actions = []
-#         last_action = [None]*len(z)
-#         step = 0
-#         # as it's PyTorch, can determine max_len dynamically, by when the stepper raises StopIteration
-#         while True:
-#             try:
-#   #          if True:
-#                 #  batch x num_actions
-#                 next_logits = self.stepper(last_action=last_action)
-#                 next_action = self.policy(next_logits)
-#                 out_logits.append(next_logits)
-#                 out_actions.append(next_action)
-#                 last_action = next_action
-#             except StopIteration as e:
-#                 # StopIteration is how the model signals it's done
-#                 break
-#         out_actions_all = torch.cat(out_actions, 1)
-#         out_logits_all = torch.cat(out_logits, 1)
-#         return out_actions_all, out_logits_all
-
+# TODO: split that in two decoders, with and without task
 class SimpleDiscreteDecoderWithEnv(nn.Module):
     def __init__(self,
                  stepper,
