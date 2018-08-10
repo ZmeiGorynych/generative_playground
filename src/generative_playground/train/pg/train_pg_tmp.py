@@ -7,7 +7,7 @@ except:
     sys.path.append('../../../../../transformer_pytorch')
 
 import numpy as np
-from generative_playground.rdkit_utils.rdkit_utils import num_atoms, num_aromatic_rings, NormalizedScorer
+from generative_playground.rdkit_utils.rdkit_utils import num_atoms, num_aromatic_rings, num_aliphatic_rings, NormalizedScorer
 #from generative_playground.models.problem.rl.DeepRL_wrappers import BodyAdapter, MyA2CAgent
 from generative_playground.models.model_settings import get_settings
 from generative_playground.train.pg.main_train_policy_gradient import train_policy_gradient
@@ -30,11 +30,15 @@ def reward_aromatic_rings(smiles):
     :param smiles: list of strings
     :return: reward, list of float
     '''
-    if not len(smiles):
-        return -1 # an empty string is invalid for our purposes
-    atoms = num_aromatic_rings(smiles)
-    return np.array([-1 if num is None else num+0.5 for num in atoms])
+    return np.array([-1 if num is None else num+0.5 for num in num_aromatic_rings(smiles)])
 
+def reward_aliphatic_rings(smiles):
+    '''
+    A simple reward to encourage larger molecule length
+    :param smiles: list of strings
+    :return: reward, list of float
+    '''
+    return np.array([-1 if num is None else num for num in num_aliphatic_rings(smiles)])
 
 
 batch_size = 40
@@ -54,7 +58,7 @@ def second_score(smiles):
             score[i] = -1
     return score
 
-reward_fun = lambda x: 2.5 + scorer(x)# + 0.05*reward_aromatic_rings(x)#lambda x: reward_aromatic_rings(x)# #lambda x: reward_aromatic_rings(x)#
+reward_fun = lambda x: 2.5 + scorer(x) + reward_aliphatic_rings(x)# + 0.05*reward_aromatic_rings(x)#lambda x: reward_aromatic_rings(x)# #lambda x: reward_aromatic_rings(x)#
 
 
 model, fitter1, fitter2 = train_policy_gradient(molecules,

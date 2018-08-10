@@ -42,6 +42,17 @@ def num_aromatic_rings(smiles):
     sizes = [None if m is None else Descriptors.NumAromaticRings(m) for m in mols]
     return sizes
 
+def num_aliphatic_rings(smiles):
+    '''
+    Returns number of atoms in each molecule if valid, None otherwise
+    :param smiles: list of strings
+    :return: list of float or None, same length
+    '''
+    mols = mol_from_smiles(smiles)
+    sizes = [None if m is None else Descriptors.NumAliphaticRings(m) for m in mols]
+    return sizes
+
+
 def get_score_components_from_mol(this_mol):
     try:
         logP = Descriptors.MolLogP(this_mol)

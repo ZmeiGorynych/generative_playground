@@ -2,6 +2,7 @@ import nltk
 import numpy as np
 import six
 import pdb
+from nltk.grammar import Nonterminal
 
 from generative_playground.codec.smiles_grammar_new import grammar_string_zinc_new
 
@@ -104,6 +105,15 @@ class GrammarHelper:
         # collect all lhs symbols, and the unique set of them
         all_lhs = [a.lhs() for a in self.GCFG.productions()]
         self.lhs_list = []
+
+        self.cycle_ends = []
+        self.cycle_continues = []
+        for ip, p in enumerate(self.GCFG.productions()):
+            if p.lhs() == Nonterminal('cycle_bond'):
+                if Nonterminal('num1') in p.rhs():
+                    self.cycle_ends.append(ip)
+                else:
+                    self.cycle_continues.append(ip)
 
         for a in all_lhs:
             if a not in self.lhs_list:

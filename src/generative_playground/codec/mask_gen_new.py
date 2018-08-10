@@ -1,5 +1,6 @@
 import numpy as np
 import nltk
+from nltk.grammar import Nonterminal
 
 class GrammarMaskGeneratorNew:
     def __init__(self, MAX_LEN, grammar):
@@ -25,65 +26,82 @@ class GrammarMaskGeneratorNew:
 
         if self.S is None:
             # populate the sequences with the root symbol
-            self.S = [[{'token': nltk.grammar.Nonterminal('smiles')}] for _ in range(len(last_actions))]
+            self.S = [[{'token': Nonterminal('smiles')}] for _ in range(len(last_actions))]
 
         for i, a in enumerate(last_actions):
-            if a is not None:
-                # 1. Apply the expansion from last prod rule
-                this_rule = self.grammar.GCFG.productions()[a]
-                if this_rule.lhs() != nltk.grammar.Nonterminal('Nothing'):
-                    # find the token to apply the expansion to, check it has the right lhs
-                    for this_index, this_token in enumerate(self.S[i]):
-                        if not isinstance(this_token['token'], str):
-                            break
-                    assert(this_token['token'] == this_rule.lhs())
+            mask[i, :] = self.process_one_action(i, a)
 
-                    # get the expansion
-                    new_tokens =[{'token': x} for x in this_rule.rhs()]
+        self.t += 1
+        self.prev_actions = last_actions
+        return mask
 
-                    # if the expansion is a new ring, give it a ringID=t
-                    if 'ring' in this_token['token']._symbol:
-                        ringID = self.t
-                    # if the token to be replaced already has a ringID, propagate it
-                    elif 'ringID' in this_token:
-                        ringID = this_token['ringID']
-                    else:
-                        ringID = None
+    def process_one_action(self, i, a):
+        if a is not None:
+            # 1. Apply the expansion from last prod rule
+            this_rule = self.grammar.GCFG.productions()[a]
+            if this_rule.lhs() != Nonterminal('Nothing'):
+                # find the token to apply the expansion to, check it has the right lhs
+                for this_index, this_token in enumerate(self.S[i]):
+                    if not isinstance(this_token['token'], str):
+                        break
+                #assert (this_token['token'] == this_rule.lhs())
 
-                    if ringID is not None:
-                        for x in new_tokens:
-                            # ringID doesn't propagate to branches
-                            if not isinstance(x['token'], str) and x['token']._symbol != 'branch':
-                                x['ringID'] = ringID
-                    # once there are only terminals left in that expansion (ring complete) the ID dies off naturally
+                # get the expansion
+                new_tokens = [{'token': x} for x in this_rule.rhs()]
 
-                    # do the replacement
-                    self.S[i] = self.S[i][:this_index] + new_tokens + self.S[i][this_index+1:]
+                # if the expansion is a new ring, give it a ringID=t
+                if 'ring' in this_token['token']._symbol:
+                    ringID = self.t
+                    ring_size = 1
+                # if the token to be replaced already has a ringID, propagate it
+                elif 'ringID' in this_token:
+                    ringID = this_token['ringID']
+                    ring_size = this_token['ring_size'] + 1
+                else:
+                    ringID = None
+
+                if ringID is not None:
+                    for x in new_tokens:
+                        if isinstance(x['token'], str):
+                            continue
+                        # ringID doesn't propagate to branches
+                        if x['token']._symbol == 'branch':
+                            continue
+                        # nor beyond the end of the ring
+                        if 'final' in this_token['token']._symbol \
+                                and 'bond' in x['token']._symbol:
+                            continue
+
+                        x['ringID'] = ringID
+                        x['ring_size'] = ring_size
+
+                # do the replacement
+                self.S[i] = self.S[i][:this_index] + new_tokens + self.S[i][this_index + 1:]
 
             # 2. generate masks for next prod rule
             # find the index of the next token to expand, which is the first nonterminal in sequence
-            for this_index, this_token in enumerate(self.S[i]):
-                if not isinstance(this_token['token'], str):
-                    break
-                this_token = {'token': nltk.grammar.Nonterminal('Nothing')}
+        for this_index, this_token in enumerate(self.S[i]):
+            if not isinstance(this_token['token'], str):
+                break
+            this_token = {'token': nltk.grammar.Nonterminal('Nothing')}
 
-            if this_token['token'] == nltk.grammar.Nonterminal('Nothing'):
-                # we only get to this point if the sequence is fully expanded
-                mask[i, -1] = 1
-                continue
+        if this_token['token'] == nltk.grammar.Nonterminal('Nothing'):
+            # we only get to this point if the sequence is fully expanded
+            return self.grammar.masks[self.grammar.lhs_to_index[this_token['token']], :]
 
             # get the formal grammar mask
-            grammar_mask = self.grammar.masks[self.grammar.lhs_to_index[this_token['token']],:]
+        self.grammar_mask = self.grammar.masks[self.grammar.lhs_to_index[this_token['token']], :]
 
-            # get the terminal distance mask
-            term_distance = sum([self.grammar.terminal_dist(x['token']) for x in self.S[i]
-                                         if not isinstance(x['token'],str)])
-            steps_left = self.MAX_LEN - self.t - 1
-            terminal_mask = np.zeros_like(grammar_mask)
-            terminal_mask[self.grammar.rule_d_term_dist < steps_left - term_distance - 1] = 1
+        # get the terminal distance mask
+        term_distance = sum([self.grammar.terminal_dist(x['token']) for x in self.S[i]
+                             if not isinstance(x['token'], str)])
+        steps_left = self.MAX_LEN - self.t - 1
+        self.terminal_mask = np.zeros_like(self.grammar_mask)
+        self.terminal_mask[self.grammar.rule_d_term_dist < steps_left - term_distance - 1] = 1
 
+        if 'ringID' in this_token:
             # if we're expanding a ring numeric token:
-            if 'ringID' in this_token and 'num' in this_token['token']._symbol:
+            if 'num' in this_token['token']._symbol:
                 full_num_ID = (i, this_token['ringID'], this_token['token']._symbol)
                 if full_num_ID in self.ring_num_map:
                     # this is the closing numeral of a ring
@@ -108,12 +126,20 @@ class GrammarMaskGeneratorNew:
                     num_to_use = nt
                     self.ring_num_map[full_num_ID] = nt
 
-                ring_mask = np.array([1 if a.rhs()[0] == num_to_use else 0 for a in self.grammar.GCFG.productions()])
+                self.ring_mask = np.array(
+                    [1 if a.rhs()[0] == num_to_use else 0 for a in self.grammar.GCFG.productions()])
             else:
-                ring_mask = np.ones_like(grammar_mask)
+                self.ring_mask = np.ones_like(self.grammar_mask)
+                if this_token['ring_size'] > 4:
+                    # block out cycle continuation
+                    for k in self.grammar.cycle_continues:
+                        self.ring_mask[k] = 0
+                if this_token['ring_size'] < 4:
+                    # block out cycle finish
+                    for k in self.grammar.cycle_ends:
+                        self.ring_mask[k] = 0
 
-            mask[i, :] = grammar_mask * terminal_mask * ring_mask
+        else:
+            self.ring_mask = np.ones_like(self.grammar_mask)
 
-        self.t += 1
-        return mask
-
+        return self.grammar_mask * self.terminal_mask * self.ring_mask

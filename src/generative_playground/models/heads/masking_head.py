@@ -35,5 +35,5 @@ class MaskingHead(nn.Module):
             last_action = args[0]
 
         mask = FloatTensor(self.mask_gen(last_action))
-        masked_logits = next_logits - 1e4 * (1 - mask)
+        masked_logits = next_logits - 1e6 * (1 - mask)
         return masked_logits
