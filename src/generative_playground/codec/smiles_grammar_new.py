@@ -21,6 +21,8 @@ nonH_bond -> 'I'
 nonH_bond -> 'O' bond
 nonH_bond -> 'N' double_bond
 nonH_bond -> 'N' branch bond
+nonH_bond -> 'S' bond
+nonH_bond -> 'S' '(' '=' 'O' ')'  '(' '=' 'O' ')' bond
 """
 
 plain_template = "plain_aromatic_ring_* -> 'c' '*' 'c' branch 'c' branch 'c' branch 'c' branch 'c' '*' branch\n\

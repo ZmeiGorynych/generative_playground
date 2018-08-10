@@ -104,10 +104,11 @@ class GrammarHelper:
         # collect all lhs symbols, and the unique set of them
         all_lhs = [a.lhs() for a in self.GCFG.productions()]
         self.lhs_list = []
+
         for a in all_lhs:
             if a not in self.lhs_list:
                 self.lhs_list.append(a)
-
+        self.lhs_to_index = {lhs: ix for ix, lhs in enumerate(self.lhs_list)}
         self.D = len(self.GCFG.productions())
         self.term_dist = {}
 
@@ -143,10 +144,12 @@ class GrammarHelper:
 
         # determine all transition rules that decrease the total terminal distance
         self.terminal_mask = np.zeros((1,self.D))
+        self.rule_d_term_dist = np.zeros(self.D)
         self.max_term_dist_increase = 0
         for ip, p in enumerate(self.GCFG.productions()):
             old_dist = self.terminal_dist(p.lhs())
             new_dist = sum([self.terminal_dist(s) for s in p.rhs()])
+            self.rule_d_term_dist[ip] = new_dist - old_dist
             if old_dist > new_dist:
                 self.terminal_mask[0,ip] = 1
             if nltk.Nonterminal('class') not in p.rhs():
