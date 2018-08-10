@@ -72,9 +72,9 @@ model, fitter1, fitter2 = train_policy_gradient(molecules,
                                                 save_file='policy_gradient_tmp.h5',
                                                 smiles_save_file='pg_smiles_tmp.h5',
                                                 on_policy_loss_type='best',
-                                                off_policy_loss_type='mean',
-                                                preload_file='policy_gradient_tmp.h5')
-
+                                                off_policy_loss_type='mean')#,
+                                                #preload_file='policy_gradient_tmp.h5')
+#
 while True:
     next(fitter1)
     #next(fitter2)

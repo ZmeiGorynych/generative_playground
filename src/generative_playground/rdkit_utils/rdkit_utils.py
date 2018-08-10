@@ -87,6 +87,7 @@ class NormalizedScorer:
         :return: array of normalized scores
         '''
         mols = [MolFromSmiles(s) for s in smiles]
+        [print(s) for (s, mol) in zip(mols, smiles) if mol is None]
         scores = np.array([get_score_components_from_mol(mol) if mol is not None else [float('nan')]*3
                                 for mol in mols])
         norm_scores = (scores - self.means)/self.stds

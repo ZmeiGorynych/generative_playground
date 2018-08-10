@@ -84,7 +84,7 @@ class GrammarMaskGeneratorNew:
 
             # if we're expanding a ring numeric token:
             if 'ringID' in this_token and 'num' in this_token['token']._symbol:
-                full_num_ID = (this_token['ringID'], this_token['token']._symbol)
+                full_num_ID = (i, this_token['ringID'], this_token['token']._symbol)
                 if full_num_ID in self.ring_num_map:
                     # this is the closing numeral of a ring
                     num_to_use = self.ring_num_map.pop(full_num_ID)
@@ -93,11 +93,12 @@ class GrammarMaskGeneratorNew:
                     # go through the sequence up to this point, collecting all tokens occurring an odd number of times
                     used_tokens = set()
                     for j in range(this_index):
-                        if self.S[j]['token'] in self.grammar.numeric_tokens:
-                            if self.S[j]['token'] in used_tokens:
-                                used_tokens.remove(self.S[j]['token'])
+                        current_token = self.S[i][j]['token']
+                        if current_token in self.grammar.numeric_tokens:
+                            if current_token in used_tokens:
+                                used_tokens.remove(current_token)
                             else:
-                                used_tokens.add(self.S[j]['token'])
+                                used_tokens.add(current_token)
 
                     # find the first unused numeric token
                     for nt in self.grammar.numeric_tokens:
@@ -107,7 +108,7 @@ class GrammarMaskGeneratorNew:
                     num_to_use = nt
                     self.ring_num_map[full_num_ID] = nt
 
-                ring_mask = np.array([1 if a.rhs()[0] == num_to_use else 0 for a in self.GCFG.productions()])
+                ring_mask = np.array([1 if a.rhs()[0] == num_to_use else 0 for a in self.grammar.GCFG.productions()])
             else:
                 ring_mask = np.ones_like(grammar_mask)
 

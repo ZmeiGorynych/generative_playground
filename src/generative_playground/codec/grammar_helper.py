@@ -112,6 +112,9 @@ class GrammarHelper:
         self.D = len(self.GCFG.productions())
         self.term_dist = {}
 
+        # TODO: pull the numeric tokens from the grammar itself
+        self.numeric_tokens = [str(i) for i in range(1,10)] + ['%' + str(i) for i in range(10,50)]
+
         # this map tells us the rhs symbol indices for each production rule
         self.rhs_map = [None]*self.D
         count = 0
