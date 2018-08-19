@@ -32,11 +32,9 @@ zinc_charlist =  ['C', '(', ')', 'c', '1', '2', 'o', '=', 'O', 'N', '3', 'F', '[
 
 def get_data_location(molecules=True):
     if molecules:
-        return {'source_data': root_location + 'data/250k_rndm_zinc_drugs_clean.smi',
-                        'data_path':root_location + 'data/zinc_grammar_dataset.h5'}
+        return {'source_data': root_location + 'data/250k_rndm_zinc_drugs_clean.smi'}
     else:
-        return {'source_data': root_location + 'data/equation2_15_dataset.txt',
-                        'data_path': root_location + 'data/eq2_str_dataset.h5'}
+        return {'source_data': root_location + 'data/equation2_15_dataset.txt'}
 
 
 def get_settings(molecules=True, grammar = True):
@@ -44,7 +42,7 @@ def get_settings(molecules=True, grammar = True):
     if molecules:
         if grammar == True:
             settings = {'source_data': data_location['source_data'],
-                        'data_path': data_location['data_path'],
+                        'data_path': root_location + 'data/zinc_grammar_dataset.h5',
                         'filename_stub': 'grammar_zinc_',
                         'grammar': grammar_zinc,
                         'tokenizer': zinc_tokenizer,
@@ -61,7 +59,7 @@ def get_settings(molecules=True, grammar = True):
                         }
         elif grammar == 'new':
             settings = {'source_data': data_location['source_data'],
-                        'data_path': data_location['data_path'],
+                        'data_path': root_location + 'data/zinc_grammar_dataset_new.h5',
                         'filename_stub': 'grammar_zinc_',
                         'grammar': grammar_zinc_new,
                         'tokenizer': zinc_tokenizer_new,
@@ -79,7 +77,7 @@ def get_settings(molecules=True, grammar = True):
         else:
             #from generative_playground.codec.character_ed_models import ZincCharacterModel as ThisModel
             settings = {'source_data': data_location['source_data'],
-                        'data_path': data_location['data_path'],
+                        'data_path': root_location + 'data/zinc_str_dataset.h5',
                         'filename_stub': 'char_zinc_',
                         'charlist': zinc_charlist,
                         'grammar': None,
@@ -98,7 +96,7 @@ def get_settings(molecules=True, grammar = True):
     else:
         if grammar:
             settings = {'source_data': data_location['source_data'],
-                        'data_path': data_location['data_path'],
+                        'data_path':  root_location + 'data/eq2_grammar_dataset.h5',
                         'filename_stub': 'grammar_eq_',
                         'grammar': grammar_eq,
                         'tokenizer': eq_tokenizer,
@@ -115,7 +113,7 @@ def get_settings(molecules=True, grammar = True):
                         }
         else:
             settings = {'source_data': data_location['source_data'],
-                        'data_path': data_location['data_path'],
+                        'data_path':  root_location + 'data/eq2_str_dataset.h5',
                         'filename_stub': 'char_eq_',
                         'charlist': eq_charlist,
                         'grammar': None,

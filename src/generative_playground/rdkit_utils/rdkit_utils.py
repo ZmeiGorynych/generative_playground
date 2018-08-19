@@ -5,7 +5,7 @@ from rdkit.Chem import Descriptors, rdmolops
 from rdkit.Chem.rdmolfiles import MolFromSmiles
 import rdkit.Chem.rdMolDescriptors as desc
 from generative_playground.rdkit_utils import sascorer as sascorer
-from generative_playground.models.model_settings import get_data_location
+from generative_playground.models.model_settings import get_data_location, get_settings
 
 
 def fraction_valid(smiles):
@@ -84,7 +84,7 @@ def get_score_components(smiles):
 
 class NormalizedScorer:
     def __init__(self, invalid_value=-2):
-        settings = get_data_location(True)
+        settings = get_settings(True, True)
         h5f = h5py.File(settings['data_path'], 'r')
         self.means = np.array(h5f['score_mean'])[:3]
         self.stds = np.array(h5f['score_std'])[:3]

@@ -2,10 +2,12 @@ import numpy as np
 
 try:
     import generative_playground
+    import transformer
 except:
     import os, inspect, sys
     my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     sys.path.append('../..')
+    sys.path.append('../../../../transformer_pytorch')
 
 from generative_playground.models.model_settings import get_settings, get_model
 from generative_playground.data_utils.data_sources import IncrementingHDF5Dataset
@@ -13,11 +15,17 @@ from generative_playground.rdkit_utils.rdkit_utils import get_score_components
 
 # change this to true to produce the equation dataset
 molecules = True
-# change this to True to get string-based encodings instead of grammar-based
-grammar = True
+# change this to False to get string-based encodings instead of grammar-based
+grammar = 'new'#True # true for the grammar used by ddKusner et al
 
 # can't define model class inside settings as it itself uses settings a lot
 _, my_model = get_model(molecules,grammar)
+def pre_parser(x):
+    try:
+        return next(my_model._parser.parse(x))
+    except Exception as e:
+        return None
+
 settings = get_settings(molecules,grammar)
 MAX_LEN = settings['max_seq_length']
 feature_len = settings['feature_len']
@@ -40,6 +48,10 @@ step = 100
 for i in range(0, len(L), step):#for i in range(0, 1000, 2000):
     print('Processing: i=[' + str(i) + ':' + str(i + step) + ']')
     these_smiles = L[i:min(i + step,len(L))]
+    if grammar=='new': # have to weed out non-parseable strings
+        tokens = [my_model._tokenize(s) for s in these_smiles]
+        these_smiles = [s for s,t in zip(these_smiles, tokens) if pre_parser(t) is not None]
+        print(len(these_smiles))
     these_actions = my_model.string_to_actions(these_smiles)
     action_seq_length = my_model.action_seq_length(these_actions)
     onehot = my_model.actions_to_one_hot(these_actions)

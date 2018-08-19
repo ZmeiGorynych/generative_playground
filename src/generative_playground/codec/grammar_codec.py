@@ -16,7 +16,7 @@ class GrammarModel(GenericCodec):
         self.grammar = grammar
         #self._model = model
         self._tokenize = tokenizer
-        #self.MAX_LEN = max_len
+        self.MAX_LEN = max_len
         self._productions = self.grammar.GCFG.productions()
         self._prod_map = {}
         for ix, prod in enumerate(self._productions):
@@ -109,7 +109,8 @@ def prods_to_eq(prods):
     try:
         return ''.join(seq)
     except:
-        raise Exception("We've run out of max_length but still have nonterminals: something is wrong here...")
+        return 'ran_out_of_max_length'
+        #raise Exception("We've run out of max_length but still have nonterminals: something is wrong here...")
 
 
 
