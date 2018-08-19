@@ -5,7 +5,7 @@ from generative_playground.codec.character_codec import CharacterModel
 from generative_playground.codec.grammar_codec import GrammarModel, zinc_tokenizer, eq_tokenizer, zinc_tokenizer_new
 from generative_playground.codec.grammar_helper import grammar_eq, grammar_zinc, grammar_zinc_new
 from generative_playground.codec.grammar_mask_gen import GrammarMaskGenerator
-from generative_playground.codec.mask_gen_new import GrammarMaskGeneratorNew
+from generative_playground.codec.mask_gen_new_2 import GrammarMaskGeneratorNew
 from generative_playground.models.decoder.rnn import SimpleRNNDecoder, ResettingRNNDecoder
 from generative_playground.models.decoder.resnet_rnn import ResNetRNNDecoder
 from generative_playground.models.decoder.random import RandomDecoder

@@ -86,8 +86,8 @@ class NormalizedScorer:
     def __init__(self, invalid_value=-2):
         settings = get_data_location(True)
         h5f = h5py.File(settings['data_path'], 'r')
-        self.means = np.array(h5f['score_mean'])
-        self.stds = np.array(h5f['score_std'])
+        self.means = np.array(h5f['score_mean'])[:3]
+        self.stds = np.array(h5f['score_std'])[:3]
         self.invalid_value = invalid_value
         h5f.close()
 
