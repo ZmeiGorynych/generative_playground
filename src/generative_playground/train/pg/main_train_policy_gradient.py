@@ -124,12 +124,14 @@ def train_policy_gradient(molecules = True,
         scheduler = lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.99)
 
 
-
-        metric_monitor = MetricPlotter(plot_prefix=fit_plot_prefix,
+        if dashboard is not None:
+            metric_monitor = MetricPlotter(plot_prefix=fit_plot_prefix,
                                        loss_display_cap=float('inf'),
                                        dashboard_name=dashboard,
                                        plot_ignore_initial=plot_ignore_initial,
                                        process_model_fun=model_process_fun)
+        else:
+            metric_monitor = None
 
         checkpointer = Checkpointer(valid_batches_to_checkpoint=1,
                                     save_path=save_path)

@@ -176,12 +176,12 @@ class TerminalDistanceCalculator:
                                 if frozendict(this_sym) not in self.term_dist:
                                     self.term_dist[frozendict(this_sym)] = float('inf')
                                     print('added ', this_sym, 'from', sym, 'via', p)
-                                    if 'ring_size' in sym and sym['ring_size'] > 6:
-                                        print('aaa')
+                                    # if 'ring_size' in sym and sym['ring_size'] > 6:
+                                    #     print('aaa')
                                 this_term_dist += self.term_dist[frozendict(this_sym)]
                             if this_term_dist < self.term_dist[frozendict(sym)]:
-                                if 'ring_size' in sym and sym['ring_size'] > 6:
-                                    print('aaa')
+                                # if 'ring_size' in sym and sym['ring_size'] > 6:
+                                #     print('aaa')
                                 print(p, self.term_dist[frozendict(sym)], this_term_dist,
                                       [self.term_dist[frozendict(this_sym)] for this_sym in this_exp])
                                 self.term_dist[frozendict(sym)] = this_term_dist
@@ -243,12 +243,12 @@ def apply_rule(this_token, this_rule, t):
         ring_size = this_token['ring_size'] + 1
     else:
         ringID = None
-
+    propagate_strings = ['cycle', 'num', 'starting', 'final']
     if ringID is not None:
         for x in new_tokens:
             x_ = x['token']
             if is_nonterminal(x_):
-                if 'cycle' in x_._symbol or 'num' in x_._symbol :
+                if any([ps in x_._symbol for ps in propagate_strings]):
                     x['ringID'] = ringID
                     x['ring_size'] = ring_size
 

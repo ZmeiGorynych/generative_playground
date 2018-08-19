@@ -2,7 +2,7 @@ import nltk
 import numpy as np
 import six
 import pdb
-from nltk.grammar import Nonterminal
+from nltk.grammar import Nonterminal, is_nonterminal
 
 from generative_playground.codec.smiles_grammar_new_2 import grammar_string_zinc_new
 
@@ -110,7 +110,7 @@ class GrammarHelper:
         self.cycle_continues = []
         for ip, p in enumerate(self.GCFG.productions()):
             if p.lhs() in [Nonterminal('cycle_bond'), Nonterminal('cycle_double_bond')]:
-                if any(['num1' in pp._symbol for pp in p.rhs()]): #Nonterminal('num1') in p.rhs()
+                if any([is_nonterminal(pp) and 'num1' in pp._symbol for pp in p.rhs()]): #Nonterminal('num1') in p.rhs()
                     self.cycle_ends.append(ip)
                 else:
                     self.cycle_continues.append(ip)

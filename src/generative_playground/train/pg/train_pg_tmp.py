@@ -22,7 +22,7 @@ def reward_length(smiles):
     if not len(smiles):
         return -1 # an empty string is invalid for our purposes
     atoms = num_atoms(smiles)
-    return [-1 if num is None else num for num in atoms]
+    return np.array([-1 if num is None else num for num in atoms])
 
 def reward_aromatic_rings(smiles):
     '''
@@ -58,7 +58,7 @@ def second_score(smiles):
             score[i] = -1
     return score
 
-reward_fun = lambda x: 2.5 + scorer(x) + reward_aliphatic_rings(x)# + 0.05*reward_aromatic_rings(x)#lambda x: reward_aromatic_rings(x)# #lambda x: reward_aromatic_rings(x)#
+reward_fun = lambda x: 2.5 + scorer(x)# + reward_aliphatic_rings(x)# + 0.05*reward_aromatic_rings(x)#lambda x: reward_aromatic_rings(x)# #lambda x: reward_aromatic_rings(x)#
 
 
 model, fitter1, fitter2 = train_policy_gradient(molecules,
@@ -72,7 +72,7 @@ model, fitter1, fitter2 = train_policy_gradient(molecules,
                                                 drop_rate = drop_rate,
                                                 decoder_type='attention',#'random',#
                                                 plot_prefix='tmp ',
-                                                dashboard='tmp',
+                                                dashboard='tmp',#None,#
                                                 save_file='policy_gradient_tmp.h5',
                                                 smiles_save_file='pg_smiles_tmp.h5',
                                                 on_policy_loss_type='best',
