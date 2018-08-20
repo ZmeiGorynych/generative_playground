@@ -121,11 +121,11 @@ class GrammarMaskGeneratorNew:
                     [1 if a.rhs()[0] in nums_to_use else 0 for a in self.grammar.GCFG.productions()])
             else:
                 ring_mask = np.ones([len(self.grammar.GCFG.productions())])
-                if this_token['ring_size'] > 4: # max cycle length 6
+                if this_token['ring_size'] > 6: # 4# max cycle length 6
                     # block out cycle continuation
                     for k in self.grammar.cycle_continues:
                         ring_mask[k] = 0
-                if this_token['ring_size'] < 4: # minimum cycle length 5
+                if this_token['ring_size'] < 2: #4# minimum cycle length 5
                     # block out cycle finish
                     for k in self.grammar.cycle_ends:
                         ring_mask[k] = 0

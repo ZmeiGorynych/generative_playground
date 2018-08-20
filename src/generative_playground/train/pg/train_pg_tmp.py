@@ -81,4 +81,4 @@ model, fitter1, fitter2 = train_policy_gradient(molecules,
 #
 while True:
     next(fitter1)
-    #next(fitter2)
+    next(fitter2)
