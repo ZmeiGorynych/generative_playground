@@ -2,6 +2,7 @@ import os, inspect
 import torch.optim as optim
 from torch.optim import lr_scheduler
 import torch
+import copy
 
 from generative_playground.models.losses.vae_loss import VAELoss
 from generative_playground.utils.fit_rl import fit_rl
@@ -31,6 +32,8 @@ def train_policy_gradient(molecules = True,
                           plot_ignore_initial = 0,
                           save_file = None,
                           preload_file = None,
+                          anchor_file = None,
+                          anchor_weight = 0.0,
                           decoder_type='action',
                           plot_prefix = '',
                           dashboard = 'policy gradient',
@@ -60,7 +63,8 @@ def train_policy_gradient(molecules = True,
                                   max_steps=max_steps,
                                   save_dataset=save_dataset)
 
-    model, _ = get_decoder(molecules,
+    def get_model():
+        return get_decoder(molecules,
                            grammar,
                            z_size=settings['z_size'],
                            decoder_hidden_n=200,
@@ -68,13 +72,24 @@ def train_policy_gradient(molecules = True,
                            max_seq_length=max_steps,
                            drop_rate=drop_rate,
                            decoder_type=decoder_type,
-                           task=task)
+                           task=task)[0]
+    model = get_model()
+
     if preload_file is not None:
         try:
             preload_path = root_location + 'pretrained/' + preload_file
             model.load_state_dict(torch.load(preload_path))
         except:
             pass
+
+    anchor_model = None
+    if anchor_file is not None:
+        anchor_model = get_model()
+        try:
+            anchor_path = root_location + 'pretrained/' + anchor_file
+            anchor_model.load_state_dict(torch.load(anchor_path))
+        except:
+            anchor_model = None
 
     from generative_playground.rdkit_utils.rdkit_utils import NormalizedScorer
     import rdkit.Chem.rdMolDescriptors as desc
@@ -99,12 +114,12 @@ def train_policy_gradient(molecules = True,
                 visdom.append('best molecule of batch', 'svg', svgstr=data)
             except:
                 pass
-            _, norm_scores = scorer.get_scores([this_smile])
+            scores, norm_scores = scorer.get_scores([this_smile])
             visdom.append('score component',
                             'line',
                             X=np.array([n]),
-                            Y=np.array([[x for x in norm_scores[0]] + [norm_scores[0].mean()] + [desc.CalcNumAromaticRings(mol)]]),
-                            opts={'legend': ['logP','SA','cycle','mean_reward','Aromatic rings']})
+                            Y=np.array([[x for x in norm_scores[0]] + [norm_scores[0].sum()] + [scores[0].sum()] + [desc.CalcNumAromaticRings(mol)]]),
+                            opts={'legend': ['logP','SA','cycle','norm_reward','reward','Aromatic rings']})
             visdom.append('fraction valid',
                           'line',
                           X=np.array([n]),
@@ -118,6 +133,9 @@ def train_policy_gradient(molecules = True,
                    fit_plot_prefix='',
                    model_process_fun=None,
                    lr=None,
+                   loss_display_cap=float('inf'),
+                   anchor_model=None,
+                   anchor_weight=0
                    ):
         nice_params = filter(lambda p: p.requires_grad, model.parameters())
         optimizer = optim.Adam(nice_params, lr=lr)
@@ -126,7 +144,7 @@ def train_policy_gradient(molecules = True,
 
         if dashboard is not None:
             metric_monitor = MetricPlotter(plot_prefix=fit_plot_prefix,
-                                       loss_display_cap=float('inf'),
+                                       loss_display_cap=loss_display_cap,
                                        dashboard_name=dashboard,
                                        plot_ignore_initial=plot_ignore_initial,
                                        process_model_fun=model_process_fun)
@@ -147,6 +165,8 @@ def train_policy_gradient(molecules = True,
                      epochs=EPOCHS,
                      loss_fn=loss_obj,
                      grad_clip=5,
+                     anchor_model=anchor_model,
+                     anchor_weight=anchor_weight,
                      metric_monitor=metric_monitor,
                      checkpointer=checkpointer)
 
@@ -156,7 +176,9 @@ def train_policy_gradient(molecules = True,
                          PolicyGradientLoss(on_policy_loss_type),
                          plot_prefix + 'on-policy',
                          model_process_fun=model_process_fun,
-                         lr=lr_on)
+                         lr=lr_on,
+                         anchor_model=anchor_model,
+                         anchor_weight=anchor_weight)
     # get existing molecule data to add training
     main_dataset = DatasetFromHDF5(settings['data_path'], 'actions')
 
@@ -170,7 +192,8 @@ def train_policy_gradient(molecules = True,
                          PolicyGradientLoss(off_policy_loss_type),
                          plot_prefix + ' off-policy',
                          lr=lr_off,
-                         model_process_fun=model_process_fun)
+                         model_process_fun=model_process_fun,
+                         loss_display_cap=125)
 
     def on_policy_gen(fitter, model):
         while True:

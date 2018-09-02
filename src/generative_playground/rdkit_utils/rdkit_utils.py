@@ -83,12 +83,15 @@ def get_score_components(smiles):
 
 
 class NormalizedScorer:
-    def __init__(self, invalid_value=-2):
+    def __init__(self, invalid_value=-2, sa_mult=0.0, sa_thresh = 0.5, normalize_scores=False):
         settings = get_settings(True, True)
         h5f = h5py.File(settings['data_path'], 'r')
         self.means = np.array(h5f['score_mean'])[:3]
         self.stds = np.array(h5f['score_std'])[:3]
         self.invalid_value = invalid_value
+        self.sa_mult = sa_mult
+        self.sa_thresh = sa_thresh
+        self.normalize_scores = normalize_scores
         h5f.close()
 
     def get_scores(self, smiles):
@@ -103,18 +106,25 @@ class NormalizedScorer:
             print(smiles[0])
         scores = np.array([get_score_components_from_mol(mol) if mol is not None else [float('nan')]*3
                                 for mol in mols])
-        norm_scores = (scores - self.means)/self.stds
-
+        norm_scores = (scores - self.means) / self.stds
         return scores, norm_scores
 
     def __call__(self,smiles):
         scores, norm_scores = self.get_scores(smiles)
-        norm_score = norm_scores.mean(1)
+        if not self.normalize_scores:
+            norm_scores = scores
+        # extra penalty for low sa_score
+        #norm_scores[:,1]*= -1
+        norm_score = norm_scores.sum(1) + self.sa_mult * np.array([min(0, x - self.sa_thresh) for x in norm_scores[:,1]])# * sigmoid(2 * (self.sa_thresh - norm_scores[:, 1]))
         for i in range(len(norm_score)):
             if np.isnan(norm_score[i]):
                 norm_score[i] = self.invalid_value
-
+        norm_score = np.array([max(x, self.invalid_value + 1) if x!=self.invalid_value else self.invalid_value for x in norm_score])
         return norm_score
+
+def sigmoid(x):
+    return 1/(1+np.exp(-x))
+
 
 def property_scorer(smiles):
     mols = mol_from_smiles(smiles)

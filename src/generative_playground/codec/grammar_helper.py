@@ -109,8 +109,9 @@ class GrammarHelper:
         self.cycle_ends = []
         self.cycle_continues = []
         for ip, p in enumerate(self.GCFG.productions()):
-            if p.lhs() in [Nonterminal('cycle_bond'), Nonterminal('cycle_double_bond')]:
-                if any([is_nonterminal(pp) and 'num1' in pp._symbol for pp in p.rhs()]): #Nonterminal('num1') in p.rhs()
+            # if it's any rule continuing a cycle
+            if 'cycle' in p.lhs()._symbol: # in [Nonterminal('cycle_bond'), Nonterminal('cycle_double_bond')]:
+                if any([is_nonterminal(pp) and 'num' in pp._symbol for pp in p.rhs()]): #Nonterminal('num1') in p.rhs()
                     self.cycle_ends.append(ip)
                 else:
                     self.cycle_continues.append(ip)

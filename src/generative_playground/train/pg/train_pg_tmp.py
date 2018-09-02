@@ -41,13 +41,13 @@ def reward_aliphatic_rings(smiles):
     return np.array([-1 if num is None else num for num in num_aliphatic_rings(smiles)])
 
 
-batch_size = 40
+batch_size = 3
 drop_rate = 0.3
 molecules = True
 grammar = 'new'#True#
 settings = get_settings(molecules, grammar)
 invalid_value = -3.5
-scorer = NormalizedScorer(invalid_value=invalid_value)
+scorer = NormalizedScorer(invalid_value=invalid_value, sa_mult=0)
 max_steps = 277 #settings['max_seq_length']
 
 def second_score(smiles):
@@ -58,7 +58,7 @@ def second_score(smiles):
             score[i] = -1
     return score
 
-reward_fun = lambda x: 2.5 + scorer(x)# + reward_aliphatic_rings(x)# + 0.05*reward_aromatic_rings(x)#lambda x: reward_aromatic_rings(x)# #lambda x: reward_aromatic_rings(x)#
+reward_fun = lambda x: 2.5 + scorer(x)# - 0.2*np.array([0 if num is None else num for num in num_aromatic_rings(x)])# + reward_aliphatic_rings(x)# + 0.05*reward_aromatic_rings(x)#lambda x: reward_aromatic_rings(x)# #lambda x: reward_aromatic_rings(x)#
 
 
 model, fitter1, fitter2 = train_policy_gradient(molecules,
@@ -67,17 +67,19 @@ model, fitter1, fitter2 = train_policy_gradient(molecules,
                                                 BATCH_SIZE=batch_size,
                                                 reward_fun_on=reward_fun,
                                                 max_steps=max_steps,
-                                                lr_off=1e-4,
+                                                lr_off=0.0,
                                                 lr_on=1e-4,
                                                 drop_rate = drop_rate,
                                                 decoder_type='attention',#'random',#
-                                                plot_prefix='tmp ',
-                                                dashboard='tmp',#None,#
-                                                save_file='policy_gradient_tmp.h5',
-                                                smiles_save_file='pg_smiles_tmp.h5',
+                                                plot_prefix='anchor ',
+                                                dashboard='anchor_5',#None,#
+                                                save_file='policy_gradient_tmp_anchored.h5',
+                                                smiles_save_file='pg_smiles_anchor.h5',
                                                 on_policy_loss_type='best',
-                                                off_policy_loss_type='mean')#,
-                                                #preload_file='policy_gradient_tmp.h5')
+                                                off_policy_loss_type='mean',
+                                                preload_file='policy_gradient_tmp_0.5.h5',
+                                                anchor_file='policy_gradient_tmp.h5',
+                                                anchor_weight=1)
 #
 while True:
     next(fitter1)

@@ -24,6 +24,8 @@ def fit_rl(train_gen = None,
            epochs = None,
            loss_fn = None,
            grad_clip = 5,
+           anchor_model=None,
+           anchor_weight=0.0,
            metric_monitor = None,
            checkpointer = None
            ):
@@ -42,12 +44,21 @@ def fit_rl(train_gen = None,
             #inputs = to_variable(inputs_)
             outputs = model()#inputs)
             loss = loss_fn(outputs)
-
+            nice_params = filter(lambda p: p.requires_grad, model.parameters())
+            if anchor_model is not None:
+                anchor_params = filter(lambda p: p.requires_grad, anchor_model.parameters())
+                mean_diffs = [(p1-p)*(p1-p) for p1, p in zip(nice_params, anchor_params)]
+                cnt = 0
+                running_sum = 0
+                for d in mean_diffs:
+                    running_sum += torch.sum(d)
+                    cnt += d.numel()
+                anchor_dist = running_sum/cnt
+                loss += anchor_weight * anchor_dist
             # do the fit step
             optimizer.zero_grad()
             loss.backward()
             if grad_clip is not None:
-                nice_params = filter(lambda p: p.requires_grad, model.parameters())
                 torch.nn.utils.clip_grad_norm_(nice_params, grad_clip)
             optimizer.step()
 

@@ -22,12 +22,12 @@ class PolicyGradientLoss(nn.Module):
         batch_size, seq_len, num_actions = logits.size()
         log_p = F.log_softmax(logits, dim=2) * (1-terminals.unsqueeze(2))
         total_rewards = rewards.sum(1)
+        #total_rewards = total_rewards/total_rewards.mean() # normalize to avg weight 1
         total_logp = 0
         for i in range(seq_len):
             dloss = torch.diag(-log_p[:, i, actions[:,i]]) # batch_size, hopefully
             total_logp += dloss
 
-        rewardloss = total_logp * total_rewards
         if sum(valid) > 0:
             self.metrics = {'avg reward': total_rewards.mean().data.item(),
                         'max reward': total_rewards.max().data.item()}
@@ -35,12 +35,13 @@ class PolicyGradientLoss(nn.Module):
             self.metrics = {}
         my_loss = 0
 
+        rewardloss = total_logp * total_rewards
         if 'mean' in self.loss_type:
-            mean_loss = rewardloss.mean()
+            mean_loss = rewardloss.mean()/total_rewards.mean()
             my_loss += mean_loss
         if 'best' in self.loss_type:
             best_ind = torch.argmax(total_rewards)
-            best_loss = rewardloss[best_ind]
+            best_loss = total_logp[best_ind]# # normalize to weight 1 rewardloss[best_ind]
             if valid[best_ind] == 0:
                 best_loss *= 0.0
             my_loss += best_loss
