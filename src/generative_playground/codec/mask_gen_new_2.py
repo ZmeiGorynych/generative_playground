@@ -11,7 +11,7 @@ class GrammarMaskGeneratorNew:
         self.grammar = grammar
         self.do_terminal_mask = True
         self.reset()
-        #self.term_dist_calc = TerminalDistanceCalculator(self)
+        self.term_dist_calc = TerminalDistanceCalculator(self)
 
     def reset(self):
         self.S = None
@@ -74,7 +74,7 @@ class GrammarMaskGeneratorNew:
 
 
         # get the terminal distance mask
-        if False:#self.do_terminal_mask:
+        if self.do_terminal_mask:
             term_distance = sum([self.term_dist_calc(x) for x in self.S[i]])
             steps_left = self.MAX_LEN - self.t - 1
             self.terminal_mask = np.zeros_like(self.grammar_mask)
@@ -137,18 +137,16 @@ class TerminalDistanceCalculator:
         self.GCFG = mask_gen.grammar.GCFG
 
         for p in self.GCFG.productions():
-            #self.term_dist[frozendict({'token': p.lhs()})] = float('inf')
             for s in p.rhs():
                 if is_terminal(s):
                     # terminals have term distance 0
                     self.term_dist[frozendict({'token': s})] = 0
 
+        self.term_dist[frozendict({'token': Nonterminal('None')})] = 0
+
         # seed the search with the root symbol
         self.term_dist[frozendict({'token': Nonterminal('smiles')})] = float('inf')
-        self.term_dist[frozendict({'token': Nonterminal('None')})] = 0
-        #self.term_dist[frozendict({'token': Nonterminal('forbidden_token')})] = float('inf')
 
-        last_term_dist ={}
         while True: # iterate to convergence
             last_term_dist = copy.copy(self.term_dist)
             for sym in last_term_dist.keys():
@@ -159,7 +157,7 @@ class TerminalDistanceCalculator:
                         assert (not all([x == 0 for x in mask]))
                     for ip, p in enumerate(self.GCFG.productions()):
                         if mask[ip]:
-                            this_exp = apply_rule([sym], 0, p, None)# apply_rule(sym, p, 0)
+                            this_exp = apply_rule([sym], 0, p, None)
                             this_term_dist = 1
                             for this_sym in this_exp:
                                 if frozendict(this_sym) not in self.term_dist:
@@ -175,12 +173,11 @@ class TerminalDistanceCalculator:
                                       [self.term_dist[frozendict(this_sym)] for this_sym in this_exp])
                                 self.term_dist[frozendict(sym)] = this_term_dist
 
-
             if last_term_dist == self.term_dist:
                 break
 
     def __call__(self, sym):
-        my_key = frozendict({k: (0 if k == 'ringID' else v) for k,v in sym.items()})
+        my_key = frozendict({k: (None if k == 'num' else v) for k,v in sym.items()})
         if my_key in self.term_dist:
             return self.term_dist[my_key]
         else:
@@ -204,7 +201,6 @@ class TerminalDistanceCalculator:
             if mask[ip] and p.lhs() == x['token']:
                 new_tokens = apply_rule([x], 0, p, None)
                 diff_td = sum([self.__call__(n) for n in new_tokens]) - self.__call__(x)
-                # that's the definition of term distance, SOME rule reduces it by one
 
                 d_td.append(diff_td)
             else:
@@ -212,7 +208,8 @@ class TerminalDistanceCalculator:
 
         d_td = np.array(d_td)
         if check_mask:
-            assert(any(d_td == -1))
+            # that's the definition of term distance, SOME rule reduces it by one, but never by more
+            assert(np.min(d_td) == -1)
         return d_td
 
 
