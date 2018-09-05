@@ -2,7 +2,7 @@ import nltk
 import numpy as np
 import six
 import pdb
-from nltk.grammar import Nonterminal, is_nonterminal
+from nltk.grammar import Nonterminal, is_nonterminal, is_terminal
 
 from generative_playground.codec.smiles_grammar_new_2 import grammar_string_zinc_new
 
@@ -123,8 +123,11 @@ class GrammarHelper:
         self.D = len(self.GCFG.productions())
         self.term_dist = {}
 
-        # TODO: pull the numeric tokens from the grammar itself
-        self.numeric_tokens = [str(i) for i in range(1,10)] + ['%' + str(i) for i in range(10,50)]
+        self.numeric_tokens = [str(i) for i in range(1,10)] #+ ['%' + str(i) for i in range(10,30)]
+        for p in self.GCFG.productions():
+            for x in p.rhs():
+                if is_terminal(x) and '%' in x and not x in self.numeric_tokens:
+                    self.numeric_tokens.append(x)
 
         # this map tells us the rhs symbol indices for each production rule
         self.rhs_map = [None]*self.D

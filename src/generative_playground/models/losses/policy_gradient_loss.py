@@ -37,7 +37,7 @@ class PolicyGradientLoss(nn.Module):
 
         rewardloss = total_logp * total_rewards
         if 'mean' in self.loss_type:
-            mean_loss = rewardloss.mean()/total_rewards.mean()
+            mean_loss = rewardloss.mean()/(total_rewards.abs().mean()+1e-8)
             my_loss += mean_loss
         if 'best' in self.loss_type:
             best_ind = torch.argmax(total_rewards)
@@ -49,5 +49,7 @@ class PolicyGradientLoss(nn.Module):
             valid_reward = 2*valid - 1
             valid_loss = (valid_reward*total_logp).mean()
             my_loss += valid_loss
+        # check for NaNs
+        assert(my_loss == my_loss)
 
         return my_loss

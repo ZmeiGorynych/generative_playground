@@ -13,6 +13,7 @@ class GrammarMaskGeneratorNew:
         self.reset()
         self.term_dist_calc = TerminalDistanceCalculator(self)
 
+
     def reset(self):
         self.S = None
         self.t = 0
@@ -111,7 +112,7 @@ class GrammarMaskGeneratorNew:
                     # block out cycle continuation
                     for k in self.grammar.cycle_continues:
                         ring_mask[k] = 0
-                if this_token['size'] < 2: #4# minimum cycle length 5
+                if this_token['size'] < 4: #4# minimum cycle length 5
                     # block out cycle finish
                     for k in self.grammar.cycle_ends:
                         ring_mask[k] = 0
@@ -134,6 +135,7 @@ class TerminalDistanceCalculator:
         self.mask_gen = copy.copy(mask_gen)
         self.mask_gen.do_terminal_mask = False
         self.term_dist = {}
+        self.d_term_dist = {}
         self.GCFG = mask_gen.grammar.GCFG
 
         for p in self.GCFG.productions():
@@ -177,7 +179,7 @@ class TerminalDistanceCalculator:
                 break
 
     def __call__(self, sym):
-        my_key = frozendict({k: (None if k == 'num' else v) for k,v in sym.items()})
+        my_key = token_to_hashable(sym)
         if my_key in self.term_dist:
             return self.term_dist[my_key]
         else:
@@ -195,25 +197,31 @@ class TerminalDistanceCalculator:
     def rule_d_term_dist(self, x):
         # calculates the change in terminal distance by each of the potential rules starting from x
         d_td = []
+        x = token_to_hashable(x)
         mask = self.get_mask_from_token(x)
-        for ip, p in enumerate(self.GCFG.productions()):
-            # TODO: fall back to lookup where that is possible
-            if mask[ip] and p.lhs() == x['token']:
-                new_tokens = apply_rule([x], 0, p, None)
-                diff_td = sum([self.__call__(n) for n in new_tokens]) - self.__call__(x)
+        if x not in self.d_term_dist:
+            # calculate d_term_dist for that extended token
+            for ip, p in enumerate(self.GCFG.productions()):
+                if mask[ip] and p.lhs() == x['token']:
+                    new_tokens = apply_rule([x], 0, p, None)
+                    diff_td = sum([self.__call__(n) for n in new_tokens]) - self.__call__(x)
 
-                d_td.append(diff_td)
-            else:
-                d_td.append(0)
+                    d_td.append(diff_td)
+                else:
+                    d_td.append(0)
 
-        d_td = np.array(d_td)
-        if check_mask:
-            # that's the definition of term distance, SOME rule reduces it by one, but never by more
-            assert(np.min(d_td) == -1)
-        return d_td
+            d_td = np.array(d_td)
+            if check_mask:
+                # that's the definition of term distance, SOME rule reduces it by one, but never by more
+                assert(np.min(d_td) == -1)
+            self.d_term_dist[x] = d_td
 
+        return self.d_term_dist[x]
 
-def pick_next_free_numeral(S, this_index, grammar):
+def token_to_hashable(x):
+    return frozendict({k: (None if k == 'num' else v) for k,v in x.items()})
+
+def find_free_numerals(S, this_index, grammar):
     # collect all the un-paired numeral terminals before current token
     used_tokens = set()
     for j in range(this_index):  # up to, and excluding, this_index
@@ -225,11 +233,11 @@ def pick_next_free_numeral(S, this_index, grammar):
                 used_tokens.add(current_token)
 
     # find the first unused numeral
-    for nt in grammar.numeric_tokens:
-        if nt not in used_tokens:
-            return nt
-
-    raise ValueError("Too many nested cycles - can't find a valid numeral")
+    free_numerals = [nt for nt in grammar.numeric_tokens if not nt in used_tokens]
+    if not free_numerals:
+        raise ValueError("Too many nested cycles - can't find a valid numeral")
+    else:
+        return free_numerals
 
 
 def apply_rule(S, this_index, this_rule, grammar):
@@ -246,24 +254,49 @@ def apply_rule(S, this_index, this_rule, grammar):
     # get the expansion
     new_tokens = [{'token': x} for x in this_rule.rhs()]
 
+    propagate_strings = ['cycle', 'num']
+    num_nonterms = ['num', 'num1']
     # if the expansion is a new ring, assign the numeral to use
+    num_map ={}
     if 'ring' in this_token['token']._symbol:
-        if grammar is not None: # might be already set to 'None' when doing terminal distance pre-calc
-            this_token['num'] = pick_next_free_numeral(S, this_index, grammar)
+        if grammar is not None: # grammar is None when doing terminal distance pre-calc
+            free_numerals = find_free_numerals(S, this_index, grammar)
+        else:
+            free_numerals = [None, None]
+            # assign first numeral everywhere except 'num1
+        for x in new_tokens:
+            if is_nonterminal(x['token']) and \
+                    any([ps in x['token']._symbol for ps in propagate_strings]):
+                x['size'] = 1  # TODO use a function call instead to correctly count atoms
+                if x['token'] == Nonterminal('num1'): # this is very hacky, to do better want modular aromatic cycles
+                    x['num'] = free_numerals[1]
+                else:
+                    x['num'] = free_numerals[0]
         else:
             this_token['num'] = None
         this_token['size'] = 0
-
-    # if the token is a cycle token, propagate the numeral and size counter
-    propagate_strings = ['cycle', 'num']
-    if 'num' in this_token:
+    elif 'num' in this_token:
+        # if this_token is a cycle propagation token, propagate the numeral and size counter
         for x in new_tokens:
             if is_nonterminal(x['token']) and \
                     any([ps in x['token']._symbol for ps in propagate_strings]):
                 x['num'] = this_token['num']
-                x['size'] = this_token['size'] + 1 # TODO use a function call instead to correctly count atoms
+                x['size'] = this_token['size'] + rule_adds_atom(this_rule)
+
+    if check_mask:
+        for x in new_tokens:
+            if is_nonterminal(x['token']) and \
+                    any([ps in x['token']._symbol for ps in propagate_strings]):
+                assert('num' in x and 'size' in x)
 
     return new_tokens
+
+def rule_adds_atom(p):
+    atoms = ['c', 'n', 'o', 's', 'f', 'cl', 'br', 'i']
+    if any([x.lower() in atoms for x in p.rhs() if is_terminal(x)]):
+        return 1
+    else:
+        return 0
 
 # def terminal_distance(grammar, x):
 #     # due to masking that enforces minimal ring length, must override term distances derived purely from grammar

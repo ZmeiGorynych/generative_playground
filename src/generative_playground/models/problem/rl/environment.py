@@ -81,6 +81,9 @@ class SequenceEnvironment:
             if self.save_dataset is not None:
                 self.save_dataset.append(append_data)
 
+        if not all(reward==reward):
+            print('failure!')
+
         return next_state, reward, done, (self.smiles, self.valid)
 
     def seed(self, random_seed):

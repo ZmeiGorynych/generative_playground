@@ -33,8 +33,6 @@ valence_2 -> 'S'
 valence_2 -> 'S' '(' '=' 'O' ')'  '(' '=' 'O' ')'
 valence_2 -> valence_3 branch
 valence_2 -> valence_4 '(' double_bond ')'
-valence_2 -> vertex_attached_ring
-vertex_attached_ring -> valence_4_num '(' cycle_bond ')'
 valence_1 -> 'F'
 valence_1 -> 'Cl'
 valence_1 -> 'Br'
@@ -44,71 +42,65 @@ valence_1 -> '[' 'N' 'H' '3' '+' ']'
 valence_1 -> valence_2  branch
 valence_1 -> valence_3 '(' double_bond ')'
 valence_1 -> valence_4 '(' triple_bond ')'
+nonH_bond -> aromatic_ring_5
+nonH_bond -> aromatic_ring_6
+nonH_bond -> double_aromatic_ring
 nonH_bond -> valence_2 slash valence_3 '=' valence_3 slash valence_2
 slash -> '/'
 slash -> '\\'
-nonH_bond -> aliphatic_ring
-aliphatic_ring -> valence_3_num cycle_bond
-aliphatic_ring -> valence_4_num cycle_double_bond
-cycle_bond -> valence_2 cycle_bond
-cycle_bond -> valence_3 cycle_double_bond
-cycle_double_bond -> '=' valence_3 cycle_bond
-cycle_bond -> valence_2_num
-cycle_double_bond -> '=' valence_3_num
-nonH_bond -> aliphatic_ring_segment
-cycle_bond -> aliphatic_ring_segment cycle_bond
-aliphatic_ring_segment -> valence_3 '(' cycle_bond ')' valence_3_num
-aliphatic_ring_segment -> valence_4 '(' cycle_bond ')' '=' valence_4_num
-aliphatic_ring_segment -> valence_4 '(' cycle_double_bond ')' valence_3_num
-nonH_bond -> aromatic_ring_5
-nonH_bond -> aromatic_ring_6
-aromatic_ring_6 -> starting_aromatic_c_num aromatic_atom aromatic_atom aromatic_atom aromatic_atom aromatic_atom_num
-aromatic_ring_5 -> starting_aromatic_c_num aromatic_os aromatic_atom aromatic_atom aromatic_atom_num
-aromatic_ring_5 -> starting_aromatic_c_num aromatic_atom aromatic_os aromatic_atom aromatic_atom_num
-aromatic_ring_5 -> starting_aromatic_c_num aromatic_atom aromatic_atom aromatic_os aromatic_atom_num
-aromatic_ring_5 -> starting_aromatic_c_num aromatic_atom aromatic_atom aromatic_atom aromatic_os_num
-starting_aromatic_c_num -> '-' 'c' num 
-starting_aromatic_c_num -> 'c' num
+aromatic_ring_6 -> starting_aromatic_c aromatic_atom aromatic_atom aromatic_atom aromatic_atom final_aromatic_atom_1
+aromatic_ring_5 -> starting_aromatic_c aromatic_os aromatic_atom aromatic_atom final_aromatic_atom_1
+aromatic_ring_5 -> starting_aromatic_c aromatic_atom aromatic_os aromatic_atom final_aromatic_atom_1
+aromatic_ring_5 -> starting_aromatic_c aromatic_atom aromatic_atom aromatic_os final_aromatic_atom_1
+aromatic_ring_5 -> starting_aromatic_c aromatic_atom aromatic_atom aromatic_atom final_aromatic_os
+starting_aromatic_c -> '-' 'c' num1 
+starting_aromatic_c -> 'c' num1
+double_aromatic_ring -> 'c' num2 aromatic_atom aromatic_atom aromatic_atom 'c' num1 'n' num2 aromatic_atom aromatic_atom final_aromatic_atom_1
 aromatic_atom -> 'n' 
 aromatic_atom -> 'c' branch 
 aromatic_os -> 'o'
 aromatic_os -> 's'
 aromatic_os -> 'n' '(' nonH_bond ')'
 aromatic_os -> '[' 'n' 'H' ']'
-aromatic_atom_num -> 'n' num
-aromatic_atom_num -> 'c' num bond
-aromatic_os_num -> 'o' num
-aromatic_os_num -> 's' num
-aromatic_os_num -> 'n' num nonH_bond
+final_aromatic_atom_1 -> 'n' num1
+final_aromatic_atom_1 -> 'c' num1 bond
+final_aromatic_os -> 'o' num1
+final_aromatic_os -> 's' num1
+final_aromatic_os -> 'n' num1 nonH_bond
+nonH_bond -> aliphatic_ring
+aliphatic_ring -> valence_3_num1 cycle_bond
+aliphatic_ring -> valence_4_num1 cycle_double_bond
+cycle_bond -> valence_2 cycle_bond
+cycle_bond -> valence_3 cycle_double_bond
+cycle_double_bond -> '=' valence_3 cycle_bond
+cycle_bond -> valence_2_num1
+cycle_double_bond -> '=' valence_3_num1
 """
 
 """
-nonH_bond -> double_aromatic_ring
-double_aromatic_ring -> 'c' num1 aromatic_atom aromatic_atom aromatic_atom 'c' num 'c' num1 aromatic_atom aromatic_atom aromatic_atom aromatic_atom_num
-double_aromatic_ring -> 'c' num1 aromatic_atom aromatic_atom aromatic_atom 'c' num 'n' num1 aromatic_atom aromatic_atom aromatic_atom_num
-full_aromatic_segment -> aromatic_atom aromatic_atom
-
-full_aromatic_segment -> side_aliphatic_ring_segment
-side_aliphatic_ring_segment -> 'c' num 'c' '(' cycle_bond ')'
-side_aliphatic_ring_segment -> 'c' '(' cycle_bond ')' 'c' num
-aromatic_os -> side_aliphatic_ring
-side_aliphatic_ring -> 'c' num cycle_bond
-
-
-double_aromatic_ring -> 'c' num2 aa aa aa 'c' num 'n' num2 aa aa aa_num
-double_aromatic_ring -> 'c' num1 aromatic_atom aromatic_atom aromatic_atom 'n' num 'c' num1 aromatic_atom aromatic_atom aromatic_atom_num
-
+nonH_bond -> aliphatic_ring_segment
+cycle_bond -> alipnatic_ring_segment cycle_bond
+aliphatic_ring_segment -> valence_3 '(' cycle_bond ')' valence_3_num1
+aliphatic_ring_segment -> valence_4 '(' cycle_bond ')' '=' valence_4_num1
+aliphatic_ring_segment -> valence_4 '(' cycle_double_bond ')' valence_4_num1
+aliphatic_ring_segment -> valence_4_num1 '(' cycle_bond ')' bond
+aromatic_ring_6 -> starting_aromatic_c aromatic_atom aromatic_atom aromatic_atom aromatic_atom final_aromatic_atom_1
+aromatic_ring_5 -> starting_aromatic_c aromatic_os aromatic_atom aromatic_atom final_aromatic_atom_1
+aromatic_ring_5 -> starting_aromatic_c aromatic_atom aromatic_os aromatic_atom final_aromatic_atom_1
+aromatic_ring_5 -> starting_aromatic_c aromatic_atom aromatic_atom aromatic_os final_aromatic_atom_1
+aromatic_ring_5 -> starting_aromatic_c aromatic_atom aromatic_atom aromatic_atom final_aromatic_os
+double_aromatic_ring -> 'c' num2 aa aa aa 'c' num1 'n' num2 aa aa aa_num1
 new logic for rings:
-an element with 'ring' in its name triggers an assignment of a digit to its elements containing 'cycle' or 'num'
-the ringID and digit ID propagate into elements containing 'num' and 'cycle'
+an element with 'ring' in its name triggers an assignment of a digit to 'all' its elements
 any 'num' with an assigned digit is auto-masked to expand to that digit
-
+the ID propagates into 'valence_*_num','cycle_*' and 'num' items, nothing else
+digit assignment takes into account pending digits? No it's already leftmost by that time 
 """
 
 def add_numbered_valence(grammar_str:str):
     my_str = grammar_str.split('\n')
     my_str_new = copy.copy(my_str)
-    num_token = 'num'
+    num_token = 'num1'
     num_valences = ['valence_2', 'valence_3', 'valence_4']
     insert_points = ["']'","'S'", "'O'", "'C'", "'N'"]
     for s in my_str:
@@ -135,12 +127,12 @@ pre_grammar_string_zinc_new = add_numbered_valence(pre_grammar_string_zinc_new)
 # nonH_bond -> plain_aromatic_ring
 # add rules for generating ring numerals
 for i in range(1,10):
-    pre_grammar_string_zinc_new += "num -> '" + str(i) + "'\n"
     pre_grammar_string_zinc_new += "num1 -> '" + str(i) + "'\n"
+    pre_grammar_string_zinc_new += "num2 -> '" + str(i) + "'\n"
 
-for i in range(10,30):#50):
-    pre_grammar_string_zinc_new += "num -> '%" + str(i) + "'\n"
+for i in range(10,15):#50):
     pre_grammar_string_zinc_new += "num1 -> '%" + str(i) + "'\n"
+    pre_grammar_string_zinc_new += "num2 -> '%" + str(i) + "'\n"
 
 pre_grammar_string_zinc_new += "Nothing -> None\n"
 
