@@ -10,6 +10,9 @@ class GrammarMaskGeneratorNew:
         self.MAX_LEN = MAX_LEN
         self.grammar = grammar
         self.do_terminal_mask = True
+        self.S = None
+        self.t = 0
+        self.ring_num_map = {}
         self.reset()
         self.term_dist_calc = TerminalDistanceCalculator(self)
 
@@ -51,7 +54,7 @@ class GrammarMaskGeneratorNew:
                 if is_nonterminal(old_token['token']):
                     break
             if this_rule.lhs() != Nonterminal('Nothing'):
-                new_tokens = apply_rule(self.S[i], this_index, this_rule, self.grammar)#apply_rule(old_token, this_rule, self.t)
+                new_tokens = apply_rule(self.S[i], i, self.t, this_index, this_rule, self.grammar)#apply_rule(old_token, this_rule, self.t)
                 # do the replacement
                 self.S[i] = self.S[i][:this_index] + new_tokens + self.S[i][this_index + 1:]
 
@@ -86,23 +89,29 @@ class GrammarMaskGeneratorNew:
             self.terminal_mask = np.ones_like(self.grammar_mask)
 
         # if we're expanding a ring numeric token
-        self.ring_mask = self.get_ring_mask(this_token)#, i, this_index)
+        self.ring_mask = self.get_ring_mask(this_token, i, this_index)
 
         mask = self.grammar_mask * self.terminal_mask * self.ring_mask
-        #print([str(p) + '\n' for j, p in enumerate(self.grammar.GCFG.productions()) if mask[j]])
+        # if is_nonterminal(this_token['token']) and this_token['token']._symbol == 'nonH_bond':
+        #     print('let''s see...')
+        # #print([str(p) + '\n' for j, p in enumerate(self.grammar.GCFG.productions()) if mask[j]])
         #[p for ip, p in enumerate(self.grammar.GCFG.productions()) if self.terminal_mask[ip]]
         if check_mask:
             assert(not all([x == 0 for x in mask]))
         return mask
 
-    def get_ring_mask(self, this_token):#, i=None, this_index=None):
+    def get_ring_mask(self, this_token, i=None, this_index=None):
         if 'num' in this_token: # if this token is part of a cycle
             # if it's a numeral, choose which one to use from its stored numeral
             if str(this_token['token']._symbol[:3]) == 'num':
                 if this_token['num'] is None:
                     nums_to_use = self.grammar.numeric_tokens
-                else:
-                    nums_to_use = [this_token['num']]
+                elif this_token['num'] in self.ring_num_map: # if we're closing a cycle
+                    nums_to_use = [self.ring_num_map[this_token['num']]]
+                else: # if we're opening a cycle
+                    free_numerals = find_free_numerals(self.S[i], this_index=this_index,grammar=self.grammar)
+                    nums_to_use = [free_numerals[0]]
+                    self.ring_num_map[this_token['num']] = free_numerals[0]
 
                 ring_mask = np.array(
                     [1 if a.rhs()[0] in nums_to_use else 0 for a in self.grammar.GCFG.productions()])
@@ -125,6 +134,7 @@ class GrammarMaskGeneratorNew:
             token = token['token'] # in case we got a dict
         except:
             pass
+
         grammar_mask = self.grammar.masks[self.grammar.lhs_to_index[token], :]
         return grammar_mask
 
@@ -150,6 +160,7 @@ class TerminalDistanceCalculator:
         self.term_dist[frozendict({'token': Nonterminal('smiles')})] = float('inf')
 
         while True: # iterate to convergence
+            # print('*** and one more pass... ***')
             last_term_dist = copy.copy(self.term_dist)
             for sym in last_term_dist.keys():
                 if self.term_dist[sym] > 0:
@@ -159,7 +170,8 @@ class TerminalDistanceCalculator:
                         assert (not all([x == 0 for x in mask]))
                     for ip, p in enumerate(self.GCFG.productions()):
                         if mask[ip]:
-                            this_exp = apply_rule([sym], 0, p, None)
+                            # print('trying', sym, p)
+                            this_exp = apply_rule([sym], None, None, 0, p, None)
                             this_term_dist = 1
                             for this_sym in this_exp:
                                 if frozendict(this_sym) not in self.term_dist:
@@ -171,7 +183,7 @@ class TerminalDistanceCalculator:
                             if this_term_dist < self.term_dist[frozendict(sym)]:
                                 # if 'ring_size' in sym and sym['ring_size'] > 6:
                                 #     print('aaa')
-                                print(p, self.term_dist[frozendict(sym)], this_term_dist,
+                                print('improving:', p, self.term_dist[frozendict(sym)], this_term_dist,
                                       [self.term_dist[frozendict(this_sym)] for this_sym in this_exp])
                                 self.term_dist[frozendict(sym)] = this_term_dist
 
@@ -189,6 +201,8 @@ class TerminalDistanceCalculator:
         grammar_mask = self.mask_gen.get_grammar_mask(sym)
         ring_mask = self.mask_gen.get_ring_mask(sym)
         mask = grammar_mask*ring_mask
+        # if is_nonterminal(sym['token']) and sym['token']._symbol == 'nonH_bond':
+        #     print('let''s see...')
         if check_mask:
             assert(any(mask))
         return mask
@@ -203,7 +217,7 @@ class TerminalDistanceCalculator:
             # calculate d_term_dist for that extended token
             for ip, p in enumerate(self.GCFG.productions()):
                 if mask[ip] and p.lhs() == x['token']:
-                    new_tokens = apply_rule([x], 0, p, None)
+                    new_tokens = apply_rule([x], None, None, 0, p, None)
                     diff_td = sum([self.__call__(n) for n in new_tokens]) - self.__call__(x)
 
                     d_td.append(diff_td)
@@ -240,7 +254,7 @@ def find_free_numerals(S, this_index, grammar):
         return free_numerals
 
 
-def apply_rule(S, this_index, this_rule, grammar):
+def apply_rule(S, i, t, this_index, this_rule, grammar):
     this_token = dict(S[this_index])
     this_inner_token = this_token['token']
     # do some safety checks
@@ -259,19 +273,22 @@ def apply_rule(S, this_index, this_rule, grammar):
     # if the expansion is a new ring, assign the numeral to use
     num_map ={}
     if 'ring' in this_token['token']._symbol:
-        if grammar is not None: # grammar is None when doing terminal distance pre-calc
-            free_numerals = find_free_numerals(S, this_index, grammar)
-        else:
-            free_numerals = [None, None]
-            # assign first numeral everywhere except 'num1
+        # if grammar is not None: # grammar is None when doing terminal distance pre-calc
+        #     free_numerals = find_free_numerals(S, this_index, grammar)
+        # else:
+        #     free_numerals = [None, None]
+        #     # assign first numeral everywhere except 'num1
         for x in new_tokens:
             if is_nonterminal(x['token']) and \
                     any([ps in x['token']._symbol for ps in propagate_strings]):
                 x['size'] = 1  # TODO use a function call instead to correctly count atoms
-                if x['token'] == Nonterminal('num1'): # this is very hacky, to do better want modular aromatic cycles
-                    x['num'] = free_numerals[1]
+                if grammar is not None:
+                    if x['token'] == Nonterminal('num1'): # this is very hacky, to do better want modular aromatic cycles
+                        x['num'] = (i,t,'num1') # unique identifier inside this batch
+                    else:
+                        x['num'] = (i,t,'num')
                 else:
-                    x['num'] = free_numerals[0]
+                    x['num'] = None
         else:
             this_token['num'] = None
         this_token['size'] = 0
@@ -293,8 +310,11 @@ def apply_rule(S, this_index, this_rule, grammar):
 
 def rule_adds_atom(p):
     atoms = ['c', 'n', 'o', 's', 'f', 'cl', 'br', 'i']
-    if any([x.lower() in atoms for x in p.rhs() if is_terminal(x)]):
+    if any([x.lower() in atoms for x in p.rhs() if is_terminal(x)]) or \
+        any(['valence' in x._symbol for x in p.rhs() if is_nonterminal(x)]):
         return 1
+    elif any(['segment' in x._symbol for x in p.rhs() if is_nonterminal(x)]):
+        return 2
     else:
         return 0
 

@@ -80,7 +80,8 @@ def get_zinc_tokenizer(cfg):
 
     def tokenize(smiles):
         for i, token in enumerate(long_tokens):
-            smiles = smiles.replace(token, replacements[i])
+            if token in smiles:
+                smiles = smiles.replace(token, replacements[i])
         tokens = []
         for token in smiles:
             try:
