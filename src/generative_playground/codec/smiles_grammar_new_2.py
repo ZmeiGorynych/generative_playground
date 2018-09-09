@@ -89,20 +89,16 @@ aromatic_ring_5 -> starting_aromatic_c_num aromatic_atom full_aromatic_segment a
 full_aromatic_segment -> aromatic_atom aromatic_atom
 aromatic_os -> side_aliphatic_ring
 side_aliphatic_ring -> 'c' num '(' cycle_bond ')'
-"""
-
-"""
 full_aromatic_segment -> side_aliphatic_ring_segment
 side_aliphatic_ring_segment -> 'c' num 'c' '(' cycle_bond ')'
 side_aliphatic_ring_segment -> 'c' '(' cycle_bond ')' 'c' num
+"""
+
+"""
+
 
 
 double_aromatic_ring -> 'c' num2 aa aa aa 'c' num 'n' num2 aa aa aa_num
-new logic for rings:
-an element with 'ring' in its name triggers an assignment of a digit to its elements containing 'cycle' or 'num'
-the ringID and digit ID propagate into elements containing 'num' and 'cycle'
-any 'num' with an assigned digit is auto-masked to expand to that digit
-
 """
 
 def add_numbered_valence(grammar_str:str):
@@ -138,7 +134,7 @@ for i in range(1,10):
     pre_grammar_string_zinc_new += "num -> '" + str(i) + "'\n"
     pre_grammar_string_zinc_new += "num1 -> '" + str(i) + "'\n"
 
-for i in range(10,30):#50):
+for i in range(10,100):#50):
     pre_grammar_string_zinc_new += "num -> '%" + str(i) + "'\n"
     pre_grammar_string_zinc_new += "num1 -> '%" + str(i) + "'\n"
 

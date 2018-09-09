@@ -1,4 +1,5 @@
 import numpy as np
+import uuid
 import nltk
 from nltk.grammar import Nonterminal, is_nonterminal, is_terminal
 import copy
@@ -102,14 +103,16 @@ class GrammarMaskGeneratorNew:
 
     def get_ring_mask(self, this_token, i=None, this_index=None):
         if 'num' in this_token: # if this token is part of a cycle
-            # if it's a numeral, choose which one to use from its stored numeral
-            if str(this_token['token']._symbol[:3]) == 'num':
+            # if it's a numeral, choose which one to use from its stored guid
+            if str(this_token['token']._symbol) in ['num', 'num1']:
                 if this_token['num'] is None:
                     nums_to_use = self.grammar.numeric_tokens
                 elif this_token['num'] in self.ring_num_map: # if we're closing a cycle
                     nums_to_use = [self.ring_num_map[this_token['num']]]
                 else: # if we're opening a cycle
-                    free_numerals = find_free_numerals(self.S[i], this_index=this_index,grammar=self.grammar)
+                    free_numerals = find_free_numerals(self.S[i],
+                                                       this_index=this_index,
+                                                       grammar=self.grammar)
                     nums_to_use = [free_numerals[0]]
                     self.ring_num_map[this_token['num']] = free_numerals[0]
 
@@ -235,13 +238,13 @@ class TerminalDistanceCalculator:
 def token_to_hashable(x):
     return frozendict({k: (None if k == 'num' else v) for k,v in x.items()})
 
-def find_free_numerals(S, this_index, grammar):
+def find_free_numerals(S, this_index, grammar, reuse_numerals=False):
     # collect all the un-paired numeral terminals before current token
     used_tokens = set()
     for j in range(this_index):  # up to, and excluding, this_index
         current_token = S[j]['token']
         if current_token in grammar.numeric_tokens:
-            if current_token in used_tokens:
+            if current_token in used_tokens and reuse_numerals: #this cycle has been closed, can reuse the numeral
                 used_tokens.remove(current_token)
             else:
                 used_tokens.add(current_token)
@@ -253,6 +256,21 @@ def find_free_numerals(S, this_index, grammar):
     else:
         return free_numerals
 
+# class NumeralTracker:
+#     def __init__(self, reuse_numerals = False):
+#         self.numerals = None
+#         self.reuse_numerals = reuse_numerals
+#
+#     def __call__(self, S, this_index, grammar):
+#         if self.reuse_numerals:
+#             return find_free_numerals_reuse(S, this_index, grammar)
+#         else:
+#             if self.numerals is None:
+#                 self.numerals = grammar.numeric_tokens
+#
+#             return self.numerals.pop(0)
+#
+# find_free_numerals = NumeralTracker()
 
 def apply_rule(S, i, t, this_index, this_rule, grammar):
     this_token = dict(S[this_index])
@@ -273,20 +291,17 @@ def apply_rule(S, i, t, this_index, this_rule, grammar):
     # if the expansion is a new ring, assign the numeral to use
     num_map ={}
     if 'ring' in this_token['token']._symbol:
-        # if grammar is not None: # grammar is None when doing terminal distance pre-calc
-        #     free_numerals = find_free_numerals(S, this_index, grammar)
-        # else:
-        #     free_numerals = [None, None]
-        #     # assign first numeral everywhere except 'num1
+        num_id = uuid.uuid4()
+        num1_id = uuid.uuid4()
         for x in new_tokens:
             if is_nonterminal(x['token']) and \
                     any([ps in x['token']._symbol for ps in propagate_strings]):
                 x['size'] = 1  # TODO use a function call instead to correctly count atoms
                 if grammar is not None:
                     if x['token'] == Nonterminal('num1'): # this is very hacky, to do better want modular aromatic cycles
-                        x['num'] = (i,t,'num1') # unique identifier inside this batch
+                        x['num'] = num1_id # unique identifier inside this batch
                     else:
-                        x['num'] = (i,t,'num')
+                        x['num'] = num_id
                 else:
                     x['num'] = None
         else:
