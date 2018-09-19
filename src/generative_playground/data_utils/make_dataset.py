@@ -11,12 +11,12 @@ except:
 
 from generative_playground.models.model_settings import get_settings, get_model
 from generative_playground.data_utils.data_sources import IncrementingHDF5Dataset
-from generative_playground.rdkit_utils.rdkit_utils import get_score_components
+from generative_playground.rdkit_utils.rdkit_utils import get_score_components_from_mol
 
 # change this to true to produce the equation dataset
 molecules = True
 # change this to False to get string-based encodings instead of grammar-based
-grammar = 'new'#True # true for the grammar used by ddKusner et al
+grammar = 'new' #True# true for the grammar used by Kusner et al
 
 # can't define model class inside settings as it itself uses settings a lot
 _, my_model = get_model(molecules,grammar)
@@ -50,8 +50,8 @@ for i in range(0, len(L), step):#for i in range(0, 1000, 2000):
     these_indices = list(range(i, min(i + step,len(L))))
     these_smiles = L[i:min(i + step,len(L))]
     if grammar=='new': # have to weed out non-parseable strings
-        tokens = [my_model._tokenize(s) for s in these_smiles]
-        these_smiles, these_indices = zip([(s,ind) for s,t,ind in zip(these_smiles, tokens, these_indices) if pre_parser(t) is not None])
+        tokens = [my_model._tokenize(s.replace('-c','c')) for s in these_smiles]
+        these_smiles, these_indices = list(zip(*[(s,ind) for s,t,ind in zip(these_smiles, tokens, these_indices) if pre_parser(t) is not None]))
         print(len(these_smiles))
     these_actions = my_model.string_to_actions(these_smiles)
     action_seq_length = my_model.action_seq_length(these_actions)
@@ -63,8 +63,12 @@ for i in range(0, len(L), step):#for i in range(0, 1000, 2000):
                    'seq_len': action_seq_length,
                    'data': onehot}
     if molecules:
-        raw_scores = np.array([get_score_components(s) for s in these_smiles])
+        from rdkit.Chem.rdmolfiles import MolFromSmiles
+        mols = [MolFromSmiles(s) for s in these_smiles]
+        raw_scores = np.array([get_score_components_from_mol(m) for m in mols])
         append_data['raw_scores'] = raw_scores
+        num_atoms = np.array([len(m.GetAtoms()) for m in mols])
+        append_data['num_atoms'] = num_atoms
 
     ds.append(append_data)
 

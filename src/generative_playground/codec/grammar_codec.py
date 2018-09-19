@@ -31,7 +31,7 @@ class GrammarModel(GenericCodec):
 
     def string_to_actions(self, smiles):
         """ Encode a list of smiles strings into the latent space """
-        assert type(smiles) == list
+        assert type(smiles) == list or type(smiles) == tuple
         tokens = [self._tokenize(s.replace('-c','c')) for s in smiles]
         parse_trees = [next(self._parser.parse(t)) for t in tokens]
         productions_seq = [tree.productions() for tree in parse_trees]
