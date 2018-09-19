@@ -175,6 +175,8 @@ class TerminalDistanceCalculator:
             # print('*** and one more pass... ***')
             last_term_dist = copy.copy(self.term_dist)
             for sym in last_term_dist.keys():
+                if is_terminal(sym['token']):
+                    self.term_dist[sym] = 0
                 if self.term_dist[sym] > 0:
                     mask = self.get_mask_from_token(sym)
                     # [p for ip, p in enumerate(self.GCFG.productions()) if mask[ip]]
@@ -247,13 +249,14 @@ class TerminalDistanceCalculator:
 def token_to_hashable(x):
     return frozendict({k: (None if k == 'num' else v) for k,v in x.items()})
 
-def find_free_numerals(S, this_index, grammar, reuse_numerals=False):
+def find_free_numerals(S, this_index, grammar, reuse_numerals=True):
     # collect all the un-paired numeral terminals before current token
     used_tokens = set()
     for j in range(this_index):  # up to, and excluding, this_index
         current_token = S[j]['token']
         assert(is_terminal(current_token)) # we assume the token we want to expand now is the leftmost nontermonal
-        if current_token in grammar.numeric_tokens:
+        # the second check is to exclude numerals that describe charge
+        if current_token in grammar.numeric_tokens and 'is_cycle_numeral' in S[j]:
             if current_token in used_tokens and reuse_numerals: #this cycle has been closed, can reuse the numeral
                 used_tokens.remove(current_token)
             else:
@@ -265,22 +268,6 @@ def find_free_numerals(S, this_index, grammar, reuse_numerals=False):
         raise ValueError("Too many nested cycles - can't find a valid numeral")
     else:
         return free_numerals
-
-# class NumeralTracker:
-#     def __init__(self, reuse_numerals = False):
-#         self.numerals = None
-#         self.reuse_numerals = reuse_numerals
-#
-#     def __call__(self, S, this_index, grammar):
-#         if self.reuse_numerals:
-#             return find_free_numerals_reuse(S, this_index, grammar)
-#         else:
-#             if self.numerals is None:
-#                 self.numerals = grammar.numeric_tokens
-#
-#             return self.numerals.pop(0)
-#
-# find_free_numerals = NumeralTracker()
 
 
 def apply_rule(S, this_index, this_rule, grammar):
@@ -307,10 +294,10 @@ def apply_rule(S, this_index, this_rule, grammar):
         for x in new_tokens:
             if is_nonterminal(x['token']) and \
                     any([ps in x['token']._symbol for ps in propagate_strings]):
-                x['size'] = 1  # TODO use a function call instead to correctly count atoms
+                x['size'] = 1
                 if grammar is not None:
                     if x['token'] == Nonterminal('num1'): # this is very hacky, to do better want modular aromatic cycles
-                        x['num'] = num1_id # unique identifier inside this batch
+                        x['num'] = num1_id
                     else:
                         x['num'] = num_id
                 else:
@@ -319,6 +306,10 @@ def apply_rule(S, this_index, this_rule, grammar):
             this_token['num'] = None
         this_token['size'] = 0
     elif 'num' in this_token:
+        if this_token['token']._symbol in ['num', 'num1']:
+            # tag the resulting terminal so we know it's a cycle numeral, not a charge numeral
+            for x in new_tokens:
+                x['is_cycle_numeral'] = True
         # if this_token is a cycle propagation token, propagate the numeral and size counter
         for x in new_tokens:
             if is_nonterminal(x['token']) and \

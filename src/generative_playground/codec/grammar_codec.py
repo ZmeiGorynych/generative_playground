@@ -32,7 +32,7 @@ class GrammarModel(GenericCodec):
     def string_to_actions(self, smiles):
         """ Encode a list of smiles strings into the latent space """
         assert type(smiles) == list
-        tokens = map(self._tokenize, smiles)
+        tokens = [self._tokenize(s.replace('-c','c')) for s in smiles]
         parse_trees = [next(self._parser.parse(t)) for t in tokens]
         productions_seq = [tree.productions() for tree in parse_trees]
         actions = [[self._prod_map[prod] for prod in entry] for entry in productions_seq]
