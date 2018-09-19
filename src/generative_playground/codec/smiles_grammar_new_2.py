@@ -3,9 +3,22 @@ from nltk.grammar import Nonterminal, Production, is_nonterminal
 import nltk
 
 pre_grammar_string_zinc_new = """
-smiles -> valence_1 bond
-smiles -> valence_2 double_bond
-smiles -> valence_3 triple_bond
+smiles -> nonH_bond
+smiles -> initial_valence_1 bond
+smiles -> initial_valence_2 double_bond
+smiles -> initial_valence_3 triple_bond
+initial_valence_1 -> 'F'
+initial_valence_1 -> 'Cl'
+initial_valence_1 -> 'Br'
+initial_valence_1 -> 'I'
+initial_valence_1 -> '[' 'O' '-' ']'
+initial_valence_1 -> '[' 'N' 'H' '3' '+' ']'
+initial_valence_2 -> 'O'
+initial_valence_2 -> 'S'
+initial_valence_3 -> '[' 'C' '@' 'H' ']'
+initial_valence_3 -> '[' 'C' '@' '@' 'H' ']'
+initial_valence_3 -> 'N'
+initial_valence_3 -> '[' 'N' 'H' '+' ']'
 bond -> 'h'
 bond -> nonH_bond
 branch -> 'h'
@@ -62,7 +75,6 @@ aliphatic_ring_segment -> valence_4 '(' cycle_bond ')' '=' valence_4_num
 aliphatic_ring_segment -> valence_4 '(' cycle_double_bond ')' valence_3_num
 nonH_bond -> aromatic_ring_5
 nonH_bond -> aromatic_ring_6
-starting_aromatic_c_num -> '-' 'c' num 
 starting_aromatic_c_num -> 'c' num
 aromatic_atom -> 'n' 
 aromatic_atom -> 'c' branch 
@@ -97,7 +109,7 @@ side_aliphatic_ring_segment -> 'c' '(' cycle_bond ')' 'c' num
 """
 
 
-
+starting_aromatic_c_num -> '-' 'c' num 
 double_aromatic_ring -> 'c' num2 aa aa aa 'c' num 'n' num2 aa aa aa_num
 """
 

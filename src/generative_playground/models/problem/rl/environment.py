@@ -66,9 +66,9 @@ class SequenceEnvironment:
                 this_mol = Chem.MolFromSmiles(self.smiles[i])
                 if this_mol is None:
                     print(self.smiles[i])
-                    rules = self.codec.grammar.GCFG.productions()
-                    for a in this_action_seq[0]:
-                        print(rules[a])
+                    # rules = self.codec.grammar.GCFG.productions()
+                    # for a in this_action_seq[0]:
+                    #     print(rules[a])
                     self.valid[i] = 0
                 else:
                     self.valid[i] = 1

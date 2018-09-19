@@ -12,16 +12,19 @@ class GrammarMaskGeneratorNew:
         self.grammar = grammar
         self.do_terminal_mask = True
         self.S = None
+        self.Stree = None
         self.t = 0
         self.ring_num_map = {}
+        self.roots = []
         self.reset()
         self.term_dist_calc = TerminalDistanceCalculator(self)
 
-
     def reset(self):
         self.S = None
+        self.Stree = None
         self.t = 0
         self.ring_num_map = {}
+        self.roots = []
 
     def __call__(self, last_actions):
         """
@@ -37,31 +40,35 @@ class GrammarMaskGeneratorNew:
         if self.S is None:
             # populate the sequences with the root symbol
             self.S = [[{'token': Nonterminal('smiles')}] for _ in range(len(last_actions))]
+            self.Stree =[[x for x in y] for y in self.S]
 
         for i, a in enumerate(last_actions):
-            mask[i, :] = self.process_one_action(i, a)
+            self.S[i], mask[i, :] = self.process_one_action(self.S[i], a)
 
         self.t += 1
         self.prev_actions = last_actions
         self.mask = mask
         return mask
 
-    def process_one_action(self, i, a):
+
+    def process_one_action(self, this_S, a):
         if a is not None:
             # 1. Apply the expansion from last prod rule
             this_rule = self.grammar.GCFG.productions()[a]
             # find the token to apply the expansion to
-            for this_index, old_token in enumerate(self.S[i]):
+            for this_index, old_token in enumerate(this_S):
                 if is_nonterminal(old_token['token']):
                     break
             if this_rule.lhs() != Nonterminal('Nothing'):
-                new_tokens = apply_rule(self.S[i], i, self.t, this_index, this_rule, self.grammar)#apply_rule(old_token, this_rule, self.t)
+                new_tokens = apply_rule(this_S, this_index, this_rule, self.grammar)#apply_rule(old_token, this_rule, self.t)
                 # do the replacement
-                self.S[i] = self.S[i][:this_index] + new_tokens + self.S[i][this_index + 1:]
+                if check_mask:
+                    this_S[this_index]['children'] = new_tokens
+                this_S = this_S[:this_index] + new_tokens + this_S[this_index + 1:]
 
-            # 2. generate masks for next prod rule
-            # find the index of the next token to expand, which is the first nonterminal in sequence
-        for this_index, this_token in enumerate(self.S[i]):
+        # 2. generate masks for next prod rule
+        # find the index of the next token to expand, which is the first nonterminal in sequence
+        for this_index, this_token in enumerate(this_S):
             if is_nonterminal(this_token['token']):
                 break
             this_token = {'token': nltk.grammar.Nonterminal('Nothing')}
@@ -75,12 +82,12 @@ class GrammarMaskGeneratorNew:
             # print('done')
             # print([p for j,p in enumerate(self.grammar.GCFG.productions()) if self.grammar_mask[j]])
             # # we only get to this point if the sequence is fully expanded
-            return self.grammar_mask
+            return this_S, self.grammar_mask
 
 
         # get the terminal distance mask
         if self.do_terminal_mask:
-            term_distance = sum([self.term_dist_calc(x) for x in self.S[i]])
+            term_distance = sum([self.term_dist_calc(x) for x in this_S])
             steps_left = self.MAX_LEN - self.t - 1
             self.terminal_mask = np.zeros_like(self.grammar_mask)
             rule_dist = self.term_dist_calc.rule_d_term_dist(this_token)
@@ -90,7 +97,7 @@ class GrammarMaskGeneratorNew:
             self.terminal_mask = np.ones_like(self.grammar_mask)
 
         # if we're expanding a ring numeric token
-        self.ring_mask = self.get_ring_mask(this_token, i, this_index)
+        self.ring_mask = self.get_ring_mask(this_token, this_S, this_index)
 
         mask = self.grammar_mask * self.terminal_mask * self.ring_mask
         # if is_nonterminal(this_token['token']) and this_token['token']._symbol == 'nonH_bond':
@@ -99,9 +106,11 @@ class GrammarMaskGeneratorNew:
         #[p for ip, p in enumerate(self.grammar.GCFG.productions()) if self.terminal_mask[ip]]
         if check_mask:
             assert(not all([x == 0 for x in mask]))
-        return mask
+        return this_S, mask
 
-    def get_ring_mask(self, this_token, i=None, this_index=None):
+    def get_ring_mask(self, this_token, this_S=None, this_index=None):
+        assert(this_S is None or this_token == this_S[this_index])
+
         if 'num' in this_token: # if this token is part of a cycle
             # if it's a numeral, choose which one to use from its stored guid
             if str(this_token['token']._symbol) in ['num', 'num1']:
@@ -110,7 +119,7 @@ class GrammarMaskGeneratorNew:
                 elif this_token['num'] in self.ring_num_map: # if we're closing a cycle
                     nums_to_use = [self.ring_num_map[this_token['num']]]
                 else: # if we're opening a cycle
-                    free_numerals = find_free_numerals(self.S[i],
+                    free_numerals = find_free_numerals(this_S,
                                                        this_index=this_index,
                                                        grammar=self.grammar)
                     nums_to_use = [free_numerals[0]]
@@ -174,7 +183,7 @@ class TerminalDistanceCalculator:
                     for ip, p in enumerate(self.GCFG.productions()):
                         if mask[ip]:
                             # print('trying', sym, p)
-                            this_exp = apply_rule([sym], None, None, 0, p, None)
+                            this_exp = apply_rule([sym], 0, p, None)
                             this_term_dist = 1
                             for this_sym in this_exp:
                                 if frozendict(this_sym) not in self.term_dist:
@@ -220,7 +229,7 @@ class TerminalDistanceCalculator:
             # calculate d_term_dist for that extended token
             for ip, p in enumerate(self.GCFG.productions()):
                 if mask[ip] and p.lhs() == x['token']:
-                    new_tokens = apply_rule([x], None, None, 0, p, None)
+                    new_tokens = apply_rule([x], 0, p, None)
                     diff_td = sum([self.__call__(n) for n in new_tokens]) - self.__call__(x)
 
                     d_td.append(diff_td)
@@ -243,6 +252,7 @@ def find_free_numerals(S, this_index, grammar, reuse_numerals=False):
     used_tokens = set()
     for j in range(this_index):  # up to, and excluding, this_index
         current_token = S[j]['token']
+        assert(is_terminal(current_token)) # we assume the token we want to expand now is the leftmost nontermonal
         if current_token in grammar.numeric_tokens:
             if current_token in used_tokens and reuse_numerals: #this cycle has been closed, can reuse the numeral
                 used_tokens.remove(current_token)
@@ -272,7 +282,8 @@ def find_free_numerals(S, this_index, grammar, reuse_numerals=False):
 #
 # find_free_numerals = NumeralTracker()
 
-def apply_rule(S, i, t, this_index, this_rule, grammar):
+
+def apply_rule(S, this_index, this_rule, grammar):
     this_token = dict(S[this_index])
     this_inner_token = this_token['token']
     # do some safety checks

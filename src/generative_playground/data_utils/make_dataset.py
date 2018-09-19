@@ -47,15 +47,17 @@ ds = IncrementingHDF5Dataset(dest_file)
 step = 100
 for i in range(0, len(L), step):#for i in range(0, 1000, 2000):
     print('Processing: i=[' + str(i) + ':' + str(i + step) + ']')
+    these_indices = list(range(i, min(i + step,len(L))))
     these_smiles = L[i:min(i + step,len(L))]
     if grammar=='new': # have to weed out non-parseable strings
         tokens = [my_model._tokenize(s) for s in these_smiles]
-        these_smiles = [s for s,t in zip(these_smiles, tokens) if pre_parser(t) is not None]
+        these_smiles, these_indices = zip([(s,ind) for s,t,ind in zip(these_smiles, tokens, these_indices) if pre_parser(t) is not None])
         print(len(these_smiles))
     these_actions = my_model.string_to_actions(these_smiles)
     action_seq_length = my_model.action_seq_length(these_actions)
     onehot = my_model.actions_to_one_hot(these_actions)
     append_data = {'smiles': np.array(these_smiles, dtype='S'),
+                   'indices': np.array(these_indices),
                    'actions': these_actions,
                    'valid': np.ones((len(these_smiles))),
                    'seq_len': action_seq_length,
