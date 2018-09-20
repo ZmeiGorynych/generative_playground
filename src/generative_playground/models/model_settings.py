@@ -251,7 +251,8 @@ def get_decoder(molecules = True,
                  drop_rate = 0.0,
                         decoder_type='step',
                 task = None,
-                batch_size=None):
+                batch_size=None,
+                sanity_checks=True):
     settings = get_settings(molecules,grammar)
     if decoder_type=='old':
         pre_decoder = ResettingRNNDecoder(z_size=z_size,
@@ -300,7 +301,7 @@ def get_decoder(molecules = True,
         stepper = pre_decoder
 
     if grammar:
-        mask_gen = GrammarMaskGeneratorNew(max_seq_length, grammar_zinc_new)#GrammarMaskGenerator(max_seq_length, grammar=settings['grammar'])
+        mask_gen = GrammarMaskGeneratorNew(max_seq_length, grammar_zinc_new, sanity_checks=sanity_checks)#GrammarMaskGenerator(max_seq_length, grammar=settings['grammar'])
         stepper = MaskingHead(stepper, mask_gen)
 
     policy = SoftmaxRandomSamplePolicy()

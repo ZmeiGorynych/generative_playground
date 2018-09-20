@@ -39,7 +39,8 @@ def train_policy_gradient(molecules = True,
                           dashboard = 'policy gradient',
                           smiles_save_file=None,
                           on_policy_loss_type='best',
-                          off_policy_loss_type='mean'):
+                          off_policy_loss_type='mean',
+                          sanity_checks=True):
 
     root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     root_location = root_location + '/../'
@@ -63,7 +64,7 @@ def train_policy_gradient(molecules = True,
                                   max_steps=max_steps,
                                   save_dataset=save_dataset)
 
-    def get_model():
+    def get_model(sanity_checks=sanity_checks):
         return get_decoder(molecules,
                            grammar,
                            z_size=settings['z_size'],
@@ -72,7 +73,8 @@ def train_policy_gradient(molecules = True,
                            max_seq_length=max_steps,
                            drop_rate=drop_rate,
                            decoder_type=decoder_type,
-                           task=task)[0]
+                           task=task,
+                           sanity_checks=sanity_checks)[0]
     model = get_model()
 
     if preload_file is not None:
@@ -152,7 +154,8 @@ def train_policy_gradient(molecules = True,
             metric_monitor = None
 
         checkpointer = Checkpointer(valid_batches_to_checkpoint=1,
-                                    save_path=save_path)
+                                    save_path=save_path,
+                                    save_always=True)
 
         def my_gen():
             for _ in range(1000):
@@ -172,6 +175,7 @@ def train_policy_gradient(molecules = True,
 
         return fitter
 
+    # the on-policy fitter
     fitter1 = get_fitter(model,
                          PolicyGradientLoss(on_policy_loss_type),
                          plot_prefix + 'on-policy',

@@ -4,9 +4,10 @@ import torch.nn.functional as F
 
 
 class PolicyGradientLoss(nn.Module):
-    def __init__(self, loss_type='mean'):
+    def __init__(self, loss_type='mean', loss_cutoff=1e5):
         super().__init__()
         self.loss_type = loss_type
+        self.loss_cutoff = loss_cutoff
 
     def forward(self, model_out):
         '''
@@ -27,6 +28,8 @@ class PolicyGradientLoss(nn.Module):
         for i in range(seq_len):
             dloss = torch.diag(-log_p[:, i, actions[:,i]]) # batch_size, hopefully
             total_logp += dloss
+
+        total_logp[total_logp > self.loss_cutoff] = 0
 
         if sum(valid) > 0:
             self.metrics = {'avg reward': total_rewards.mean().data.item(),

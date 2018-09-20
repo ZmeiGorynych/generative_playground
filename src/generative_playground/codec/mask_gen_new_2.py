@@ -4,10 +4,10 @@ import nltk
 from nltk.grammar import Nonterminal, is_nonterminal, is_terminal
 import copy
 from frozendict import frozendict
-check_mask = True
+#check_mask = True
 
 class GrammarMaskGeneratorNew:
-    def __init__(self, MAX_LEN, grammar):
+    def __init__(self, MAX_LEN, grammar, sanity_checks=True):
         self.MAX_LEN = MAX_LEN
         self.grammar = grammar
         self.do_terminal_mask = True
@@ -17,6 +17,7 @@ class GrammarMaskGeneratorNew:
         self.ring_num_map = {}
         self.roots = []
         self.reset()
+        self.checks = sanity_checks
         self.term_dist_calc = TerminalDistanceCalculator(self)
 
     def reset(self):
@@ -60,9 +61,9 @@ class GrammarMaskGeneratorNew:
                 if is_nonterminal(old_token['token']):
                     break
             if this_rule.lhs() != Nonterminal('Nothing'):
-                new_tokens = apply_rule(this_S, this_index, this_rule, self.grammar)#apply_rule(old_token, this_rule, self.t)
+                new_tokens = apply_rule(this_S, this_index, this_rule, self.grammar, self.checks)#apply_rule(old_token, this_rule, self.t)
                 # do the replacement
-                if check_mask:
+                if self.checks:
                     this_S[this_index]['children'] = new_tokens
                 this_S = this_S[:this_index] + new_tokens + this_S[this_index + 1:]
 
@@ -104,7 +105,7 @@ class GrammarMaskGeneratorNew:
         #     print('let''s see...')
         # #print([str(p) + '\n' for j, p in enumerate(self.grammar.GCFG.productions()) if mask[j]])
         #[p for ip, p in enumerate(self.grammar.GCFG.productions()) if self.terminal_mask[ip]]
-        if check_mask:
+        if self.checks:
             assert(not all([x == 0 for x in mask]))
         return this_S, mask
 
@@ -180,12 +181,12 @@ class TerminalDistanceCalculator:
                 if self.term_dist[sym] > 0:
                     mask = self.get_mask_from_token(sym)
                     # [p for ip, p in enumerate(self.GCFG.productions()) if mask[ip]]
-                    if check_mask:
+                    if self.mask_gen.checks:
                         assert (not all([x == 0 for x in mask]))
                     for ip, p in enumerate(self.GCFG.productions()):
                         if mask[ip]:
                             # print('trying', sym, p)
-                            this_exp = apply_rule([sym], 0, p, None)
+                            this_exp = apply_rule([sym], 0, p, None, self.mask_gen.checks)
                             this_term_dist = 1
                             for this_sym in this_exp:
                                 if frozendict(this_sym) not in self.term_dist:
@@ -217,7 +218,7 @@ class TerminalDistanceCalculator:
         mask = grammar_mask*ring_mask
         # if is_nonterminal(sym['token']) and sym['token']._symbol == 'nonH_bond':
         #     print('let''s see...')
-        if check_mask:
+        if self.mask_gen.checks:
             assert(any(mask))
         return mask
 
@@ -231,7 +232,7 @@ class TerminalDistanceCalculator:
             # calculate d_term_dist for that extended token
             for ip, p in enumerate(self.GCFG.productions()):
                 if mask[ip] and p.lhs() == x['token']:
-                    new_tokens = apply_rule([x], 0, p, None)
+                    new_tokens = apply_rule([x], 0, p, None, self.mask_gen.checks)
                     diff_td = sum([self.__call__(n) for n in new_tokens]) - self.__call__(x)
 
                     d_td.append(diff_td)
@@ -239,7 +240,7 @@ class TerminalDistanceCalculator:
                     d_td.append(0)
 
             d_td = np.array(d_td)
-            if check_mask:
+            if self.mask_gen.checks:
                 # that's the definition of term distance, SOME rule reduces it by one, but never by more
                 assert(np.min(d_td) == -1)
             self.d_term_dist[x] = d_td
@@ -270,11 +271,11 @@ def find_free_numerals(S, this_index, grammar, reuse_numerals=True):
         return free_numerals
 
 
-def apply_rule(S, this_index, this_rule, grammar):
+def apply_rule(S, this_index, this_rule, grammar, checks=True):
     this_token = dict(S[this_index])
     this_inner_token = this_token['token']
     # do some safety checks
-    if check_mask:
+    if checks:
         assert (this_inner_token == this_rule.lhs())
         if ('cycle' in this_inner_token._symbol or 'num' in this_inner_token._symbol) \
             and 'size' not in this_token:
@@ -317,7 +318,7 @@ def apply_rule(S, this_index, this_rule, grammar):
                 x['num'] = this_token['num']
                 x['size'] = this_token['size'] + rule_adds_atom(this_rule)
 
-    if check_mask:
+    if checks:
         for x in new_tokens:
             if is_nonterminal(x['token']) and \
                     any([ps in x['token']._symbol for ps in propagate_strings]):
