@@ -4,7 +4,7 @@ import numpy as np
 
 from generative_playground.utils.gpu_utils import to_gpu, FloatTensor, LongTensor
 from generative_playground.models.decoder.policy import SimplePolicy
-
+sanity_checks = False
 
 
 class OneStepDecoderContinuous(nn.Module):
@@ -93,7 +93,8 @@ class SimpleDiscreteDecoderWithEnv(nn.Module):
                 #  batch x num_actions
                 next_logits = self.stepper(last_state)
                 # check for NaNs in the logits
-                assert(all(next_logits.view(next_logits.numel())==next_logits.view(next_logits.numel())))
+                if sanity_checks:
+                    assert(all(next_logits.view(next_logits.numel())==next_logits.view(next_logits.numel())))
                 # #just in case we were returned a sequence of length 1 rather than a straight batch_size x num_actions
                 # next_logits = torch.squeeze(next_logits, 1)
                 # if self.mask_gen is not None:

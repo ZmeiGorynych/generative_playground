@@ -29,7 +29,7 @@ class PolicyGradientLoss(nn.Module):
             dloss = torch.diag(-log_p[:, i, actions[:,i]]) # batch_size, hopefully
             total_logp += dloss
 
-        total_logp[total_logp > self.loss_cutoff] = 0
+        #total_logp[total_logp > self.loss_cutoff] = 0
 
         if sum(valid) > 0:
             self.metrics = {'avg reward': total_rewards.mean().data.item(),
@@ -37,8 +37,8 @@ class PolicyGradientLoss(nn.Module):
         else:
             self.metrics = {}
         my_loss = 0
-
-        rewardloss = total_logp * total_rewards
+        # loss_cutoff causes us to ignore off-policy examples that are grammatically possible but masked away
+        rewardloss = (total_logp * total_rewards)[total_logp < self.loss_cutoff]
         if 'mean' in self.loss_type:
             mean_loss = rewardloss.mean()/(total_rewards.abs().mean()+1e-8)
             my_loss += mean_loss
