@@ -82,6 +82,6 @@ class MetricPlotter:
 
         self.stats = self.stats.append(metrics, ignore_index=True)
 
-        if not train: # only save to disk during valdation calls for speedup
+        if True:#not train: # only save to disk during valdation calls for speedup
             with gzip.open(self.save_file,'wb') as f:
                 pickle.dump(self.stats, f)

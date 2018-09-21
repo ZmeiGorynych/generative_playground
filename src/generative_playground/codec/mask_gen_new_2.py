@@ -207,9 +207,9 @@ class TerminalDistanceCalculator:
 
     def __call__(self, sym):
         my_key = token_to_hashable(sym)
-        if my_key in self.term_dist:
+        try:
             return self.term_dist[my_key]
-        else:
+        except:
             return float('1e6')
 
     def get_mask_from_token(self, sym):
