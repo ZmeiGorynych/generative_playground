@@ -83,7 +83,7 @@ def get_score_components(smiles):
 
 
 class NormalizedScorer:
-    def __init__(self, invalid_value=-2, sa_mult=0.0, sa_thresh = 0.5, normalize_scores=False):
+    def __init__(self, invalid_value=-3*3.5, sa_mult=0.0, sa_thresh = 0.5, normalize_scores=False):
         settings = get_settings(True, 'new')
         h5f = h5py.File(settings['data_path'], 'r')
         self.means = np.array(h5f['score_mean'])[:3]

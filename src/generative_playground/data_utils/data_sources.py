@@ -152,33 +152,35 @@ class IncrementingHDF5Dataset:
         '''
         self.tracked_dataset_names = set()
         self.mode = mode
-        self.h5f = h5py.File(fname, mode)
+        self.fname = fname
+        #self.h5f = h5py.File(fname, mode)
         self.append_happened = False
 
     def __len__(self):
         if len(self.tracked_dataset_names) == 0:
             return 0
         else:
-            for ds_name in self.tracked_dataset_names:
-                return len(self.h5f[ds_name])
+            with h5py.File(self.fname, self.mode) as h5f:
+                for ds_name in self.tracked_dataset_names:
+                    return len(h5f[ds_name])
 
 
     def append_to_dataset(self, dataset_name, data):
         if len(data)==0:
             return
-
-        try:
-            self.h5f[dataset_name].resize(self.h5f[dataset_name].shape[0] + data.shape[0], axis=0)
-            self.h5f[dataset_name][-data.shape[0]:] = data
-        except Exception as e: # if there is no such dataset yet, create extendable datasets
-            if len(data.shape)==1:
-                ds_dim = [None]
-            else:
-                ds_dim = [None] + list(data.shape[1:])
-            self.h5f.create_dataset(dataset_name, data=data,
-                               compression="gzip",
-                               compression_opts=9,
-                               maxshape=ds_dim)
+        with h5py.File(self.fname, self.mode) as h5f:
+            try:
+                h5f[dataset_name].resize(h5f[dataset_name].shape[0] + data.shape[0], axis=0)
+                h5f[dataset_name][-data.shape[0]:] = data
+            except Exception as e: # if there is no such dataset yet, create extendable datasets
+                if len(data.shape)==1:
+                    ds_dim = [None]
+                else:
+                    ds_dim = [None] + list(data.shape[1:])
+                h5f.create_dataset(dataset_name, data=data,
+                                   compression="gzip",
+                                   compression_opts=9,
+                                   maxshape=ds_dim)
 
 
     def append(self, data, enforce_length = True):
@@ -217,11 +219,13 @@ class IncrementingHDF5Dataset:
             else:
                 assert(set(data.keys()) == self.tracked_dataset_names)
                 old_len = None
-                for ds_name in self.tracked_dataset_names:
-                    if old_len is None:
-                        old_len = len(self.h5f[ds_name])
-                    else:
-                        assert(old_len == len(self.h5f[ds_name]))
+                with h5py.File(self.fname, self.mode) as h5f:
+                    for ds_name in self.tracked_dataset_names:
+                        if old_len is None:
+                            old_len = len(h5f[ds_name])
+                        else:
+                            assert(old_len == len(h5f[ds_name]))
+
             # now that all checks are done, let's append
             for ds_name, new_data in data.items():
                 self.append_to_dataset(ds_name, new_data)

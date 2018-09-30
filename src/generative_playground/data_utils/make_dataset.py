@@ -1,4 +1,5 @@
 import numpy as np
+import h5py
 
 try:
     import generative_playground
@@ -45,6 +46,8 @@ f.close()
 ds = IncrementingHDF5Dataset(dest_file)
 
 step = 100
+dt = h5py.special_dtype(vlen=str)     # PY3 hdf5 datatype for variable-length Unicode strings
+
 for i in range(0, len(L), step):#for i in range(0, 1000, 2000):
     print('Processing: i=[' + str(i) + ':' + str(i + step) + ']')
     these_indices = list(range(i, min(i + step,len(L))))
@@ -56,7 +59,7 @@ for i in range(0, len(L), step):#for i in range(0, 1000, 2000):
     these_actions = my_model.string_to_actions(these_smiles)
     action_seq_length = my_model.action_seq_length(these_actions)
     onehot = my_model.actions_to_one_hot(these_actions)
-    append_data = {'smiles': np.array(these_smiles, dtype='S'),
+    append_data = {'smiles': np.array(these_smiles, dtype=dt),
                    'indices': np.array(these_indices),
                    'actions': these_actions,
                    'valid': np.ones((len(these_smiles))),

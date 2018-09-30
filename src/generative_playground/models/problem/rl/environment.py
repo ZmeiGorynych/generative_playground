@@ -77,9 +77,12 @@ class SequenceEnvironment:
                 reward[i] = this_reward
                 self.seq_len[i] = len(self.actions)
 
+        #TODO: put the special string handling into the hdf5 wrapper
+        import h5py
+        dt = h5py.special_dtype(vlen=str)  # PY3 hdf5 datatype for variable-length Unicode strings
         if len(self.actions) == self._max_episode_steps:
             # dump the whole batch to disk
-            append_data = {'smiles': np.array(self.smiles, dtype='S'),
+            append_data = {'smiles': np.array(self.smiles, dtype=dt),
                            'actions': np.concatenate(self.actions, axis=1),
                            'seq_len': self.seq_len}
             if self.save_dataset is not None:
