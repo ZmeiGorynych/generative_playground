@@ -13,10 +13,10 @@ from generative_playground.models.model_settings import get_settings, get_model
 from generative_playground.data_utils.data_sources import IncrementingHDF5Dataset
 from generative_playground.rdkit_utils.rdkit_utils import get_score_components_from_mol
 
-# change this to true to produce the equation dataset
+# change this to False to produce the equation dataset
 molecules = True
 # change this to False to get string-based encodings instead of grammar-based
-grammar = 'new' #True# true for the grammar used by Kusner et al
+grammar = 'new' #True#True# true for the grammar used by Kusner et al
 
 # can't define model class inside settings as it itself uses settings a lot
 _, my_model = get_model(molecules,grammar)

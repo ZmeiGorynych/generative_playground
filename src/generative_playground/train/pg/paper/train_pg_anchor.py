@@ -3,8 +3,8 @@ try:
 except:
     import sys, os, inspect
     my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-    sys.path.append('../../..')
-    sys.path.append('../../../../../transformer_pytorch')
+    sys.path.append('../../../..')
+    sys.path.append('../../../../../../transformer_pytorch')
 
 import numpy as np
 from generative_playground.rdkit_utils.rdkit_utils import num_atoms, num_aromatic_rings, num_aliphatic_rings, NormalizedScorer
@@ -46,19 +46,20 @@ drop_rate = 0.3
 molecules = True
 grammar = 'new'#True#
 settings = get_settings(molecules, grammar)
-invalid_value = -10
-scorer = NormalizedScorer(invalid_value=invalid_value, sa_mult=0)
+invalid_value = -3*3.5
+scorer = NormalizedScorer(invalid_value=invalid_value, sa_mult=0.0, sa_thresh= -1.5, normalize_scores=False)
 max_steps = 277 #settings['max_seq_length']
 
 def second_score(smiles):
-    pre_scores = 2.5 + scorer.get_scores(smiles)[0]
+    pre_scores = 3*2.5 + scorer.get_scores(smiles)[0]
     score = np.power(pre_scores.prod(1), 0.333)
     for i in range(len(score)):
         if np.isnan(score[i]):
             score[i] = -1
     return score
 
-reward_fun = lambda x: np.array([1 for _ in x])
+reward_fun = lambda x: 3*2.5 + scorer(x)# - 0.2*np.array([0 if num is None else num for num in num_aromatic_rings(x)])# + reward_aliphatic_rings(x)# + 0.05*reward_aromatic_rings(x)#lambda x: reward_aromatic_rings(x)# #lambda x: reward_aromatic_rings(x)#
+
 
 model, fitter1, fitter2 = train_policy_gradient(molecules,
                                                 grammar,
@@ -66,21 +67,20 @@ model, fitter1, fitter2 = train_policy_gradient(molecules,
                                                 BATCH_SIZE=batch_size,
                                                 reward_fun_on=reward_fun,
                                                 max_steps=max_steps,
-                                                lr_off=1e-4,
-                                                lr_on=0.0,
-                                                drop_rate=drop_rate,
+                                                lr_off=0.0,
+                                                lr_on=1e-4,
+                                                drop_rate = drop_rate,
                                                 decoder_type='attention',#'random',#
-                                                plot_prefix='baseline ',
-                                                dashboard='baseline',#None,#
-                                                save_file='policy_gradient_baseline.h5',
-                                                smiles_save_file='pg_smiles_baseline.h5',
-                                                on_policy_loss_type='mean',
+                                                plot_prefix='anchor ',
+                                                dashboard='anchor',#None,#
+                                                save_file='paper/policy_gradient_anchor.h5',
+                                                smiles_save_file='paper/pg_smiles_anchor.h5',
+                                                on_policy_loss_type='best',
                                                 off_policy_loss_type='mean',
-                                                sanity_checks=False) # some of the database molecules don't conform to our constraints
-                                                # preload_file='policy_gradient_tmp.h5',
-                                                # anchor_file='policy_gradient_tmp.h5',
-                                                # anchor_weight=1)
+                                                preload_file='paper/policy_gradient_baseline.h5',
+                                                anchor_file='paper/policy_gradient_baseline.h5',
+                                                anchor_weight=1e9)
 #
 while True:
     next(fitter1)
-    next(fitter2)
+    #next(fitter2)

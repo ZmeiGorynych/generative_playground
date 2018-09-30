@@ -134,8 +134,8 @@ def add_numbered_valence(grammar_str:str):
             my_str_new.append(s_lhs + ' -> ' + s_rhs_new)
 
     new_str = ''.join([s + '\n' for s in my_str_new])
-    print(new_str)
-    print('******************')
+    # print(new_str)
+    # print('******************')
     return new_str
 
 pre_grammar_string_zinc_new = add_numbered_valence(pre_grammar_string_zinc_new)
@@ -222,5 +222,7 @@ def test_cycle_propagation(x):
             assert(num_propagators == 0)
 
 test_cycle_propagation(pre_grammar_string_zinc_new)
-
+print('******************************')
 grammar_string_zinc_new = pre_grammar_string_zinc_new#purge_implicit_H(pre_grammar_string_zinc_new)
+print(grammar_string_zinc_new)
+print('******************************')
