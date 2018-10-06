@@ -84,7 +84,7 @@ def get_score_components(smiles):
 
 class NormalizedScorer:
     def __init__(self, invalid_value=-3*3.5, sa_mult=0.0, sa_thresh = 0.5, normalize_scores=False):
-        settings = get_settings(True, 'new')
+        settings = get_settings(True, True)
         h5f = h5py.File(settings['data_path'], 'r')
         self.means = np.array(h5f['score_mean'])[:3]
         self.stds = np.array(h5f['score_std'])[:3]
@@ -95,15 +95,20 @@ class NormalizedScorer:
         h5f.close()
 
     def get_scores(self, smiles):
+        mols = [MolFromSmiles(s) for s in smiles]
+        return self.get_scores_from_mols(mols)
+
+
+    def get_scores_from_mols(self, mols):
         '''
         get normalized score
         :param smiles: a list of strings
         :return: array of normalized scores
         '''
-        mols = [MolFromSmiles(s) for s in smiles]
-        [print("invalid", s) for (s, mol) in zip(mols, smiles) if mol is None]
-        if mols[0] is None:
-            print(smiles[0])
+        #mols = [MolFromSmiles(s) for s in smiles]
+        # [print("invalid", s) for (s, mol) in zip(mols, smiles) if mol is None]
+        # if mols[0] is None:
+        #     print(smiles[0])
         scores = np.array([get_score_components_from_mol(mol) if mol is not None else [float('nan')]*3
                                 for mol in mols])
         norm_scores = (scores - self.means) / self.stds

@@ -47,11 +47,19 @@ molecules = True
 grammar = 'new'#True#
 settings = get_settings(molecules, grammar)
 invalid_value = -3*3.5
-scorer = NormalizedScorer(invalid_value=invalid_value, sa_mult=20, sa_thresh=-0.5, normalize_scores=True)
+scorer = NormalizedScorer(invalid_value=invalid_value, sa_mult=20, sa_thresh=0, normalize_scores=True)
 max_steps = 277 #settings['max_seq_length']
 
+def second_score(smiles):
+    pre_scores = 3*2.5 + scorer.get_scores(smiles)[0]
+    score = np.power(pre_scores.prod(1), 0.333)
+    for i in range(len(score)):
+        if np.isnan(score[i]):
+            score[i] = -1
+    return score
 
 reward_fun = lambda x: scorer(x)# - 0.2*np.array([0 if num is None else num for num in num_aromatic_rings(x)])# + reward_aliphatic_rings(x)# + 0.05*reward_aromatic_rings(x)#lambda x: reward_aromatic_rings(x)# #lambda x: reward_aromatic_rings(x)#
+
 
 model, fitter1, fitter2 = train_policy_gradient(molecules,
                                                 grammar,
@@ -64,14 +72,14 @@ model, fitter1, fitter2 = train_policy_gradient(molecules,
                                                 drop_rate = drop_rate,
                                                 decoder_type='attention',#'random',#
                                                 plot_prefix='anchor ',
-                                                dashboard='anchor weak sa-0.5',#None,#
-                                                save_file='paper/policy_gradient_anchor_weak_sa-0.5.h5',
-                                                smiles_save_file='paper/pg_smiles_anchor_weak_sa-0.5.h5',
+                                                dashboard='anchor weak sa',#None,#
+                                                save_file='paper/policy_gradient_anchor_weak_sa20.h5',
+                                                smiles_save_file='paper/pg_smiles_anchor_weak_sa20.h5',
                                                 on_policy_loss_type='best',
                                                 off_policy_loss_type='mean',
                                                 preload_file='paper/policy_gradient_baseline.h5',
                                                 anchor_file='paper/policy_gradient_baseline.h5',
-                                                anchor_weight=2e7)
+                                                anchor_weight=2e8)
 #
 while True:
     next(fitter1)
