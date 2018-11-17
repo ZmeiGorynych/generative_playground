@@ -46,6 +46,11 @@ class SoftMaxOp:
 class SparseMaxOp:
     @staticmethod
     def max(X):
+        if len(X.shape) ==1:
+            X = X.unsqueeze(0)
+            squeeze_back = True
+        else:
+            squeeze_back = False
         n_states = X.shape[-1]
         other_dims = X.shape[:-1]
         X_sorted, _ = torch.sort(X, dim=-1, descending=True)
@@ -65,6 +70,8 @@ class SparseMaxOp:
         # A /= A.sum(dim=2, keepdim=True)
 
         M = torch.sum(A * (X - .5 * A), dim=-1)
+        if squeeze_back:
+            A = A.squeeze(0)
 
         return M.squeeze(), A#M.squeeze(), A.squeeze()
 
@@ -113,7 +120,7 @@ class CustomMax(nn.Module):
 
 for type in ['hardmax','softmax','sparsemax']:
     # TODO: make sparsemax work for dimension 0
-    for num_dims in range(2,6):
+    for num_dims in range(1,6):
         pre_x = [-10,2,2.1]
         for _ in range(num_dims-1):
             pre_x = [pre_x]
