@@ -46,7 +46,8 @@ class SoftMaxOp:
 class SparseMaxOp:
     @staticmethod
     def max(X):
-        seq_len, n_batch, n_states = X.shape
+        n_states = X.shape[-1]
+        other_dims = X.shape[:-1]
         X_sorted, _ = torch.sort(X, dim=-1, descending=True)
         cssv = torch.cumsum(X_sorted, dim=-1) - 1
         ind = X.new(n_states)
@@ -59,8 +60,8 @@ class SparseMaxOp:
 
         tau = (torch.gather(cssv, dim=1, index=rho[:, None] - 1)[:, 0]
                / rho.type(X.type()))
-        tau = tau.view(seq_len, n_batch)
-        A = torch.clamp(X - tau[:, :, None], min=0)
+        tau = tau.view(*other_dims)
+        A = torch.clamp(X - tau.unsqueeze(len(tau.size())), min=0)
         # A /= A.sum(dim=2, keepdim=True)
 
         M = torch.sum(A * (X - .5 * A), dim=-1)
@@ -82,7 +83,8 @@ def make_custom_max_function(type):
     this_op = operators[type]
     class CustomMaxFunction(torch.autograd.Function):
         """
-        Dummy activation function x -> x ** 3
+        Custom max function using the chosen operator
+        TODO: custom second derivative to speed things up
         """
         @staticmethod
         def forward(ctx, X):
@@ -110,8 +112,8 @@ class CustomMax(nn.Module):
 
 
 for type in ['hardmax','softmax','sparsemax']:
-    # TODO: make sparsemax work for any number of dimensions
-    for num_dims in [3]:
+    # TODO: make sparsemax work for dimension 0
+    for num_dims in range(2,6):
         pre_x = [-10,2,2.1]
         for _ in range(num_dims-1):
             pre_x = [pre_x]
