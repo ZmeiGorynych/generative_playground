@@ -146,7 +146,7 @@ for i in range(1,10):
     pre_grammar_string_zinc_new += "num -> '" + str(i) + "'\n"
     pre_grammar_string_zinc_new += "num1 -> '" + str(i) + "'\n"
 
-for i in range(10,100):#50):
+for i in range(10,50):#20):#
     pre_grammar_string_zinc_new += "num -> '%" + str(i) + "'\n"
     pre_grammar_string_zinc_new += "num1 -> '%" + str(i) + "'\n"
 

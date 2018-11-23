@@ -79,7 +79,7 @@ def fit(train_gen = None,
                 loss.backward()
                 if grad_clip is not None:
                     nice_params = filter(lambda p: p.requires_grad, model.parameters())
-                    torch.nn.utils.clip_grad_norm(nice_params, grad_clip)
+                    torch.nn.utils.clip_grad_norm_(nice_params, grad_clip)
                 optimizer.step()
             else:
                 avg_loss = checkpointer(this_loss,model)
