@@ -36,7 +36,7 @@ for _ in range(10):
 
 
 
-    tokens = [codec._tokenize(s) for s in smiles[:10]]
+    tokens = [codec._tokenize(s) for s in smiles[:100]]
 
     parse_trees = [(t,parse(t, codec)) for t in tokens]
     tokens = [p[0] for p in parse_trees if p[1] is not None]
@@ -47,8 +47,8 @@ for _ in range(10):
     prods = GCFG.productions()
     # assume the lhs of first rule is root token
     no_sing = eliminate_singular_rules(prods, prods[0].lhs())
-    parseable = cyk_parser(prods, ['F','F'])
-
+    parseable = cyk_parser(prods, tokens)
+    break
     print("average productions:", np.array([len(p.productions()) for p in parse_trees]).mean())
 
     rpe_dict ={}

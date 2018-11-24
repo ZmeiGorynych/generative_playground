@@ -70,7 +70,7 @@ class MetricPlotter:
                                'line',
                                X=np.array([self.plot_counter]),
                                Y=np.array([[val for key, val in metrics.items()]]),
-                               opts={'legend': [key for key, val in metrics.items()]})
+                               opts={'legend': [key for key, val in metrics.items()]})#['aaa','bbb','aaa','bbb','aaa','bbb','aaa','bbb','aaa']})#
                 if self.process_model_fun is not None:
                     self.process_model_fun(model_out, self.vis, self.plot_counter)
         metrics =  {} if metrics is None else copy.copy(metrics)

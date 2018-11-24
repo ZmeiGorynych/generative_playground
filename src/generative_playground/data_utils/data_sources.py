@@ -268,15 +268,16 @@ class SamplingWrapper:
 
             # now initialize the extra sample indices
             # sample a number 0<=x<seq_len
-            if self.seq_len_name in self.storage.tracked_dataset_names:
-                if self.sample_ind is None:
-                    seq_len = self.storage.h5f[self.seq_len_name]
-                    self.sample_ind = np.floor(np.random.uniform(size=new_len) * seq_len * 0.9999).astype(int)
-                else:
-                    new_seq_len = self.storage.h5f[self.seq_len_name][len(self.sample_ind):]
-                    new_sample_ind = np.floor(np.random.uniform(size=new_len)*new_seq_len*0.9999).astype(int)
-                    self.sample_ind = np.concatenate([self.sample_ind, new_sample_ind], axis=0)
-                assert(len(self.sample_ind) == ds_len)
+            with h5py.File(self.storage.fname, self.storage.mode) as h5f:
+                if self.seq_len_name in self.storage.tracked_dataset_names:
+                    if self.sample_ind is None:
+                        seq_len = h5f[self.seq_len_name]
+                        self.sample_ind = np.floor(np.random.uniform(size=new_len) * seq_len * 0.9999).astype(int)
+                    else:
+                        new_seq_len = h5f[self.seq_len_name][len(self.sample_ind):]
+                        new_sample_ind = np.floor(np.random.uniform(size=new_len)*new_seq_len*0.9999).astype(int)
+                        self.sample_ind = np.concatenate([self.sample_ind, new_sample_ind], axis=0)
+                    assert(len(self.sample_ind) == ds_len)
 
     def get_item(self, ds_name, item, valid=None):
         '''
@@ -287,18 +288,19 @@ class SamplingWrapper:
         If None, sample from the whole dataset
         :return:
         '''
-        self.augment_transient_indices()
-        if ds_name == 'sample_seq_ind':
-            dataset = self.sample_ind
-        else:
-            dataset = self.storage.h5f[ds_name]
+        with h5py.File(self.storage.fname, self.storage.mode) as h5f:
+            self.augment_transient_indices()
+            if ds_name == 'sample_seq_ind':
+                dataset = self.sample_ind
+            else:
+                dataset = h5f[ds_name]
 
-        if valid is None:
-            return try_float(dataset[item])
-        elif self.idx[valid] is not None:
-            return try_float(dataset[self.idx[valid][item]])
-        else:
-            return None
+            if valid is None:
+                return try_float(dataset[item])
+            elif self.idx[valid] is not None:
+                return try_float(dataset[self.idx[valid][item]])
+            else:
+                return None
 
     def get_len(self, valid, check_lengths = True):
         if check_lengths:
@@ -320,9 +322,11 @@ class SamplingWrapper:
             # if we never appended to this dataset, just opened it, need to init
             for ds_name in check_list:
                 try:
-                    self.storage.h5f[ds_name]
+                    with h5py.File(self.storage.fname, self.storage.mode) as h5f:
+                        h5f[ds_name]
                     self.storage.tracked_dataset_names.add(ds_name)
-                except:
+                except Exception as e:
+                    print(e)
                     raise ValueError("no dataset called " + ds_name)
         return True # if we got this far
 

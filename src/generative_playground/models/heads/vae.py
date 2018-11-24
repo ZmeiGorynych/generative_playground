@@ -3,7 +3,7 @@ from torch import nn as nn
 from torch.autograd import Variable
 
 from generative_playground.models.decoder.policy import PolicyFromTarget
-from generative_playground.models.heads.mean_variance_head import MeanVarianceHead
+from generative_playground.models.heads.mean_variance_head import MeanVarianceSkewHead
 from generative_playground.utils.gpu_utils import to_gpu, FloatTensor
 
 
@@ -26,7 +26,7 @@ class VariationalAutoEncoderHead(nn.Module):
         self.encoder = to_gpu(encoder)
         self.decoder = to_gpu(decoder)
         self.epsilon_std = epsilon_std
-        self.mu_var_layer = to_gpu(MeanVarianceHead(self.encoder, z_size))
+        self.mu_var_layer = to_gpu(MeanVarianceSkewHead(self.encoder, z_size))
         self.output_shape = [None, z_size]
 
     def forward(self, x):

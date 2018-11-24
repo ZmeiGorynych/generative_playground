@@ -4,7 +4,7 @@ from torch.nn import functional as F
 from generative_playground.utils.gpu_utils import to_gpu
 
 
-class MeanVarianceHead(nn.Module):
+class MeanVarianceSkewHead(nn.Module):
     def __init__(self, model, output_dim, drop_rate=0.2):
         super().__init__()
         self.z_size = output_dim
@@ -12,6 +12,7 @@ class MeanVarianceHead(nn.Module):
         #self.dropout = nn.Dropout(drop_rate)
         self.fc_mu = to_gpu(nn.Linear(self.model.output_shape[-1], output_dim))
         self.fc_var = to_gpu(nn.Linear(self.model.output_shape[-1], output_dim))
+        self.fc_skew = to_gpu(nn.Linear(self.model.output_shape[-1], output_dim))
         self.output_shape = [None, output_dim]
 
     def forward(self, x):
@@ -34,4 +35,5 @@ class MeanVarianceHead(nn.Module):
 
         mu = self.fc_mu(out)
         log_var = self.fc_var(out)
-        return mu, log_var
+        skew = self.fc_skew(out)
+        return mu, log_var, skew

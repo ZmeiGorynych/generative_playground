@@ -35,7 +35,7 @@ def get_terminals_nonterminals(prods):
 
     return terminals, nonterminals
 
-def cyk_parser(prods, tokenized_seq):
+def cyk_parser(prods, tokenized_seqs):
     # eliminate rules of the shape nonterminal -> nonterminal
     # assume the lhs of first rule is root token
     #non_sing_prods = eliminate_singular_rules(prods, prods[0].lhs())
@@ -57,67 +57,71 @@ def cyk_parser(prods, tokenized_seq):
     # this makes sure the root nonterminal gets index 0
     ind = {val:i for i,val in enumerate(nonterminals + terminals)}
 
-    for t in tokenized_seq:
-        if t not in terminals:
-            raise ValueError('unknown token: ' + str(t))
+    for seq in tokenized_seqs:
+        for t in seq:
+            if t not in terminals:
+                raise ValueError('unknown token: ' + str(t))
 
     # create a map from lhs to rhs indices
-    seq_len = len(tokenized_seq)
+    seq_len = np.array([len(seq) for seq in tokenized_seqs]).max()
 
     # run the cyk algorithm, modified to support rules with one item on the rhs
     # meaning of the indices is span-1, start_ind, index of grammar rule
-    P = -1e6*np.ones([seq_len, seq_len, len(ind)])
-    for s, t in enumerate(tokenized_seq):
-        P[0, s, ind[t]] = rule_cost[t]
+    costs = []
+    for tokenized_seq in tokenized_seqs:
+        P = -1e6*np.ones([seq_len, seq_len, len(ind)])
+        for s, t in enumerate(tokenized_seq):
+            P[0, s, ind[t]] = rule_cost[t]
 
-    # go over singular rules at the same level until we know we got them all
+        # go over singular rules at the same level until we know we got them all
 
-    def process_singular_rules(new_prods, P, L):
-        changed = True
-        while changed:
-            changed = False
-            for s, t in enumerate(tokenized_seq):
-                for prod in new_prods:
-                    if len(prod.rhs()) == 1:
-                        old_val = P[L, s, ind[prod.lhs()]]
-                        new_val = rule_cost[prod] + P[L, s, ind[prod.rhs()[0]]]
-                        if new_val > old_val:
-                            P[L, s, ind[prod.lhs()]] = new_val
-                            changed = True
-        return P
+        def process_singular_rules(new_prods, P, L):
+            changed = True
+            while changed:
+                changed = False
+                for s, t in enumerate(tokenized_seq):
+                    for prod in new_prods:
+                        if len(prod.rhs()) == 1:
+                            old_val = P[L, s, ind[prod.lhs()]]
+                            new_val = rule_cost[prod] + P[L, s, ind[prod.rhs()[0]]]
+                            if new_val > old_val:
+                                P[L, s, ind[prod.lhs()]] = new_val
+                                changed = True
+            return P
 
-    P = process_singular_rules(new_prods, P, 0)
-    print('****:',P[0,:,:].max())
-    # for each L = 1 to n-1 -- Length of span -1
-    for L in range(1,seq_len):
-        #   for each s = 0 to n-L -- Start of span-1
-        for s in range(seq_len-L):
-            # for each possible lhs
-            # process all 'normal' (len(rhs) ==1) rules
-            for lhs, prod_list in rule_by_lhs.items():
-                values = [np.zeros([0])]
-                # for all production rules with this lhs
-                for prod in prod_list:
-                    print(prod)
-                    # if the rule only has one item on the RHS:
-                    if len(prod.rhs()) == 2:
-                        tmp = np.zeros([L])
-                        for pp in range(L):
-                            tmp[pp] = rule_cost[prod] + P[pp, s, ind[prod.rhs()[0]]] \
-                                      + P[L - pp - 1, s + pp + 1, ind[prod.rhs()[1]]]
-                        values.append(tmp)
-                        print(tmp.max())
-                tmp2 = np.concatenate(values)
-                if len(tmp2) > 0:
-                    P[L,s,ind[lhs]] = tmp2.max()
+        P = process_singular_rules(new_prods, P, 0)
+        print('****:',P[0,:,:].max())
+        # for each L = 1 to n-1 -- Length of span -1
+        for L in range(1,seq_len):
+            #   for each s = 0 to n-L -- Start of span-1
+            for s in range(seq_len-L):
+                # for each possible lhs
+                # process all 'normal' (len(rhs) ==1) rules
+                for lhs, prod_list in rule_by_lhs.items():
+                    values = [np.zeros([0])]
+                    # for all production rules with this lhs
+                    for prod in prod_list:
+                        #print(prod)
+                        # if the rule only has one item on the RHS:
+                        if len(prod.rhs()) == 2:
+                            tmp = np.zeros([L])
+                            for pp in range(L):
+                                tmp[pp] = rule_cost[prod] + P[pp, s, ind[prod.rhs()[0]]] \
+                                          + P[L - pp - 1, s + pp + 1, ind[prod.rhs()[1]]]
+                            values.append(tmp)
+                            #print(tmp.max())
+                    tmp2 = np.concatenate(values)
+                    if len(tmp2) > 0:
+                        P[L,s,ind[lhs]] = tmp2.max()
 
-        # and now process all singular rules for this L
-        P = process_singular_rules(new_prods, P, L)
-        print('*********',L, P[L,:,:].max())
-    #           set back[l,s,a] = <p,b,c>
+            # and now process all singular rules for this L
+            P = process_singular_rules(new_prods, P, L)
+            print('*********',L, P[L,:,:].max())
+        #           set back[l,s,a] = <p,b,c>
 
-    # convert back into a tree with the original grammar
-    return P[seq_len-1, 0, 0]
+        # convert back into a tree with the original grammar
+        costs.append(P[seq_len-1, 0, 0])
+    return costs
 
 def is_singular(prod):
     return  len(prod.rhs()) == 1 and is_nonterminal(prod.rhs()[0])

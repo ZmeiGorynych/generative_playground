@@ -30,6 +30,6 @@ def get_gpu_memory_map():
         # Convert lines into a dictionary
         gpu_memory = [int(x) for x in result.strip().split('\n')]
         gpu_memory_map = dict(zip(range(len(gpu_memory)), gpu_memory))
-    except:
+    except Exception as e:
         gpu_memory_map = {0: 0}
     return gpu_memory_map

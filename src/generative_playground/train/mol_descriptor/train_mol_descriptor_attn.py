@@ -22,12 +22,12 @@ save_file =settings['filename_stub'] + 'attn_mol_desc.h5'
 
 root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 root_location = root_location + '/../'
-save_path = root_location + 'pretrained/' + 'pg_smiles.h5'
+save_path = root_location + 'pretrained/paper/policy_gradient_baseline.h5'
 aux_dataset = IncrementingHDF5Dataset(save_path)
 
 model, fitter, _ = train_mol_descriptor(grammar=True,
                                         EPOCHS=100,
-                                        BATCH_SIZE=35,
+                                        BATCH_SIZE=10,
                                         lr=5e-5,
                                         gradient_clip=0.1,
               drop_rate = 0.1,
@@ -38,7 +38,7 @@ model, fitter, _ = train_mol_descriptor(grammar=True,
               plot_prefix = 'attention ',
               dashboard = 'mol_desc',
               preload_weights=False,
-                                        aux_dataset=aux_dataset)
+                                        aux_dataset=None)#aux_dataset)
 
 while True:
     next(fitter)
