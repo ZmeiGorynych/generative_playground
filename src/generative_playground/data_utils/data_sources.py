@@ -98,7 +98,7 @@ class DatasetFromModel(Dataset):
             raise StopIteration()
 
 
-class DuplicateIter:
+class TwinGenerator:
     def __init__(self, iterable):
         self.iterable = iterable
 

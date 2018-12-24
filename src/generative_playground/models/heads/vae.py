@@ -30,7 +30,9 @@ class VariationalAutoEncoderHead(nn.Module):
         self.output_shape = [None, z_size]
 
     def forward(self, x):
-        mu, log_var = self.mu_var_layer(x)
+        dist = self.mu_var_layer(x)
+        mu = dist[0]
+        log_var = dist[1]
 
         # only sample when training, I regard sampling as a regularization technique so unneeded during validation
         if self.sample_z and self.training:

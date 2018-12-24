@@ -4,7 +4,7 @@ from torch.optim import lr_scheduler
 
 from generative_playground.models.losses.vae_loss import VAELoss
 from generative_playground.utils.fit import fit
-from generative_playground.data_utils.data_sources import DatasetFromHDF5, train_valid_loaders, DuplicateIter
+from generative_playground.data_utils.data_sources import DatasetFromHDF5, train_valid_loaders, TwinGenerator
 from generative_playground.utils.gpu_utils import use_gpu
 from generative_playground.models.model_settings import get_settings, get_model
 from generative_playground.utils.metric_monitor import MetricPlotter
@@ -64,8 +64,8 @@ def train_vae(molecules = True,
                                                      batch_size=BATCH_SIZE,
                                                      pin_memory=use_gpu)
 
-    train_gen = DuplicateIter(train_loader)
-    valid_gen = DuplicateIter(valid_loader)
+    train_gen = TwinGenerator(train_loader)
+    valid_gen = TwinGenerator(valid_loader)
     scheduler = lr_scheduler.ReduceLROnPlateau(optimizer,
                                                factor=0.2,
                                                patience=3,
