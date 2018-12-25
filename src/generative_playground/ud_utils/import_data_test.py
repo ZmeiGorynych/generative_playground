@@ -1,6 +1,7 @@
 import pyconll
 import pickle
 import numpy as np
+import torch
 # https://github.com/UniversalDependencies/docs/blob/pages-source/format.md
 
 pre_defined = {'PAD': 0, 'root': 1, 'other': 2}
@@ -65,7 +66,7 @@ def preprocess_data(sentences, meta):
             this_sentence['upos'].append(meta['upos'][token.upos])
             this_sentence['deprel'].append(meta['deprel'][token.deprel])
 
-        this_sentence = {key: np.array(pad(val, maxlen)) for key, val in this_sentence.items()}
+        this_sentence = {key: torch.tensor(pad(val, maxlen)) for key, val in this_sentence.items()}
         embeds.append(this_sentence)
     return embeds
 

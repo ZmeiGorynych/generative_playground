@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch
 
 class MultipleCrossEntropyLoss(nn.Module):
-    def __init__(self, labels):
+    def __init__(self):
         super().__init__()
         self.metrics ={}
         self.celoss = nn.CrossEntropyLoss(size_average=True,

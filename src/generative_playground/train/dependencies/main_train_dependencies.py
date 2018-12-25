@@ -8,24 +8,17 @@ import pickle
 from transformer.Models import Encoder
 from generative_playground.utils.fit import fit
 from generative_playground.models.losses.multiple_cross_entropy_loss import MultipleCrossEntropyLoss
-from generative_playground.data_utils.data_sources import DatasetFromHDF5, train_valid_loaders, TwinGenerator
 from generative_playground.utils.gpu_utils import use_gpu, to_gpu
-from generative_playground.models.model_settings import get_settings, get_model
 from generative_playground.utils.metric_monitor import MetricPlotter
 from generative_playground.utils.checkpointer import Checkpointer
-from generative_playground.models.problem.rl.task import SequenceGenerationTask
-from generative_playground.models.model_settings import get_decoder
-from generative_playground.models.losses.policy_gradient_loss import PolicyGradientLoss
-from generative_playground.models.decoder.policy import SoftmaxRandomSamplePolicy, PolicyFromTarget
 from generative_playground.data_utils.data_sources import MultiDatasetFromHDF5, train_valid_loaders, IterableTransform
-from generative_playground.data_utils.data_sources import IncrementingHDF5Dataset
 from generative_playground.models.heads.multiple_output_head import MultipleOutputHead
 
 def train_dependencies(EPOCHS=None,
                           BATCH_SIZE=None,
                           max_steps=None,
                           feature_len = None,
-                          lr_on=2e-4,
+                          lr=2e-4,
                           drop_rate = 0.0,
                           plot_ignore_initial = 0,
                           save_file = None,
@@ -53,7 +46,7 @@ def train_dependencies(EPOCHS=None,
     #                               max_steps=max_steps,
     #                               save_dataset=save_dataset)
 
-    pre_model = Encoder(feature_len,
+    pre_model = Encoder(len(meta['emb_index']),
             max_steps,
             dropout=drop_rate,
             padding_idx=0)
@@ -67,6 +60,7 @@ def train_dependencies(EPOCHS=None,
                                drop_rate=drop_rate,
                                labels=['token', 'head', 'upos', 'deprel'])
 
+    model = to_gpu(model)
 
     if preload_file is not None:
         try:
@@ -131,7 +125,7 @@ def train_dependencies(EPOCHS=None,
         return fitter
 
     # TODO: need to be cleaner about dataset creation
-    with open('../../ud_utils/meta.pickle', 'rb') as f:
+    with open('../../ud_utils/data.pickle', 'rb') as f:
         # a simple array implements the __len__ and __getitem__ methods, can we just use that?
         main_dataset = pickle.load(f)
 
@@ -144,17 +138,17 @@ def train_dependencies(EPOCHS=None,
 
     def nice_loader(loader):
         return IterableTransform(loader,
-                                 lambda x: (x['token'], {key:val for key, val in x.items() if key in target_fields}))
+                                 lambda x: (to_gpu(x['token']),
+                                            {key:to_gpu(val) for key, val in x.items() if key in target_fields}))
 
     # the on-policy fitter
     fitter1 = get_fitter(model,
                          nice_loader(train_loader),
                          nice_loader(valid_loader),
-                         IterableTransform(valid_loader, lambda x: (x, x)),
                          MultipleCrossEntropyLoss(),
                          plot_prefix + 'on-policy',
                          model_process_fun=model_process_fun,
-                         lr=lr_on)
+                         lr=lr)
 
 
     return model, fitter1

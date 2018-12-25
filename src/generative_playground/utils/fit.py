@@ -36,6 +36,8 @@ def fit(train_gen = None,
     valid_batches = max(1,int(batches_to_valid*len(valid_gen)/len(train_gen)))
     if 'ReduceLROnPlateau' in str(type(scheduler)):
         step_scheduler_after_val = True
+    else:
+        step_scheduler_after_val = False
 
     for epoch in range(epochs):
         print('epoch ', epoch)
@@ -69,8 +71,8 @@ def fit(train_gen = None,
                 else:
                     continue
 
-            inputs = to_variable(inputs_)
-            targets = to_variable(targets_)
+            inputs = inputs_;#to_variable(inputs_)
+            targets = targets_;#to_variable(targets_)
             outputs = model(inputs)
             loss = loss_fn(outputs, targets)
             this_loss = loss.data.item()

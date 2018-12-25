@@ -8,7 +8,7 @@ except:
     sys.path.append('../../../../../transformer_pytorch')
 
 import pickle
-from .main_train_dependencies import train_dependencies
+from generative_playground.train.dependencies.main_train_dependencies import train_dependencies
 
 with open('../../ud_utils/meta.pickle','rb') as f:
     meta = pickle.load(f)
@@ -23,8 +23,9 @@ model, fitter1 = train_dependencies(EPOCHS=100,
                                                 drop_rate=drop_rate,
                                                 decoder_type='attention',
                                                 plot_prefix='test ',
-                                                dashboard = 'dependencies',
-                                                save_file='dependencies_test.h5')
+                                                dashboard ='dependencies',
+                                                save_file='dependencies_test.h5',
+                                    meta=meta)
                                                 #preload_file='policy_gradient_run.h5')
 
 while True:
