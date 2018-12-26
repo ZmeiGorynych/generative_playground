@@ -13,18 +13,23 @@ from generative_playground.utils.metric_monitor import MetricPlotter
 from generative_playground.utils.checkpointer import Checkpointer
 from generative_playground.data_utils.data_sources import MultiDatasetFromHDF5, train_valid_loaders, IterableTransform
 from generative_playground.models.heads.multiple_output_head import MultipleOutputHead
-
+from generative_playground.models.decoder.encoder_as_decoder import EncoderAsDecoder
+from generative_playground.models.heads.vae import VariationalAutoEncoderHead
 def train_dependencies(EPOCHS=None,
                           BATCH_SIZE=None,
                           max_steps=None,
                           feature_len = None,
                           lr=2e-4,
                           drop_rate = 0.0,
-                          plot_ignore_initial = 0,
+                          plot_ignore_initial = 100,
                           save_file = None,
                           preload_file = None,
-                        meta=None,
-                          decoder_type='action',
+                       meta=None,
+                       decoder_type='action',
+                       include_self_attention=True,
+                       transpose_self_attention=True,
+                       vae=True,
+                       target_names=['head'],
                           plot_prefix = '',
                           dashboard = 'policy gradient'):
 
@@ -46,10 +51,33 @@ def train_dependencies(EPOCHS=None,
     #                               max_steps=max_steps,
     #                               save_dataset=save_dataset)
 
-    pre_model = Encoder(len(meta['emb_index']),
+    encoder = Encoder(len(meta['emb_index']),
+                        max_steps,
+                        dropout=drop_rate,
+                        padding_idx=0,
+                      include_self_attention=include_self_attention,
+                      transpose_self_attention= transpose_self_attention)
+
+    z_size = encoder.output_shape[2]
+
+    encoder_2 = Encoder(z_size,
             max_steps,
             dropout=drop_rate,
-            padding_idx=0)
+            padding_idx=0,
+                        include_self_attention=include_self_attention,
+                      transpose_self_attention= transpose_self_attention)
+
+    decoder = EncoderAsDecoder(encoder_2)
+
+    pre_model_2 = VariationalAutoEncoderHead(encoder=encoder,
+                                             decoder=decoder,
+                                             z_size=z_size,
+                                             return_mu_log_var=False)
+
+    if vae:
+        pre_model = pre_model_2
+    else:
+        pre_model = encoder
 
     model = MultipleOutputHead(pre_model,
                                [len(meta['emb_index']),# word
@@ -95,7 +123,8 @@ def train_dependencies(EPOCHS=None,
                    ):
         nice_params = filter(lambda p: p.requires_grad, model.parameters())
         optimizer = optim.Adam(nice_params, lr=lr)
-        scheduler = lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.99)
+        scheduler = lr_scheduler.ReduceLROnPlateau(optimizer,
+                                                   patience=100)#.StepLR(optimizer, step_size=100, gamma=0.99)
 
         if dashboard is not None:
             metric_monitor = MetricPlotter(plot_prefix=fit_plot_prefix,
@@ -117,29 +146,40 @@ def train_dependencies(EPOCHS=None,
                     scheduler = scheduler,
                     epochs = EPOCHS,
                     loss_fn = loss_obj,
-                    batches_to_valid=9,
+                    batches_to_valid=4,
                     metric_monitor = metric_monitor,
-                    checkpointer = checkpointer
-                        )
+                    checkpointer = checkpointer)
 
         return fitter
 
     # TODO: need to be cleaner about dataset creation
-    with open('../../ud_utils/data.pickle', 'rb') as f:
+    with open('../../ud_utils/train_data.pickle', 'rb') as f:
         # a simple array implements the __len__ and __getitem__ methods, can we just use that?
-        main_dataset = pickle.load(f)
+        train_data = pickle.load(f)
 
-    train_loader, valid_loader = train_valid_loaders(main_dataset,
-                                                     valid_fraction=0.1,
-                                                     batch_size=BATCH_SIZE,
-                                                     pin_memory=use_gpu)
+    with open('../../ud_utils/valid_data.pickle', 'rb') as f:
+        # a simple array implements the __len__ and __getitem__ methods, can we just use that?
+        valid_data = pickle.load(f)
 
-    target_fields = ['head', 'upos', 'deprel']
+    train_loader = torch.utils.data.DataLoader(train_data,
+                                               batch_size=BATCH_SIZE,
+                                               shuffle=True,
+                                               pin_memory=use_gpu)
+
+    valid_loader = torch.utils.data.DataLoader(valid_data,
+                                               batch_size=BATCH_SIZE,
+                                               shuffle=True,
+                                               pin_memory=use_gpu)
+
+    # train_loader, valid_loader = train_valid_loaders(train_data,
+    #                                                  valid_fraction=0.1,
+    #                                                  batch_size=BATCH_SIZE,
+    #                                                  pin_memory=use_gpu)
 
     def nice_loader(loader):
         return IterableTransform(loader,
                                  lambda x: (to_gpu(x['token']),
-                                            {key:to_gpu(val) for key, val in x.items() if key in target_fields}))
+                                            {key:to_gpu(val) for key, val in x.items() if key in target_names}))
 
     # the on-policy fitter
     fitter1 = get_fitter(model,

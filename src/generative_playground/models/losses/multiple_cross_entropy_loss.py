@@ -5,13 +5,13 @@ class MultipleCrossEntropyLoss(nn.Module):
     def __init__(self):
         super().__init__()
         self.metrics ={}
-        self.celoss = nn.CrossEntropyLoss(size_average=True,
-                                          ignore_index=0)
+        self.celoss = nn.CrossEntropyLoss(size_average=True)#,
+                                          #ignore_index=0)
 
     def forward(self, model_out, target_x):
         '''
         Calculate cross-entropy on a number of targets at once
-        :param model_out: a dict of string: batch_size x maxlen x num_features float tensors (num_features differs),
+        :param model_out: a dict of {string: batch_size x maxlen x num_features float tensors} (num_features differs),
         :param target_x: a dict of batch_size x maxlen longs, len(target_x) <= len(model_out)
         :return:
         '''

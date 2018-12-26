@@ -13,18 +13,22 @@ from generative_playground.train.dependencies.main_train_dependencies import tra
 with open('../../ud_utils/meta.pickle','rb') as f:
     meta = pickle.load(f)
 
-batch_size = 40
-drop_rate = 0.3
+batch_size = 100
+drop_rate = 0.4
 max_steps = meta['maxlen']
-model, fitter1 = train_dependencies(EPOCHS=100,
-                                                BATCH_SIZE=batch_size,
-                                                max_steps=max_steps,
-                                                lr=1e-4,
-                                                drop_rate=drop_rate,
-                                                decoder_type='attention',
-                                                plot_prefix='test ',
-                                                dashboard ='dependencies',
-                                                save_file='dependencies_test.h5',
+model, fitter1 = train_dependencies(EPOCHS=1000,
+                                    BATCH_SIZE=batch_size,
+                                    max_steps=max_steps,
+                                    lr=1e-4,
+                                    drop_rate=drop_rate,
+                                    decoder_type='attention',
+                                    plot_prefix='lr 1e-4 ',
+                                    dashboard ='dependencies_transposed_vae',
+                                    save_file='dependencies_test.h5',
+                                    include_self_attention=True,
+                                    transpose_self_attention=True,
+                                    vae=True,
+                                    target_names=['token' ,'head', 'upos', 'deprel'],
                                     meta=meta)
                                                 #preload_file='policy_gradient_run.h5')
 

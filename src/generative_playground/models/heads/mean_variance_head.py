@@ -29,9 +29,9 @@ class MeanVarianceSkewHead(nn.Module):
 
         #out = self.dropout(out)
         my_size = out.size()
-        if len(my_size)==3 and my_size[1]==1:
+        if len(my_size)==3:
             #flatten sequences of one element
-            out = out.view(-1, out.size[-1])
+            out = out[:, 0, :]#out.view(-1, out.size[-1])
 
         mu = self.fc_mu(out)
         log_var = self.fc_var(out)

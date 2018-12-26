@@ -12,7 +12,8 @@ class VariationalAutoEncoderHead(nn.Module):
                  decoder=None,
                  sample_z=True,
                  epsilon_std=0.01,
-                 z_size = None):
+                 z_size = None,
+                 return_mu_log_var=True):
         '''
         Initialize the autoencoder
         :param encoder: A model mapping batches of one-hot sequences (batch x seq x num_actions) to batches of logits
@@ -26,10 +27,17 @@ class VariationalAutoEncoderHead(nn.Module):
         self.encoder = to_gpu(encoder)
         self.decoder = to_gpu(decoder)
         self.epsilon_std = epsilon_std
+        # TODO: should I be using the multipleOutputHead instead?
         self.mu_var_layer = to_gpu(MeanVarianceSkewHead(self.encoder, z_size))
         self.output_shape = [None, z_size]
+        self.return_mu_log_var = return_mu_log_var
 
     def forward(self, x):
+        '''
+
+        :param x: batch_size x seq_len longs or batch_size x seq_len x feature_len one-hot encoded
+        :return:
+        '''
         dist = self.mu_var_layer(x)
         mu = dist[0]
         log_var = dist[1]
@@ -41,10 +49,16 @@ class VariationalAutoEncoderHead(nn.Module):
             z = mu
         # need to re-trace the path taken by the training input
         # this also takes care of masking
-        _, x_actions = torch.max(x,-1) # argmax
+        if len(x.size()) == 3: # one-hot encoded
+            _, x_actions = torch.max(x,-1) # argmax
+        else:
+            x_actions = x
         self.decoder.policy = PolicyFromTarget(x_actions)
-        actions, output = self.decoder(z)
-        return output, mu, log_var
+        _, output = self.decoder(z)
+        if self.return_mu_log_var:
+            return output, mu, log_var
+        else:
+            return output
 
     def sample(self, mu, log_var):
         """you generate a random distribution w.r.t. the mu and log_var from the embedding space."""
