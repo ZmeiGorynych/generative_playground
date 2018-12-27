@@ -22,10 +22,10 @@ model, fitter1 = train_dependencies(EPOCHS=1000,
                                     lr=3e-5,
                                     drop_rate=drop_rate,
                                     decoder_type='attention',
-                                    plot_prefix='lr 3e-5 ',
+                                    plot_prefix='lr 3e-5 both',
                                     dashboard ='dependencies_novae',
                                     save_file='dependencies_test.h5',
-                                    use_self_attention=False, # None, True, False or Both
+                                    use_self_attention='both', # None, True, False or Both
                                     vae=False,
                                     target_names=['token' ,'head', 'upos', 'deprel'],
                                     meta=meta)

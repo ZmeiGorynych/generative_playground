@@ -13,7 +13,8 @@ class MetricPlotter:
                  loss_display_cap=4,
                  dashboard_name=None,
                  plot_ignore_initial=0,
-                 process_model_fun=None):
+                 process_model_fun=None,
+                 smooth_weight=0.0):
         self.plot_prefix = plot_prefix
         self.process_model_fun = process_model_fun
         if save_file is not None:
@@ -28,6 +29,8 @@ class MetricPlotter:
         self.loss_display_cap = loss_display_cap
         self.plot_counter = 0
         self.stats = pd.DataFrame(columns=['batch', 'timestamp', 'gpu_usage', 'train', 'loss'])
+        self.smooth_weight = smooth_weight
+        self.smooth = {True: {}, False: {}}
         try:
             from generative_playground.visdom_helper.visdom_helper import Dashboard
             if dashboard_name is not None:
@@ -66,11 +69,12 @@ class MetricPlotter:
                                 X=np.array([self.plot_counter]),
                                 Y=np.array([min(self.loss_display_cap, loss)]))
                 if metrics is not None and len(metrics)>0:
+                    self.smooth[train] = smooth_data(self.smooth[train], metrics, self.smooth_weight)
                     self.vis.append(loss_name + ' metrics',
                                'line',
                                X=np.array([self.plot_counter]),
-                               Y=np.array([[val for key, val in metrics.items()]]),
-                               opts={'legend': [key for key, val in metrics.items()]})#['aaa','bbb','aaa','bbb','aaa','bbb','aaa','bbb','aaa']})#
+                               Y=np.array([[val for key, val in self.smooth[train].items()]]),
+                               opts={'legend': [key for key, val in self.smooth[train].items()]})#['aaa','bbb','aaa','bbb','aaa','bbb','aaa','bbb','aaa']})#
                 if self.process_model_fun is not None:
                     self.process_model_fun(model_out, self.vis, self.plot_counter)
         metrics =  {} if metrics is None else copy.copy(metrics)
@@ -85,3 +89,12 @@ class MetricPlotter:
         if True:#not train: # only save to disk during valdation calls for speedup
             with gzip.open(self.save_file,'wb') as f:
                 pickle.dump(self.stats, f)
+
+
+def smooth_data(smoothed, metrics, w):
+    for key, value in metrics.items():
+        if key in smoothed:
+            smoothed[key] = w*smoothed[key] + (1-w)*metrics[key]
+        else:
+            smoothed[key] = metrics[key]
+    return smoothed

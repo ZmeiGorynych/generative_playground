@@ -7,6 +7,7 @@ import pickle
 
 from transformer.Models import Encoder
 from generative_playground.utils.fit import fit
+from generative_playground.models.heads.attention_aggregating_head import AttentionAggregatingHead
 from generative_playground.models.losses.multiple_cross_entropy_loss import MultipleCrossEntropyLoss
 from generative_playground.utils.gpu_utils import use_gpu, to_gpu
 from generative_playground.utils.metric_monitor import MetricPlotter
@@ -16,22 +17,21 @@ from generative_playground.models.heads.multiple_output_head import MultipleOutp
 from generative_playground.models.decoder.encoder_as_decoder import EncoderAsDecoder
 from generative_playground.models.heads.vae import VariationalAutoEncoderHead
 def train_dependencies(EPOCHS=None,
-                          BATCH_SIZE=None,
-                          max_steps=None,
-                          feature_len = None,
-                          lr=2e-4,
-                          drop_rate = 0.0,
-                          plot_ignore_initial = 100,
-                          save_file = None,
-                          preload_file = None,
+                       BATCH_SIZE=None,
+                       max_steps=None,
+                       feature_len = None,
+                       lr=2e-4,
+                       drop_rate = 0.0,
+                       plot_ignore_initial=300,
+                       save_file = None,
+                       preload_file = None,
                        meta=None,
                        decoder_type='action',
-                       include_self_attention=True,
-                       transpose_self_attention=True,
+                       use_self_attention=True,
                        vae=True,
                        target_names=['head'],
-                          plot_prefix = '',
-                          dashboard = 'policy gradient'):
+                       plot_prefix = '',
+                       dashboard = 'policy gradient'):
 
     root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     root_location = root_location + '/../'
@@ -52,24 +52,23 @@ def train_dependencies(EPOCHS=None,
     #                               save_dataset=save_dataset)
 
     encoder = Encoder(len(meta['emb_index']),
-                        max_steps,
-                        dropout=drop_rate,
-                        padding_idx=0,
-                      include_self_attention=include_self_attention,
-                      transpose_self_attention= transpose_self_attention)
+                      max_steps,
+                      dropout=drop_rate,
+                      padding_idx=0,
+                      use_self_attention=use_self_attention)
 
     z_size = encoder.output_shape[2]
 
     encoder_2 = Encoder(z_size,
-            max_steps,
-            dropout=drop_rate,
-            padding_idx=0,
-                        include_self_attention=include_self_attention,
-                      transpose_self_attention= transpose_self_attention)
+                        max_steps,
+                        dropout=drop_rate,
+                        padding_idx=0,
+                        use_self_attention=use_self_attention)
 
     decoder = EncoderAsDecoder(encoder_2)
 
-    pre_model_2 = VariationalAutoEncoderHead(encoder=encoder,
+    pre_model_2 = VariationalAutoEncoderHead(encoder=encoder,#AttentionAggregatingHead(encoder,
+                                                                      #        drop_rate = drop_rate),
                                              decoder=decoder,
                                              z_size=z_size,
                                              return_mu_log_var=False)
@@ -131,7 +130,8 @@ def train_dependencies(EPOCHS=None,
                                        loss_display_cap=loss_display_cap,
                                        dashboard_name=dashboard,
                                        plot_ignore_initial=plot_ignore_initial,
-                                       process_model_fun=model_process_fun)
+                                       process_model_fun=model_process_fun,
+                                           smooth_weight=0.9)
         else:
             metric_monitor = None
 
@@ -186,7 +186,7 @@ def train_dependencies(EPOCHS=None,
                          nice_loader(train_loader),
                          nice_loader(valid_loader),
                          MultipleCrossEntropyLoss(),
-                         plot_prefix + 'on-policy',
+                         plot_prefix,
                          model_process_fun=model_process_fun,
                          lr=lr)
 
