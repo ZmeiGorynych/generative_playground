@@ -2,17 +2,15 @@ import os, inspect
 import torch.optim as optim
 from torch.optim import lr_scheduler
 import torch
-import copy
 import pickle
 
-from transformer.Models import Encoder
+from generative_playground.models.transformer.Models import TransformerEncoder
 from generative_playground.utils.fit import fit
-from generative_playground.models.heads.attention_aggregating_head import AttentionAggregatingHead
 from generative_playground.models.losses.multiple_cross_entropy_loss import MultipleCrossEntropyLoss
 from generative_playground.utils.gpu_utils import use_gpu, to_gpu
 from generative_playground.utils.metric_monitor import MetricPlotter
 from generative_playground.utils.checkpointer import Checkpointer
-from generative_playground.data_utils.data_sources import MultiDatasetFromHDF5, train_valid_loaders, IterableTransform
+from generative_playground.data_utils.data_sources import IterableTransform
 from generative_playground.models.heads.multiple_output_head import MultipleOutputHead
 from generative_playground.models.decoder.encoder_as_decoder import EncoderAsDecoder
 from generative_playground.models.heads.vae import VariationalAutoEncoderHead
@@ -35,7 +33,10 @@ def train_dependencies(EPOCHS=None,
 
     root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     root_location = root_location + '/../'
-    save_path = root_location + 'pretrained/' + save_file
+    if save_file is not None:
+        save_path = root_location + 'pretrained/' + save_file
+    else:
+        save_path = None
 
     settings = {}#get_settings(molecules=molecules,grammar=grammar)
 
@@ -51,19 +52,19 @@ def train_dependencies(EPOCHS=None,
     #                               max_steps=max_steps,
     #                               save_dataset=save_dataset)
 
-    encoder = Encoder(len(meta['emb_index']),
-                      max_steps,
-                      dropout=drop_rate,
-                      padding_idx=0,
-                      use_self_attention=use_self_attention)
+    encoder = TransformerEncoder(len(meta['emb_index']),
+                                 max_steps,
+                                 dropout=drop_rate,
+                                 padding_idx=0,
+                                 use_self_attention=use_self_attention)
 
     z_size = encoder.output_shape[2]
 
-    encoder_2 = Encoder(z_size,
-                        max_steps,
-                        dropout=drop_rate,
-                        padding_idx=0,
-                        use_self_attention=use_self_attention)
+    encoder_2 = TransformerEncoder(z_size,
+                                   max_steps,
+                                   dropout=drop_rate,
+                                   padding_idx=0,
+                                   use_self_attention=use_self_attention)
 
     decoder = EncoderAsDecoder(encoder_2)
 
@@ -98,18 +99,6 @@ def train_dependencies(EPOCHS=None,
 
     def model_process_fun(model_out, visdom, n):
         pass
-        # if mol is not None:
-        #
-        #     scores, norm_scores = scorer.get_scores([this_smile])
-        #     visdom.append('score component',
-        #                     'line',
-        #                     X=np.array([n]),
-        #                     Y=np.array([[x for x in norm_scores[0]] + [norm_scores[0].sum()] + [scores[0].sum()] + [desc.CalcNumAromaticRings(mol)]]),
-        #                     opts={'legend': ['logP','SA','cycle','norm_reward','reward','Aromatic rings']})
-        #     visdom.append('fraction valid',
-        #                   'line',
-        #                   X=np.array([n]),
-        #                   Y=np.array([valid.mean().data.item()]))
 
     def get_fitter(model,
                    train_gen,

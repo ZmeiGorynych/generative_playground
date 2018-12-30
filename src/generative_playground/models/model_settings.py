@@ -4,7 +4,6 @@ import generative_playground.models.heads.vae
 from generative_playground.codec.character_codec import CharacterModel
 from generative_playground.codec.grammar_codec import GrammarModel, zinc_tokenizer, eq_tokenizer, zinc_tokenizer_new
 from generative_playground.codec.grammar_helper import grammar_eq, grammar_zinc, grammar_zinc_new
-from generative_playground.codec.grammar_mask_gen import GrammarMaskGenerator
 from generative_playground.codec.mask_gen_new_2 import GrammarMaskGeneratorNew
 from generative_playground.models.decoder.rnn import SimpleRNNDecoder, ResettingRNNDecoder
 from generative_playground.models.decoder.resnet_rnn import ResNetRNNDecoder
@@ -16,8 +15,8 @@ from generative_playground.models.decoder.decoders import OneStepDecoderContinuo
     SimpleDiscreteDecoderWithEnv
 from generative_playground.models.heads.masking_head import MaskingHead
 from generative_playground.models.decoder.policy import SoftmaxRandomSamplePolicy
-from transformer.OneStepAttentionDecoder import SelfAttentionDecoderStep
-from transformer.Models import Encoder
+from generative_playground.models.transformer.OneStepAttentionDecoder import SelfAttentionDecoderStep
+from generative_playground.models.transformer.Models import TransformerEncoder
 from generative_playground.utils.gpu_utils import to_gpu
 # in the desired end state, this file will contain every single difference between the different codec
 
@@ -231,10 +230,10 @@ def get_encoder(feature_len=12,
                                                feature_len=feature_len,
                                                drop_rate=drop_rate))
     elif encoder_type == 'attention':
-        encoder = to_gpu(AttentionAggregatingHead(Encoder(feature_len,
-                                                          max_seq_length,
-                                                          dropout=drop_rate,
-                                                          padding_idx=feature_len-1),
+        encoder = to_gpu(AttentionAggregatingHead(TransformerEncoder(feature_len,
+                                                                     max_seq_length,
+                                                                     dropout=drop_rate,
+                                                                     padding_idx=feature_len-1),
                                                   drop_rate=drop_rate))
 
     else:
