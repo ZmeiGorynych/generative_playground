@@ -74,6 +74,7 @@ class Embedder(nn.Module):
         super().__init__()
         n_position = n_max_seq + 1
         self.encode_position = encode_position
+        self.normalizer = InputSequenceNormalizer()
         self.position_enc = nn.Embedding(n_position, d_model, padding_idx=padding_idx)
         self.position_enc.weight.data = position_encoding_init(n_position, d_model)
         self.src_word_emb = nn.Embedding(n_src_vocab, d_model, padding_idx=padding_idx)
@@ -86,7 +87,7 @@ class Embedder(nn.Module):
         :param src_pos: batch x num_steps long, or None
         :return:
         '''
-
+        src_seq, src_seq_for_masking = self.normalizer(src_seq)
         if src_seq.dtype == torch.int64:  # indices of discrete actions
             enc_input = self.src_word_emb(src_seq)
         elif src_seq.dtype == torch.float32 and len(src_seq.size()) == 3:  # if the input is continuous
@@ -100,7 +101,7 @@ class Embedder(nn.Module):
                 src_pos = to_gpu(torch.arange(seq_len).unsqueeze(0).expand(batch_size,seq_len).type(LongTensor))
 
             enc_input += self.position_enc(src_pos)
-        return enc_input
+        return enc_input, src_seq_for_masking
 
 
 class TransformerEncoder(nn.Module):
@@ -131,7 +132,6 @@ class TransformerEncoder(nn.Module):
         self.n_head = n_head
         self.include_self_attention = use_self_attention
         self.transpose_self_attention = transpose_self_attention
-        self.normalizer = InputSequenceNormalizer()
         self.layer_stack = nn.ModuleList([
             EncoderLayer(d_model,
                          d_inner_hid,
@@ -156,8 +156,7 @@ class TransformerEncoder(nn.Module):
         :return: batch_size x n_max_seq x d_model
         '''
 
-        src_seq, src_seq_for_masking = self.normalizer(src_seq)
-        enc_input = self.embedder(src_seq, src_pos)
+        enc_input, src_seq_for_masking = self.embedder(src_seq, src_pos)
         if self.include_self_attention:
             enc_slf_attns = []
 
