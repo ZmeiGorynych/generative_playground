@@ -6,23 +6,11 @@ import numpy as np
 # from torch._C import device
 
 import generative_playground.models.transformer.Constants as Constants
-from generative_playground.models.transformer.Modules import BottleLinear as Linear
+from generative_playground.models.embedder.embedder import Embedder
 from generative_playground.models.transformer.Layers import EncoderLayer, DecoderLayer
-from generative_playground.utils.gpu_utils import to_gpu, LongTensor
 
-__author__ = "Yu-Hsiang Huang, much amended by Egor Kraev"
+__author__ = "Yu-Hsiang Huang, much refactored and amended by Egor Kraev"
 
-def position_encoding_init(n_position, d_pos_vec):
-    ''' Init the sinusoid position encoding table '''
-
-    # keep dim 0 for padding token position encoding zero vector
-    position_enc = np.array([
-        [pos / np.power(10000, 2 * (j // 2) / d_pos_vec) for j in range(d_pos_vec)]
-        if pos != 0 else np.zeros(d_pos_vec) for pos in range(n_position)])
-
-    position_enc[1:, 0::2] = np.sin(position_enc[1:, 0::2]) # dim 2i
-    position_enc[1:, 1::2] = np.cos(position_enc[1:, 1::2]) # dim 2i+1
-    return torch.from_numpy(position_enc).type(torch.FloatTensor)
 
 def get_attn_padding_mask(seq_q, seq_k, num_actions=Constants.PAD):
     ''' Indicate the padding-related part to mask '''
@@ -44,66 +32,6 @@ def get_attn_subsequent_mask(seq):
     return subsequent_mask
 
 
-class InputSequenceNormalizer(nn.Module):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, src_seq):
-        '''
-        Converts sequence from 3d one-hot to 2d longs, if necessary; and generates the src_seq_for_masking for the transformer
-        :param src_seq: batch x num_steps x feature_dim long, or batch x num_steps long or float
-        :return:
-        '''
-        if src_seq.dtype == torch.int64:  # indices of discrete actions
-            if len(src_seq.size()) == 3:  # if got a one-hot encoded vector
-                src_seq = torch.max(src_seq, 2)[-1]  # argmax
-            src_seq_for_masking = src_seq
-        elif src_seq.dtype == torch.float32 and len(src_seq.size()) == 3:  # if the input is continuous
-            src_seq_for_masking = torch.ones(src_seq.size()[:2], device=src_seq.device)
-
-        return src_seq, src_seq_for_masking
-
-class Embedder(nn.Module):
-    def __init__(self,
-                 n_max_seq,
-                 n_src_vocab,  # feature_len
-                 d_model=512,  # 128,#
-                 padding_idx=Constants.PAD,  # TODO: remember to set this to n_src_vocab-1 when calling from my code!
-                 encode_position = True
-                 ):
-        super().__init__()
-        n_position = n_max_seq + 1
-        self.encode_position = encode_position
-        self.normalizer = InputSequenceNormalizer()
-        self.position_enc = nn.Embedding(n_position, d_model, padding_idx=padding_idx)
-        self.position_enc.weight.data = position_encoding_init(n_position, d_model)
-        self.src_word_emb = nn.Embedding(n_src_vocab, d_model, padding_idx=padding_idx)
-        self.src_vector_fc = nn.Linear(n_src_vocab, d_model)
-
-    def forward(self, src_seq, src_pos=None):
-        '''
-        Embed the source sequence, with optional position specification
-        :param src_seq: batch x num_steps long or batch x num_steps x feature_size
-        :param src_pos: batch x num_steps long, or None
-        :return:
-        '''
-        src_seq, src_seq_for_masking = self.normalizer(src_seq)
-        if src_seq.dtype == torch.int64:  # indices of discrete actions
-            enc_input = self.src_word_emb(src_seq)
-        elif src_seq.dtype == torch.float32 and len(src_seq.size()) == 3:  # if the input is continuous
-            enc_input = self.src_vector_fc(src_seq)
-
-        # Position Encoding addition
-        if self.encode_position:
-            if src_pos is None:
-                batch_size = src_seq.size()[0]
-                seq_len = src_seq.size()[1]
-                src_pos = to_gpu(torch.arange(seq_len).unsqueeze(0).expand(batch_size,seq_len).type(LongTensor))
-
-            enc_input += self.position_enc(src_pos)
-        return enc_input, src_seq_for_masking
-
-
 class TransformerEncoder(nn.Module):
     ''' A encoder model with self attention mechanism. '''
 
@@ -119,11 +47,15 @@ class TransformerEncoder(nn.Module):
                  dropout=0.1,
                  use_self_attention=False,
                  transpose_self_attention=False,
+                 embedder=None,
                  padding_idx=Constants.PAD  # TODO: remember to set this to n_src_vocab-1 when calling from my code!
                  ):
 
         super(TransformerEncoder, self).__init__()
-        self.embedder = Embedder(n_max_seq,
+        if embedder is not None:
+            self.embedder=embedder
+        else:
+            self.embedder = Embedder(n_max_seq,
                                  n_src_vocab,
                                  d_model,
                                  padding_idx)
@@ -147,7 +79,7 @@ class TransformerEncoder(nn.Module):
 
         self.output_shape = [None, n_max_seq, d_model]
 
-    def forward(self, src_seq, src_pos=None):
+    def forward(self, *args, **kwargs):
         '''
 
         :param src_seq: batch_size x seq_len x feature_len float (eg one-hot) or batch_size x seq_len ints
@@ -156,7 +88,7 @@ class TransformerEncoder(nn.Module):
         :return: batch_size x n_max_seq x d_model
         '''
 
-        enc_input, src_seq_for_masking = self.embedder(src_seq, src_pos)
+        enc_input, src_seq_for_masking = self.embedder(*args, **kwargs)
         if self.include_self_attention:
             enc_slf_attns = []
 

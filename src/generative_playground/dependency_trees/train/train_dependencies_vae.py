@@ -10,7 +10,7 @@ except:
 import pickle
 from generative_playground.dependency_trees.train.main_train_dependencies import train_dependencies
 
-with open('../../ud_utils/meta.pickle','rb') as f:
+with open('../data/processed/meta.pickle','rb') as f:
     meta = pickle.load(f)
 
 batch_size = 100
@@ -25,6 +25,7 @@ model, fitter1 = train_dependencies(EPOCHS=1000,
                                     plot_prefix='lr 3e-5 vae ',
                                     dashboard ='dependencies_vae',
                                     #save_file='dependencies_test.h5',
+                                    include_predefined_embedding=True,
                                     use_self_attention=False,
                                     vae=True,
                                     target_names=['token' ,'head', 'upos', 'deprel'],

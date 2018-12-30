@@ -14,6 +14,7 @@ from generative_playground.data_utils.data_sources import IterableTransform
 from generative_playground.models.heads.multiple_output_head import MultipleOutputHead
 from generative_playground.models.decoder.encoder_as_decoder import EncoderAsDecoder
 from generative_playground.models.heads.vae import VariationalAutoEncoderHead
+from generative_playground.models.embedder.embedder import Embedder
 def train_dependencies(EPOCHS=None,
                        BATCH_SIZE=None,
                        max_steps=None,
@@ -28,6 +29,7 @@ def train_dependencies(EPOCHS=None,
                        use_self_attention=True,
                        vae=True,
                        target_names=['head'],
+                       include_predefined_embedding=True,
                        plot_prefix = '',
                        dashboard = 'policy gradient'):
 
@@ -51,19 +53,36 @@ def train_dependencies(EPOCHS=None,
     #                               batch_size=BATCH_SIZE,
     #                               max_steps=max_steps,
     #                               save_dataset=save_dataset)
-
-    encoder = TransformerEncoder(len(meta['emb_index']),
+    n_src_vocab = len(meta['emb_index'])
+    embedder1 = Embedder(max_steps,
+                 n_src_vocab,  # feature_len
+                 encode_position=True,
+                 include_learned=True,
+                 include_predefined=include_predefined_embedding,
+                 float_input=False,
+                 )
+    encoder = TransformerEncoder(n_src_vocab,
                                  max_steps,
                                  dropout=drop_rate,
                                  padding_idx=0,
+                                 embedder=embedder1,
                                  use_self_attention=use_self_attention)
 
     z_size = encoder.output_shape[2]
+
+    embedder2 = Embedder(max_steps,
+                         z_size,  # feature_len
+                         encode_position=True,
+                         include_learned=True,
+                         include_predefined=False,
+                         float_input=True,
+                         )
 
     encoder_2 = TransformerEncoder(z_size,
                                    max_steps,
                                    dropout=drop_rate,
                                    padding_idx=0,
+                                   embedder=embedder2,
                                    use_self_attention=use_self_attention)
 
     decoder = EncoderAsDecoder(encoder_2)
@@ -165,10 +184,16 @@ def train_dependencies(EPOCHS=None,
     #                                                  batch_size=BATCH_SIZE,
     #                                                  pin_memory=use_gpu)
 
+    def extract_input(x):
+        if include_predefined_embedding:
+            return (to_gpu(x['token']), to_gpu(x['embed']))
+        else:
+            return to_gpu(x['token'])
+
     def nice_loader(loader):
         return IterableTransform(loader,
-                                 lambda x: (to_gpu(x['token']),
-                                            {key:to_gpu(val) for key, val in x.items() if key in target_names}))
+                                 lambda x: (extract_input(x),
+                                            {key: to_gpu(val) for key, val in x.items() if key in target_names}))
 
     # the on-policy fitter
     fitter1 = get_fitter(model,

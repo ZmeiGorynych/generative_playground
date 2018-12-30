@@ -26,6 +26,7 @@ model, fitter1 = train_dependencies(EPOCHS=1000,
                                     dashboard ='dependencies_vae',
                                     #save_file='dependencies_test.h5',
                                     use_self_attention='both',
+                                    include_predefined_embedding=True,
                                     vae=True,
                                     target_names=['token' ,'head', 'upos', 'deprel'],
                                     meta=meta)

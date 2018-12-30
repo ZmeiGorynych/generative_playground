@@ -13,7 +13,7 @@ from generative_playground.dependency_trees.train.main_train_dependencies import
 with open('../../ud_utils/meta.pickle','rb') as f:
     meta = pickle.load(f)
 
-batch_size = 100
+batch_size = 10
 drop_rate = 0.4
 max_steps = meta['maxlen']
 model, fitter1 = train_dependencies(EPOCHS=1000,
@@ -27,6 +27,7 @@ model, fitter1 = train_dependencies(EPOCHS=1000,
                                     #save_file='dependencies_test.h5',
                                     use_self_attention=False, # None, True, False or Both
                                     vae=False,
+                                    include_predefined_embedding=True,
                                     target_names=['token' ,'head', 'upos', 'deprel'],
                                     meta=meta)
                                                 #preload_file='policy_gradient_run.h5')

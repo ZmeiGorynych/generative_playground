@@ -49,6 +49,8 @@ class VariationalAutoEncoderHead(nn.Module):
             z = mu
         # need to re-trace the path taken by the training input
         # this also takes care of masking
+        if isinstance(x, tuple):
+            x = x[0] # we transmit embeddings as second element, very dirty for now
         if len(x.size()) == 3: # one-hot encoded
             _, x_actions = torch.max(x,-1) # argmax
         else:
