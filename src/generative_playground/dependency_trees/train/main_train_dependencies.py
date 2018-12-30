@@ -142,11 +142,11 @@ def train_dependencies(EPOCHS=None,
         return fitter
 
     # TODO: need to be cleaner about dataset creation
-    with open('../../ud_utils/train_data.pickle', 'rb') as f:
+    with open('../data/processed/train_data.pickle', 'rb') as f:
         # a simple array implements the __len__ and __getitem__ methods, can we just use that?
         train_data = pickle.load(f)
 
-    with open('../../ud_utils/valid_data.pickle', 'rb') as f:
+    with open('../data/processed/valid_data.pickle', 'rb') as f:
         # a simple array implements the __len__ and __getitem__ methods, can we just use that?
         valid_data = pickle.load(f)
 

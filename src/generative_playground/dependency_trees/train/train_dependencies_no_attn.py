@@ -8,7 +8,7 @@ except:
     sys.path.append('../../../../../transformer_pytorch')
 
 import pickle
-from generative_playground.train.dependencies.main_train_dependencies import train_dependencies
+from generative_playground.dependency_trees.train.main_train_dependencies import train_dependencies
 
 with open('../../ud_utils/meta.pickle','rb') as f:
     meta = pickle.load(f)

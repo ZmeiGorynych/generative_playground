@@ -2,6 +2,7 @@ import pyconll
 import pickle
 import numpy as np
 import torch
+from polyglot.text import Word
 # https://github.com/UniversalDependencies/docs/blob/pages-source/format.md
 pre_defined = {'PAD': 0, 'root': 1, 'other': 2}
 
@@ -68,16 +69,25 @@ def preprocess_data(sentence_lists, meta, max_len=float('inf')):
                                  'upos': [pre_defined['root']],
                                  'deprel': [pre_defined['root']]}
                 for t,token in enumerate(sentence):
-                    assert(int(token.id) == t+1)
+                    assert(int(token.id) == t+1, "token.id must equal t+1, instead got ", token.id, ", t+1=", t)
                     assert(int(token.head) <=len(sentence))
+                    word = Word(token.form, language='en')
+                    if 'embed' not in this_sentence:
+                        this_sentence['embed'] = [np.zeros_like(word.vector)]
+                    this_sentence['embed'].append(word.vector)
                     this_sentence['token'].append(meta['emb_index'][token.lemma])
                     this_sentence['head'].append(int(token.head))
                     this_sentence['upos'].append(meta['upos'][token.upos])
                     this_sentence['deprel'].append(meta['deprel'][token.deprel])
 
-                this_sentence = {key: torch.tensor(pad(val, maxlen)) for key, val in this_sentence.items()}
-                embeds.append(this_sentence)
-            except:
+                this_sentence_nice = {key: torch.tensor(pad(val, maxlen))
+                                 for key, val in this_sentence.items() if key != 'embed'}
+                pad_embed = pad(this_sentence['embed'], maxlen, np.zeros_like(this_sentence['embed'][0]))
+                pad_embed_nice = torch.from_numpy(np.array(pad_embed))
+                this_sentence_nice['embed'] = pad_embed_nice
+                embeds.append(this_sentence_nice)
+            except Exception as e:
+                print(e)
                 continue
     return embeds
 
@@ -87,7 +97,7 @@ def read_string(fn):
     return out
 
 if __name__=='__main__':
-    data_root = '../../../../dependency_trees/data/ud-treebanks-v2.3/'
+    data_root = '../data/ud-treebanks-v2.3/'
     #UD_ENGLISH_TRAIN = data_root + -ud-train.conllu'
 
     datasets=['UD_English-LinES/en_lines',
@@ -117,14 +127,14 @@ if __name__=='__main__':
     valid_embeds = preprocess_data(valid, meta, max_len)
     test_embeds = preprocess_data(test, meta, max_len)
 
-    with open('train_data.pickle','wb') as f:
+    with open('../data/processed/train_data.pickle','wb') as f:
         pickle.dump(train_embeds, f)
-    with open('test_data.pickle','wb') as f:
+    with open('../data/processed/test_data.pickle','wb') as f:
         pickle.dump(test_embeds, f)
-    with open('valid_data.pickle','wb') as f:
+    with open('../data/processed/valid_data.pickle','wb') as f:
         pickle.dump(valid_embeds, f)
 
-    with open('meta.pickle','wb') as f:
+    with open('../data/processed/meta.pickle','wb') as f:
         pickle.dump(meta, f)
 
 

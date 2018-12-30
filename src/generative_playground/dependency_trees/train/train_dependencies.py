@@ -8,7 +8,7 @@ except:
     sys.path.append('../../../../../transformer_pytorch')
 
 import pickle
-from generative_playground.train.dependencies.main_train_dependencies import train_dependencies
+from generative_playground.dependency_trees.train.main_train_dependencies import train_dependencies
 
 with open('../../ud_utils/meta.pickle','rb') as f:
     meta = pickle.load(f)
@@ -22,10 +22,10 @@ model, fitter1 = train_dependencies(EPOCHS=1000,
                                     lr=3e-5,
                                     drop_rate=drop_rate,
                                     decoder_type='attention',
-                                    plot_prefix='lr 3e-5 transposed ',
+                                    plot_prefix='lr 3e-5 ',
                                     dashboard ='dependencies_novae',
                                     #save_file='dependencies_test.h5',
-                                    use_self_attention=True,
+                                    use_self_attention=False, # None, True, False or Both
                                     vae=False,
                                     target_names=['token' ,'head', 'upos', 'deprel'],
                                     meta=meta)
