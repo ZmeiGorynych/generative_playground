@@ -1,6 +1,7 @@
 import os, inspect
 import torch.optim as optim
 from torch.optim import lr_scheduler
+from torch.utils.data import ConcatDataset
 import torch
 import pickle
 
@@ -15,16 +16,19 @@ from generative_playground.models.heads.multiple_output_head import MultipleOutp
 from generative_playground.models.decoder.encoder_as_decoder import EncoderAsDecoder
 from generative_playground.models.heads.vae import VariationalAutoEncoderHead
 from generative_playground.models.embedder.embedder import Embedder
+from generative_playground.models.embedder.multi_embedder import MultiEmbedder
+
 def train_dependencies(EPOCHS=None,
                        BATCH_SIZE=None,
                        max_steps=None,
                        feature_len = None,
                        lr=2e-4,
                        drop_rate = 0.0,
-                       plot_ignore_initial=300,
+                       plot_ignore_initial=1000,
                        save_file = None,
                        preload_file = None,
                        meta=None,
+                       languages=['en'],
                        decoder_type='action',
                        use_self_attention=True,
                        vae=True,
@@ -53,22 +57,28 @@ def train_dependencies(EPOCHS=None,
     #                               batch_size=BATCH_SIZE,
     #                               max_steps=max_steps,
     #                               save_dataset=save_dataset)
-    n_src_vocab = len(meta['emb_index'])
+    n_src_vocab = len(meta['emb_index']['en']) # the same for all languages by construction
+    d_model = 512
+    multi_embedder = MultiEmbedder(len(languages), n_src_vocab, d_model)
     embedder1 = Embedder(max_steps,
                  n_src_vocab,  # feature_len
                  encode_position=True,
                  include_learned=True,
                  include_predefined=include_predefined_embedding,
                  float_input=False,
+                         custom_embedder=multi_embedder
                  )
     encoder = TransformerEncoder(n_src_vocab,
                                  max_steps,
                                  dropout=drop_rate,
                                  padding_idx=0,
                                  embedder=embedder1,
-                                 use_self_attention=use_self_attention)
+                                 use_self_attention=use_self_attention,
+                                 d_model=d_model)
 
     z_size = encoder.output_shape[2]
+
+
 
     embedder2 = Embedder(max_steps,
                          z_size,  # feature_len
@@ -83,12 +93,12 @@ def train_dependencies(EPOCHS=None,
                                    dropout=drop_rate,
                                    padding_idx=0,
                                    embedder=embedder2,
-                                   use_self_attention=use_self_attention)
+                                   use_self_attention=use_self_attention,
+                                   d_model=d_model)
 
     decoder = EncoderAsDecoder(encoder_2)
 
-    pre_model_2 = VariationalAutoEncoderHead(encoder=encoder,#AttentionAggregatingHead(encoder,
-                                                                      #        drop_rate = drop_rate),
+    pre_model_2 = VariationalAutoEncoderHead(encoder=encoder,
                                              decoder=decoder,
                                              z_size=z_size,
                                              return_mu_log_var=False)
@@ -98,14 +108,18 @@ def train_dependencies(EPOCHS=None,
     else:
         pre_model = encoder
 
+    # multi_embedder_2 = MultiEmbedder(len(languages),
+    #                                  pre_model.output_shape[-1],
+    #                                  len(meta['emb_index']['en']) # it's the same for all languages by construction
+    #                                  )
+    # use the same output embedding matrix for all languages as can't pass the language info through yet
     model = MultipleOutputHead(pre_model,
-                               [len(meta['emb_index']),# word
-                                meta['maxlen'],# head
-                                len(meta['upos']),# part of speech
-                                len(meta['deprel']) # dependency relationship
-                                ],
-                               drop_rate=drop_rate,
-                               labels=['token', 'head', 'upos', 'deprel'])
+                               {'token': len(meta['emb_index']['en']),# word
+                                'head': meta['maxlen'],# head
+                                'upos': len(meta['upos']),# part of speech
+                                'deprel': len(meta['deprel']) # dependency relationship
+                                },
+                               drop_rate=drop_rate,)
 
     model = to_gpu(model)
 
@@ -161,28 +175,21 @@ def train_dependencies(EPOCHS=None,
         return fitter
 
     # TODO: need to be cleaner about dataset creation
-    with open('../data/processed/train_data.pickle', 'rb') as f:
-        # a simple array implements the __len__ and __getitem__ methods, can we just use that?
-        train_data = pickle.load(f)
+    def get_data_loader(dtype, languages):
+        all_train_data = []
+        for lang in languages:
+            print('loading', dtype, lang)
+            with open('../data/processed/' + lang + '_' + dtype + '_data.pickle', 'rb') as f:
+                all_train_data.append(pickle.load(f))
+        dataset = ConcatDataset(all_train_data)
+        loader = torch.utils.data.DataLoader(dataset,
+                                                   batch_size=BATCH_SIZE,
+                                                   shuffle=True,
+                                                   pin_memory=use_gpu)
+        return loader
 
-    with open('../data/processed/valid_data.pickle', 'rb') as f:
-        # a simple array implements the __len__ and __getitem__ methods, can we just use that?
-        valid_data = pickle.load(f)
-
-    train_loader = torch.utils.data.DataLoader(train_data,
-                                               batch_size=BATCH_SIZE,
-                                               shuffle=True,
-                                               pin_memory=use_gpu)
-
-    valid_loader = torch.utils.data.DataLoader(valid_data,
-                                               batch_size=BATCH_SIZE,
-                                               shuffle=True,
-                                               pin_memory=use_gpu)
-
-    # train_loader, valid_loader = train_valid_loaders(train_data,
-    #                                                  valid_fraction=0.1,
-    #                                                  batch_size=BATCH_SIZE,
-    #                                                  pin_memory=use_gpu)
+    train_loader = get_data_loader('train', languages)
+    valid_loader = get_data_loader('valid', languages)
 
     def extract_input(x):
         if include_predefined_embedding:

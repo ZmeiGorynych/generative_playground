@@ -51,7 +51,8 @@ class Embedder(nn.Module):
                  include_learned=True,
                  include_predefined=False,
                  float_input = False,
-                 predefined_dim=256 # polyglot embeddings
+                 predefined_dim=256, # polyglot embeddings
+                 custom_embedder = None
                  ):
         super().__init__()
         n_position = n_max_seq + 1
@@ -61,7 +62,11 @@ class Embedder(nn.Module):
         self.normalizer = InputSequenceNormalizer()
         self.position_enc = nn.Embedding(n_position, d_model, padding_idx=padding_idx)
         self.position_enc.weight.data = position_encoding_init(n_position, d_model)
-        self.src_word_emb = nn.Embedding(n_src_vocab, d_model, padding_idx=padding_idx)
+        if custom_embedder is None:
+            self.src_word_emb = nn.Embedding(n_src_vocab, d_model, padding_idx=padding_idx)
+        else:
+            self.src_word_emb = custom_embedder
+
         if float_input:
             if self.include_predefined:
                 start_dim = predefined_dim + n_src_vocab

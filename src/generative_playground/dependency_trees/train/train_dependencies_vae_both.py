@@ -13,8 +13,8 @@ from generative_playground.dependency_trees.train.main_train_dependencies import
 with open('../data/processed/meta.pickle','rb') as f:
     meta = pickle.load(f)
 
-batch_size = 10
-drop_rate = 0.4
+batch_size = 50
+drop_rate = 0.5
 max_steps = meta['maxlen']
 model, fitter1 = train_dependencies(EPOCHS=1000,
                                     BATCH_SIZE=batch_size,

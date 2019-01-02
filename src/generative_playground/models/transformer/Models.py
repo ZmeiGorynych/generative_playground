@@ -43,7 +43,7 @@ class TransformerEncoder(nn.Module):
                  d_k=64,  #16,
                  d_v=64,  #16,#
                  d_model=512,  #128,#
-                 d_inner_hid=1024,  #256,#
+                 #d_inner_hid=1024,  #256,#
                  dropout=0.1,
                  use_self_attention=False,
                  transpose_self_attention=False,
@@ -59,6 +59,7 @@ class TransformerEncoder(nn.Module):
                                  n_src_vocab,
                                  d_model,
                                  padding_idx)
+        d_inner_hid = 2*d_model
         self.n_max_seq = n_max_seq
         self.d_model = d_model
         self.n_head = n_head

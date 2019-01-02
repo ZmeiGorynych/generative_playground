@@ -1,26 +1,42 @@
+from collections import OrderedDict
 from torch import nn as nn
 from torch.nn import functional as F
 
 from generative_playground.utils.gpu_utils import to_gpu
 
 
+
 class MultipleOutputHead(nn.Module):
-    def __init__(self, model, output_dims, drop_rate=0.2, labels=None):
+    def __init__(self, model, output_spec, drop_rate=0.2):
+        '''
+        Takes a model that outputs an array of Floats and does a bunch of linear transforms on it
+        # TODO: should we be including a relu here?
+        :param model: The upstream model whose output we're processing
+        :param output_dims: a list or a dict, values are either ints or modules
+        :param drop_rate:
+        :param labels:
+        '''
         super().__init__()
-        self.labels = labels
-        try:
-            iter(output_dims)
-        except: # if it was just a number
-            output_dims =(output_dims)
-        self.sizes = output_dims
         self.model = model
         self.dropout = nn.Dropout(drop_rate)
-        module_list =[to_gpu(nn.Linear(self.model.output_shape[-1], s)) for s in self.sizes]
-        self.fcs = nn.ModuleList(module_list)
-        if labels is None:
+        self.output_spec = output_spec
+        if isinstance(output_spec, list) or isinstance(output_spec, tuple):
+            module_list =[to_gpu(self._get_module(s)) for s in self.output_spec]
+            self.fcs = nn.ModuleList(module_list)
+            self.fcs_dict = None
             self.output_shape = [model.output_shape[:-1] + [s] for s in self.sizes]
         else:
-            self.output_shape = {label: model.output_shape[:-1] + [s] for label, s in zip(labels,self.sizes)}
+            module_dict = {key: self._get_module(val) for key,val in output_spec.items()}
+            self.fcs_dict = nn.ModuleDict(module_dict)
+            self.fcs = None
+            # TODO: fix this later
+            #self.output_shape = {label: model.output_shape[:-1] + [s] for label, s in zip(labels,self.sizes)}
+
+    def _get_module(self, spec):
+        if isinstance(spec, nn.Module):
+            return spec
+        else:
+            return nn.Linear(self.model.output_shape[-1], spec)
 
     def forward(self, x):
         '''
@@ -31,8 +47,10 @@ class MultipleOutputHead(nn.Module):
         '''
         out = F.relu(self.model.forward(x))
         out = self.dropout(out)
-        if self.labels:
-            out = {label: fc(out) for label, fc in zip(self.labels, self.fcs)}
+
+        if self.fcs is None:
+            out = {label: fc(out) for label, fc in self.fcs_dict.items()}
         else:
             out = [fc(out) for fc in self.fcs]
+
         return out
