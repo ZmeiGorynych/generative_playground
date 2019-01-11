@@ -115,7 +115,7 @@ def preprocess_data(sentence_lists, meta, lang):
                     try:
                         word_vector = word.vector
                     except:
-                        word_vector = np.zeros(256, dtype=np.float32)
+                        word_vector = np.ones(256, dtype=np.float32)/256
 
                     if 'embed' not in this_sentence:
                         this_sentence['embed'] = [np.zeros_like(word_vector)]
@@ -179,10 +179,10 @@ if __name__=='__main__':
             for etype, ending in endings.items():
                 fn = fn_root + ending
                 if os.path.isfile(fn):
-                    # f = codecs.open(fn, encoding='utf-8')
-                    # data_string = f.read()
-                    # tmp = pyconll.load_from_string(data_string)
-                    tmp = pyconll.load_from_file(fn)
+                    f = codecs.open(fn, encoding='utf-8')
+                    data_string = f.read()
+                    tmp = pyconll.load_from_string(data_string)
+                    #tmp = pyconll.load_from_file(fn)
 
                     data[lang][etype].append(tmp)
 

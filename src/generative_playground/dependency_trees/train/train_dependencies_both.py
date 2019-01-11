@@ -13,8 +13,8 @@ from generative_playground.dependency_trees.train.main_train_dependencies import
 with open('../data/processed/meta.pickle','rb') as f:
     meta = pickle.load(f)
 
-batch_size = 50
-drop_rate = 0.3
+batch_size = 100
+drop_rate = 0.05
 max_steps = meta['maxlen']
 model, fitter1 = train_dependencies(EPOCHS=1000,
                                     BATCH_SIZE=batch_size,
@@ -31,7 +31,7 @@ model, fitter1 = train_dependencies(EPOCHS=1000,
                                     plot_ignore_initial=300,
                                     target_names=['token' ,'head', 'upos', 'deprel'],
                                     meta=meta,
-                                    languages =['en','de','fr'])
+                                    languages=None)#['en'])#, 'de', 'fr'])
                                                 #preload_file='policy_gradient_run.h5')
 
 while True:

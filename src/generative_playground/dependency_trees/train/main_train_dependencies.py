@@ -28,7 +28,7 @@ def train_dependencies(EPOCHS=None,
                        save_file = None,
                        preload_file = None,
                        meta=None,
-                       languages=['en'],
+                       languages=None,
                        decoder_type='action',
                        use_self_attention=True,
                        vae=True,
@@ -59,13 +59,16 @@ def train_dependencies(EPOCHS=None,
     #                               save_dataset=save_dataset)
     n_src_vocab = len(meta['emb_index']['en']) # the same for all languages by construction
     d_model = 512
-    multi_embedder = MultiEmbedder(len(languages), n_src_vocab, d_model)
+    if languages is not None:
+        multi_embedder = MultiEmbedder(len(languages), n_src_vocab, d_model)
+    else:
+        multi_embedder = None
     embedder1 = Embedder(max_steps,
-                 n_src_vocab,  # feature_len
-                 encode_position=True,
-                 include_learned=True,
-                 include_predefined=include_predefined_embedding,
-                 float_input=False,
+                         n_src_vocab,  # feature_len
+                         encode_position=True,
+                         include_learned=True,
+                         include_predefined=include_predefined_embedding,
+                         float_input=False,
                          custom_embedder=multi_embedder
                  )
     encoder = TransformerEncoder(n_src_vocab,
@@ -108,17 +111,20 @@ def train_dependencies(EPOCHS=None,
     else:
         pre_model = encoder
 
-    # multi_embedder_2 = MultiEmbedder(len(languages),
-    #                                  pre_model.output_shape[-1],
-    #                                  len(meta['emb_index']['en']) # it's the same for all languages by construction
-    #                                  )
-    # use the same output embedding matrix for all languages as can't pass the language info through yet
+    model_outputs = {'head': meta['maxlen'],# head
+                    'upos': len(meta['upos']),# part of speech
+                    'deprel': len(meta['deprel']) # dependency relationship
+                    }
+    if languages is not None:
+        for i in range(len(languages)):
+            model_outputs[str(i+1)] = len(meta['emb_index']['en'])# word
+        loss = MultipleCrossEntropyLoss(multi_language='token')
+    else:
+        model_outputs['token'] = len(meta['emb_index']['en'])
+        loss = MultipleCrossEntropyLoss()
+
     model = MultipleOutputHead(pre_model,
-                               {'token': len(meta['emb_index']['en']),# word
-                                'head': meta['maxlen'],# head
-                                'upos': len(meta['upos']),# part of speech
-                                'deprel': len(meta['deprel']) # dependency relationship
-                                },
+                               model_outputs,
                                drop_rate=drop_rate,)
 
     model = to_gpu(model)
@@ -176,6 +182,8 @@ def train_dependencies(EPOCHS=None,
 
     # TODO: need to be cleaner about dataset creation
     def get_data_loader(dtype, languages):
+        if languages is None:
+            languages = ['en']
         all_train_data = []
         for lang in languages:
             print('loading', dtype, lang)
@@ -206,7 +214,7 @@ def train_dependencies(EPOCHS=None,
     fitter1 = get_fitter(model,
                          nice_loader(train_loader),
                          nice_loader(valid_loader),
-                         MultipleCrossEntropyLoss(),
+                         loss,
                          plot_prefix,
                          model_process_fun=model_process_fun,
                          lr=lr)
