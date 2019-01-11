@@ -1,51 +1,89 @@
 import pyconll
+import os
 import pickle
 import numpy as np
+from collections import OrderedDict
 import torch
 from polyglot.text import Word
+import codecs
 # https://github.com/UniversalDependencies/docs/blob/pages-source/format.md
-pre_defined = {'PAD': 0, 'root': 1, 'other': 2}
+pre_defined = {'PAD': 0, 'en': 1}#, 'de': 2, 'fr': 3}
+pre_defined['other'] = len(pre_defined)
 
-def get_metadata(sentence_lists, max_len=float('inf')):
+
+def get_metadata(data, max_len, cutoff):
+    '''
+
+    :param data: OrderedDict[lang: {'train':train,
+                                    'valid': valid, 'test': test}]
+    :param max_len: int, maximal sequence length incl first (language) token
+    :return: dict with metadata
+    '''
 # first pass:
 # collect token.lemma into a dict with counts, make indexes for upos and deprel
-    token_counts = {}
+# upos and deprel are shared, thanks Universal Dependencies!, and token_count is lang-specific
+    token_counts = OrderedDict()
     upos = {'PAD': 0}
     deprel = {'PAD': 0}
-    maxlen = 0
-    for sentences in sentence_lists:
-        for sentence in sentences:
-            if len(sentence) > max_len:
-                [print(token.lemma) for token in sentence]
-                continue
-            maxlen = max(maxlen, len(sentence)+1) # we prepend the root token to each sentence
-            for token in sentence:
-                if token.lemma in token_counts:
-                    token_counts[token.lemma] += 1
-                else:
-                    token_counts[token.lemma] = 1
+    for lang, data_dict in data.items():
+        token_counts[lang] = OrderedDict()
+        data_list = []
+        for _, this_data in data_dict.items():
+            data_list += this_data
 
-                if token.upos not in upos:
-                    upos[token.upos] = len(upos)
+        for sentences in data_list:
+            for sentence in sentences:
+                if len(sentence) > max_len - 1: # no point in tokenizing stuff we'll drop later anyway
+                    continue
+                for token in sentence:
+                    if token.lemma in token_counts[lang]:
+                        token_counts[lang][token.lemma] += 1
+                    else:
+                        token_counts[lang][token.lemma] = 1
 
-                if token.deprel not in deprel:
-                    deprel[token.deprel] = len(deprel)
+                    if token.upos not in upos:
+                        upos[token.upos] = len(upos)
+
+                    if token.deprel not in deprel:
+                        deprel[token.deprel] = len(deprel)
+
     # plot frequencies, determine cutoff
-    cutoff = 10
-    # create dict from lemma to int
-    emb_ind = {}
-    next_index = len(pre_defined)
-    for token, count in token_counts.items():
-        if count < cutoff:
-            emb_ind[token] = pre_defined['other']
-        else:
-            emb_ind[token] = next_index
-            next_index += 1
+    en_length = len([token for token, cnt in token_counts['en'].items() if cnt > cutoff])
 
+    # create dict from lemma to int, with cutoff
+    emb_ind = OrderedDict()
+    for lang, token_cnt in token_counts.items():
+        # sort by frequency and cut to same length as English
+        count_list = sorted([(token, count) for token, count in token_cnt.items()],
+                            key=lambda x: x[1],
+                            reverse=True)
+        if len(count_list) > en_length:
+            count_list_short = count_list[:en_length]
+            print(len(count_list_short)/len(count_list), 'tokens get their own index in ', lang)
+        nice_tokens = [token for token, count in count_list_short]
+
+        # now define the mapping from frequent tokens to indices
+        emb_ind[lang] = OrderedDict()
+        next_index = pre_defined['other'] + 1  # all earlier indices are used to encode other stuff
+        for token, count in count_list:
+            # TODO: what is the None token about?
+            if token in nice_tokens:
+                emb_ind[lang][token] = next_index
+                next_index += 1
+            else:
+                emb_ind[lang][token] = pre_defined['other']
+
+        assert next_index == pre_defined['other'] + en_length + 1
 
     print(len(token_counts), len(emb_ind))
 
-    return {'emb_index': emb_ind, 'upos': upos, 'deprel': deprel, 'maxlen': maxlen, 'counts': token_counts}
+    return {'emb_index': emb_ind,
+            'upos': upos,
+            'deprel': deprel,
+            'counts': token_counts,
+            'maxlen': max_len,
+            'num_tokens': en_length + len(pre_defined)
+            }
 
 
 def pad(lst, tgt_len, pad_ind = pre_defined['PAD']):
@@ -54,89 +92,122 @@ def pad(lst, tgt_len, pad_ind = pre_defined['PAD']):
     return lst
 
 
-def preprocess_data(sentence_lists, meta, max_len=float('inf')):
+def preprocess_data(sentence_lists, meta, lang):
     # second pass:
     embeds = []
-    maxlen=meta['maxlen']
+    #maxlen=meta['maxlen']
+    count = 0
     for sentences in sentence_lists:
         for sentence in sentences:
-            if len(sentence) > max_len:
-                print(sentence)
+            count += 1
+            if len(sentence) > max_len-1: # first token will denote language
+                # print(sentence)
                 continue
             try:
-                this_sentence = {'token': [pre_defined['root']],
-                                 'head': [pre_defined['root']],
-                                 'upos': [pre_defined['root']],
-                                 'deprel': [pre_defined['root']]}
+                this_sentence = {'token': [pre_defined[lang]],
+                                 'head': [pre_defined[lang]],
+                                 'upos': [pre_defined[lang]],
+                                 'deprel': [pre_defined[lang]]}
                 for t,token in enumerate(sentence):
-                    assert(int(token.id) == t+1, "token.id must equal t+1, instead got ", token.id, ", t+1=", t)
-                    assert(int(token.head) <=len(sentence))
-                    word = Word(token.form, language='en')
+                    try:
+                        assert int(token.id) == t+1, "token.id must equal t+1, instead got " +token.id+ ", t=" + t
+                        assert int(token.head) <= len(sentence)
+                    except:
+                        raise ValueError
+
+                    word = Word(token.form, language=lang)
+                    try:
+                        word_vector = word.vector
+                    except:
+                        raise ValueError #word_vector = np.ones(256, dtype=np.float32)/256
+
                     if 'embed' not in this_sentence:
-                        this_sentence['embed'] = [np.zeros_like(word.vector)]
-                    this_sentence['embed'].append(word.vector)
-                    this_sentence['token'].append(meta['emb_index'][token.lemma])
+                        this_sentence['embed'] = [np.zeros_like(word_vector)]
+                    this_sentence['embed'].append(word_vector)
+                    this_sentence['token'].append(meta['emb_index'][lang][token.lemma])
                     this_sentence['head'].append(int(token.head))
                     this_sentence['upos'].append(meta['upos'][token.upos])
                     this_sentence['deprel'].append(meta['deprel'][token.deprel])
 
-                this_sentence_nice = {key: torch.tensor(pad(val, maxlen))
+                this_sentence_nice = {key: torch.tensor(pad(val, max_len))
                                  for key, val in this_sentence.items() if key != 'embed'}
-                pad_embed = pad(this_sentence['embed'], maxlen, np.zeros_like(this_sentence['embed'][0]))
+                pad_embed = pad(this_sentence['embed'], max_len, np.zeros_like(this_sentence['embed'][0]))
                 pad_embed_nice = torch.from_numpy(np.array(pad_embed))
                 this_sentence_nice['embed'] = pad_embed_nice
                 embeds.append(this_sentence_nice)
-            except Exception as e:
-                print(e)
+
+            except ValueError:
                 continue
+
+    print('kept ', len(embeds)/count, ' of all sentences')
     return embeds
 
-def read_string(fn):
-    with open(fn,'r') as f:
-        out = f.read()
-    return out
+# def read_string(fn):
+#     with open(fn,'r') as f:
+#         out = f.read()
+#     return out
 
 if __name__=='__main__':
+    print("Starting dataset ingestion...")
     data_root = '../data/ud-treebanks-v2.3/'
-    #UD_ENGLISH_TRAIN = data_root + -ud-train.conllu'
 
-    datasets=['UD_English-LinES/en_lines',
+    datasets=OrderedDict()
+    datasets['en'] = ['UD_English-EWT/en_ewt',
+              'UD_English-LinES/en_lines',
               'UD_English-ESL/en_esl',
-              'UD_English-EWT/en_ewt',
               'UD_English-GUM/en_gum',
               'UD_English-ParTUT/en_partut'
               ]
+    # datasets['de'] = ['UD_German-GSD/de_gsd',
+    #                   'UD_German-PUD/de_pud']
+    # datasets['fr'] = ['UD_French-FTB/fr_ftb',
+    #                   'UD_French-GSD/fr_gsd',
+    #                   'UD_French-ParTUT/fr_partut',
+    #                   'UD_French-PUD/fr_pud',
+    #                   'UD_French-Sequoia/fr_sequoia']
 
-    endings = ['-ud-dev.conllu','-ud-test.conllu','-ud-train.conllu']
+    endings = {'valid': '-ud-dev.conllu',
+               'test': '-ud-test.conllu',
+               'train': '-ud-train.conllu'}
     valid = []
     train = []
     test = []
-    for d in datasets:
-        fn = data_root + d
-        try:
-            valid.append(pyconll.load_from_file(fn + endings[0]))
-            train.append(pyconll.load_from_file(fn + endings[2]))
-            test.append(pyconll.load_from_file(fn + endings[1]))
-        except:
-            pass
-        print(d, len(train[-1]), len(valid[-1]), len(test[-1]))
+    max_len = 16
+    cutoff = 2 # so at least 3 occurrences
+    data = OrderedDict()
 
-    max_len = 10
-    meta = get_metadata(train + valid + test, max_len)
-    train_embeds = preprocess_data(train, meta, max_len)
-    valid_embeds = preprocess_data(valid, meta, max_len)
-    test_embeds = preprocess_data(test, meta, max_len)
+    for lang, names in datasets.items():
+        data[lang] = OrderedDict([(key, []) for key in endings.keys()])
+        for d in names:
+            print(d,'...')
+            fn_root = data_root + d
+            for etype, ending in endings.items():
+                fn = fn_root + ending
+                if os.path.isfile(fn):
+                    f = codecs.open(fn, encoding='utf-8')
+                    data_string = f.read()
+                    tmp = pyconll.load_from_string(data_string)
+                    #tmp = pyconll.load_from_file(fn)
 
-    with open('../data/processed/train_data.pickle','wb') as f:
-        pickle.dump(train_embeds, f)
-    with open('../data/processed/test_data.pickle','wb') as f:
-        pickle.dump(test_embeds, f)
-    with open('../data/processed/valid_data.pickle','wb') as f:
-        pickle.dump(valid_embeds, f)
+                    data[lang][etype].append(tmp)
 
+            print(OrderedDict(
+                [(key, 0 if len(value)==0 else len(value[-1])) for key,value in data[lang].items()]
+                    ))
+
+    meta = get_metadata(data, max_len, cutoff)
+    meta['maxlen'] = max_len
+
+    # TODO: store the files zipped!
     with open('../data/processed/meta.pickle','wb') as f:
         pickle.dump(meta, f)
+    print('tokens:', len(meta['emb_index']['en']))
 
+    for lang, datasets in data.items():
+        for dataset_type, dataset in datasets.items():
+            embeds = preprocess_data(dataset, meta, lang)
+            print(dataset_type, len(embeds))
+            with open('../data/processed/' + lang + '_' + dataset_type + '_data.pickle','wb') as f:
+                pickle.dump(embeds, f)
 
 print('done!')
-# save the list of dicts

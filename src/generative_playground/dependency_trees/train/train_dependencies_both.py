@@ -9,12 +9,19 @@ except:
 
 import pickle
 from generative_playground.dependency_trees.train.main_train_dependencies import train_dependencies
+use_old = False
+if use_old:
+    with open('../data/processed/meta_old.pickle','rb') as f:
+        meta = pickle.load(f)
+    language = None
+else:
+    with open('../data/processed/meta.pickle','rb') as f:
+        meta = pickle.load(f)
+    language = 'en'
 
-with open('../../ud_utils/meta.pickle','rb') as f:
-    meta = pickle.load(f)
 
 batch_size = 100
-drop_rate = 0.4
+drop_rate = 0.1
 max_steps = meta['maxlen']
 model, fitter1 = train_dependencies(EPOCHS=1000,
                                     BATCH_SIZE=batch_size,
@@ -27,7 +34,8 @@ model, fitter1 = train_dependencies(EPOCHS=1000,
                                     #save_file='dependencies_test.h5',
                                     use_self_attention='both', # None, True, False or Both
                                     vae=False,
-                                    target_names=['token' ,'head', 'upos', 'deprel'],
+                                    target_names=['head', 'upos', 'deprel'],#'token' ,
+                                    language=language,
                                     meta=meta)
                                                 #preload_file='policy_gradient_run.h5')
 

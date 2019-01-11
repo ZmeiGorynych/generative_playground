@@ -29,6 +29,7 @@ def train_dependencies(EPOCHS=None,
                        use_self_attention=True,
                        vae=True,
                        target_names=['head'],
+                       language=None,
                        include_predefined_embedding=True,
                        plot_prefix = '',
                        dashboard = 'policy gradient'):
@@ -53,7 +54,10 @@ def train_dependencies(EPOCHS=None,
     #                               batch_size=BATCH_SIZE,
     #                               max_steps=max_steps,
     #                               save_dataset=save_dataset)
-    n_src_vocab = len(meta['emb_index'])
+    if 'num_tokens' in meta:
+        n_src_vocab = meta['num_tokens']
+    else:
+        n_src_vocab = len(meta['emb_index'])
     embedder1 = Embedder(max_steps,
                  n_src_vocab,  # feature_len
                  encode_position=True,
@@ -99,7 +103,7 @@ def train_dependencies(EPOCHS=None,
         pre_model = encoder
 
     model = MultipleOutputHead(pre_model,
-                               [len(meta['emb_index']),# word
+                               [n_src_vocab,# word
                                 meta['maxlen'],# head
                                 len(meta['upos']),# part of speech
                                 len(meta['deprel']) # dependency relationship
@@ -161,11 +165,15 @@ def train_dependencies(EPOCHS=None,
         return fitter
 
     # TODO: need to be cleaner about dataset creation
-    with open('../data/processed/train_data.pickle', 'rb') as f:
+    if language is not None:
+        prefix = language + '_'
+    else:
+        prefix = ''
+    with open('../data/processed/' + prefix + 'train_data.pickle', 'rb') as f:
         # a simple array implements the __len__ and __getitem__ methods, can we just use that?
         train_data = pickle.load(f)
 
-    with open('../data/processed/valid_data.pickle', 'rb') as f:
+    with open('../data/processed/' + prefix + 'valid_data.pickle', 'rb') as f:
         # a simple array implements the __len__ and __getitem__ methods, can we just use that?
         valid_data = pickle.load(f)
 
