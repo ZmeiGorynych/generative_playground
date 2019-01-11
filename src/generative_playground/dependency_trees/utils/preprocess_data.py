@@ -172,8 +172,8 @@ if __name__=='__main__':
     valid = []
     train = []
     test = []
-    max_len = 16
-    cutoff = 2 # so at least 3 occurrences
+    max_len = 31
+    cutoff = 4 # so at least 5 occurrences
     data = OrderedDict()
 
     for lang, names in datasets.items():
@@ -196,6 +196,7 @@ if __name__=='__main__':
                     ))
 
     meta = get_metadata(data, max_len, cutoff)
+    meta['cutoff'] = cutoff
     meta['maxlen'] = max_len
 
     # TODO: store the files zipped!

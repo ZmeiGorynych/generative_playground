@@ -21,7 +21,7 @@ else:
 
 
 batch_size = 100
-drop_rate = 0.1
+drop_rate = 0.15
 max_steps = meta['maxlen']
 model, fitter1 = train_dependencies(EPOCHS=1000,
                                     BATCH_SIZE=batch_size,
