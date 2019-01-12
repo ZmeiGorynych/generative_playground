@@ -1,6 +1,7 @@
 import os, inspect
 import torch.optim as optim
 from torch.optim import lr_scheduler
+from torch.utils.data import ConcatDataset
 import torch
 import pickle
 
@@ -15,21 +16,23 @@ from generative_playground.models.heads.multiple_output_head import MultipleOutp
 from generative_playground.models.decoder.encoder_as_decoder import EncoderAsDecoder
 from generative_playground.models.heads.vae import VariationalAutoEncoderHead
 from generative_playground.models.embedder.embedder import Embedder
+from generative_playground.models.embedder.multi_embedder import MultiEmbedder
+
 def train_dependencies(EPOCHS=None,
                        BATCH_SIZE=None,
                        max_steps=None,
                        feature_len = None,
                        lr=2e-4,
                        drop_rate = 0.0,
-                       plot_ignore_initial=300,
+                       plot_ignore_initial=1000,
                        save_file = None,
                        preload_file = None,
                        meta=None,
+                       languages=None,
                        decoder_type='action',
                        use_self_attention=True,
                        vae=True,
                        target_names=['head'],
-                       language=None,
                        include_predefined_embedding=True,
                        plot_prefix = '',
                        dashboard = 'policy gradient'):
@@ -54,25 +57,31 @@ def train_dependencies(EPOCHS=None,
     #                               batch_size=BATCH_SIZE,
     #                               max_steps=max_steps,
     #                               save_dataset=save_dataset)
-    if 'num_tokens' in meta:
-        n_src_vocab = meta['num_tokens']
+    n_src_vocab = len(meta['emb_index']['en']) # the same for all languages by construction
+    d_model = 512
+    if languages is not None:
+        multi_embedder = MultiEmbedder(len(languages), n_src_vocab, d_model)
     else:
-        n_src_vocab = len(meta['emb_index'])
+        multi_embedder = None
     embedder1 = Embedder(max_steps,
-                 n_src_vocab,  # feature_len
-                 encode_position=True,
-                 include_learned=True,
-                 include_predefined=include_predefined_embedding,
-                 float_input=False,
+                         n_src_vocab,  # feature_len
+                         encode_position=True,
+                         include_learned=True,
+                         include_predefined=include_predefined_embedding,
+                         float_input=False,
+                         custom_embedder=multi_embedder
                  )
     encoder = TransformerEncoder(n_src_vocab,
                                  max_steps,
                                  dropout=drop_rate,
                                  padding_idx=0,
                                  embedder=embedder1,
-                                 use_self_attention=use_self_attention)
+                                 use_self_attention=use_self_attention,
+                                 d_model=d_model)
 
     z_size = encoder.output_shape[2]
+
+
 
     embedder2 = Embedder(max_steps,
                          z_size,  # feature_len
@@ -87,12 +96,12 @@ def train_dependencies(EPOCHS=None,
                                    dropout=drop_rate,
                                    padding_idx=0,
                                    embedder=embedder2,
-                                   use_self_attention=use_self_attention)
+                                   use_self_attention=use_self_attention,
+                                   d_model=d_model)
 
     decoder = EncoderAsDecoder(encoder_2)
 
-    pre_model_2 = VariationalAutoEncoderHead(encoder=encoder,#AttentionAggregatingHead(encoder,
-                                                                      #        drop_rate = drop_rate),
+    pre_model_2 = VariationalAutoEncoderHead(encoder=encoder,
                                              decoder=decoder,
                                              z_size=z_size,
                                              return_mu_log_var=False)
@@ -102,13 +111,21 @@ def train_dependencies(EPOCHS=None,
     else:
         pre_model = encoder
 
+    model_outputs = {'head': meta['maxlen'],# head
+                    'upos': len(meta['upos']),# part of speech
+                    'deprel': len(meta['deprel']) # dependency relationship
+                    }
+    if languages is not None:
+        for i in range(len(languages)):
+            model_outputs[str(i+1)] = len(meta['emb_index']['en'])# word
+        loss = MultipleCrossEntropyLoss(multi_language='token')
+    else:
+        model_outputs['token'] = len(meta['emb_index']['en'])
+        loss = MultipleCrossEntropyLoss()
+
     model = MultipleOutputHead(pre_model,
-                               {'token': n_src_vocab,# word
-                                'head': meta['maxlen'],# head
-                                'upos': len(meta['upos']),# part of speech
-                                'deprel': len(meta['deprel']) # dependency relationship
-                                },
-                               drop_rate=drop_rate)
+                               model_outputs,
+                               drop_rate=drop_rate,)
 
     model = to_gpu(model)
 
@@ -164,32 +181,23 @@ def train_dependencies(EPOCHS=None,
         return fitter
 
     # TODO: need to be cleaner about dataset creation
-    if language is not None:
-        prefix = language + '_'
-    else:
-        prefix = ''
-    with open('../data/processed/' + prefix + 'train_data.pickle', 'rb') as f:
-        # a simple array implements the __len__ and __getitem__ methods, can we just use that?
-        train_data = pickle.load(f)
+    def get_data_loader(dtype, languages):
+        if languages is None:
+            languages = ['en']
+        all_train_data = []
+        for lang in languages:
+            print('loading', dtype, lang)
+            with open('../data/processed/' + lang + '_' + dtype + '_data.pickle', 'rb') as f:
+                all_train_data.append(pickle.load(f))
+        dataset = ConcatDataset(all_train_data)
+        loader = torch.utils.data.DataLoader(dataset,
+                                                   batch_size=BATCH_SIZE,
+                                                   shuffle=True,
+                                                   pin_memory=use_gpu)
+        return loader
 
-    with open('../data/processed/' + prefix + 'valid_data.pickle', 'rb') as f:
-        # a simple array implements the __len__ and __getitem__ methods, can we just use that?
-        valid_data = pickle.load(f)
-
-    train_loader = torch.utils.data.DataLoader(train_data,
-                                               batch_size=BATCH_SIZE,
-                                               shuffle=True,
-                                               pin_memory=use_gpu)
-
-    valid_loader = torch.utils.data.DataLoader(valid_data,
-                                               batch_size=BATCH_SIZE,
-                                               shuffle=True,
-                                               pin_memory=use_gpu)
-
-    # train_loader, valid_loader = train_valid_loaders(train_data,
-    #                                                  valid_fraction=0.1,
-    #                                                  batch_size=BATCH_SIZE,
-    #                                                  pin_memory=use_gpu)
+    train_loader = get_data_loader('train', languages)
+    valid_loader = get_data_loader('valid', languages)
 
     def extract_input(x):
         if include_predefined_embedding:
@@ -206,7 +214,7 @@ def train_dependencies(EPOCHS=None,
     fitter1 = get_fitter(model,
                          nice_loader(train_loader),
                          nice_loader(valid_loader),
-                         MultipleCrossEntropyLoss(),
+                         loss,
                          plot_prefix,
                          model_process_fun=model_process_fun,
                          lr=lr)

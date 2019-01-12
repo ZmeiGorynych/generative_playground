@@ -14,7 +14,7 @@ with open('../../ud_utils/meta.pickle','rb') as f:
     meta = pickle.load(f)
 
 batch_size = 100
-drop_rate = 0.4
+drop_rate = 0.5
 max_steps = meta['maxlen']
 model, fitter1 = train_dependencies(EPOCHS=1000,
                                     BATCH_SIZE=batch_size,
@@ -26,6 +26,7 @@ model, fitter1 = train_dependencies(EPOCHS=1000,
                                     dashboard ='dependencies_vae',
                                     #save_file='dependencies_test.h5',
                                     use_self_attention=None,
+                                    include_predefined_embedding=True,
                                     vae=True,
                                     target_names=['token', 'head', 'upos', 'deprel'],
                                     meta=meta)

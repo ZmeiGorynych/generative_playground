@@ -13,8 +13,8 @@ from generative_playground.dependency_trees.train.main_train_dependencies import
 with open('../../ud_utils/meta.pickle','rb') as f:
     meta = pickle.load(f)
 
-batch_size = 10
-drop_rate = 0.4
+batch_size = 100
+drop_rate = 0.5
 max_steps = meta['maxlen']
 model, fitter1 = train_dependencies(EPOCHS=1000,
                                     BATCH_SIZE=batch_size,
@@ -25,6 +25,7 @@ model, fitter1 = train_dependencies(EPOCHS=1000,
                                     plot_prefix='lr 3e-5 transp vae ',
                                     dashboard ='dependencies_vae',
                                     #save_file='dependencies_test.h5',
+                                    include_predefined_embedding=True,
                                     use_self_attention=True,
                                     vae=True,
                                     target_names=['token' ,'head', 'upos', 'deprel'],

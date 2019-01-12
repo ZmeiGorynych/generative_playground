@@ -14,7 +14,7 @@ with open('../../ud_utils/meta.pickle','rb') as f:
     meta = pickle.load(f)
 
 batch_size = 100
-drop_rate = 0.4
+drop_rate = 0.3
 max_steps = meta['maxlen']
 model, fitter1 = train_dependencies(EPOCHS=1000,
                                     BATCH_SIZE=batch_size,
@@ -25,8 +25,10 @@ model, fitter1 = train_dependencies(EPOCHS=1000,
                                     plot_prefix='lr 3e-5 transposed ',
                                     dashboard ='dependencies_novae',
                                     #save_file='dependencies_test.h5',
+                                    include_predefined_embedding=True,
                                     use_self_attention=True,
                                     vae=False,
+                                    plot_ignore_initial=300,
                                     target_names=['token' ,'head', 'upos', 'deprel'],
                                     meta=meta)
                                                 #preload_file='policy_gradient_run.h5')
