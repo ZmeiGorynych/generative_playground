@@ -11,7 +11,7 @@ pre_defined = {'PAD': 0, 'en': 1, 'de': 2, 'fr': 3}
 pre_defined['other'] = len(pre_defined)
 
 
-def get_metadata(data, cutoff=10):
+def get_metadata(data, max_len, cutoff):
     '''
 
     :param data: OrderedDict[lang: {'train':train,
@@ -33,6 +33,8 @@ def get_metadata(data, cutoff=10):
 
         for sentences in data_list:
             for sentence in sentences:
+                if len(sentence) > max_len - 1: # no point in tokenizing stuff we'll drop later anyway
+                    continue
                 for token in sentence:
                     if token.lemma in token_counts[lang]:
                         token_counts[lang][token.lemma] += 1
@@ -79,7 +81,9 @@ def get_metadata(data, cutoff=10):
             'upos': upos,
             'deprel': deprel,
             'counts': token_counts,
-            'maxlen': max_len}
+            'maxlen': max_len,
+            'num_tokens': en_length + len(pre_defined)
+            }
 
 
 def pad(lst, tgt_len, pad_ind = pre_defined['PAD']):
@@ -115,7 +119,7 @@ def preprocess_data(sentence_lists, meta, lang):
                     try:
                         word_vector = word.vector
                     except:
-                        word_vector = np.ones(256, dtype=np.float32)/256
+                        raise ValueError #word_vector = np.ones(256, dtype=np.float32)/256
 
                     if 'embed' not in this_sentence:
                         this_sentence['embed'] = [np.zeros_like(word_vector)]
@@ -144,6 +148,7 @@ def preprocess_data(sentence_lists, meta, lang):
 #     return out
 
 if __name__=='__main__':
+    print("Starting dataset ingestion...")
     data_root = '../data/ud-treebanks-v2.3/'
 
     datasets=OrderedDict()
@@ -167,8 +172,8 @@ if __name__=='__main__':
     valid = []
     train = []
     test = []
-    max_len = 15
-    cutoff = 3
+    max_len = 31
+    cutoff = 4 # so at least 5 occurrences
     data = OrderedDict()
 
     for lang, names in datasets.items():
@@ -190,16 +195,19 @@ if __name__=='__main__':
                 [(key, 0 if len(value)==0 else len(value[-1])) for key,value in data[lang].items()]
                     ))
 
-    meta = get_metadata(data, cutoff)
+    meta = get_metadata(data, max_len, cutoff)
+    meta['cutoff'] = cutoff
     meta['maxlen'] = max_len
 
     # TODO: store the files zipped!
     with open('../data/processed/meta.pickle','wb') as f:
         pickle.dump(meta, f)
+    print('tokens:', len(meta['emb_index']['en']))
 
     for lang, datasets in data.items():
         for dataset_type, dataset in datasets.items():
             embeds = preprocess_data(dataset, meta, lang)
+            print(dataset_type, len(embeds))
             with open('../data/processed/' + lang + '_' + dataset_type + '_data.pickle','wb') as f:
                 pickle.dump(embeds, f)
 

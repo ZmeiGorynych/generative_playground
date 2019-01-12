@@ -21,8 +21,8 @@ class MultipleCrossEntropyLoss(nn.Module):
     def __init__(self, multi_language=None):
         super().__init__()
         self.metrics ={}
-        self.celoss = nn.CrossEntropyLoss(size_average=True,
-                                          ignore_index=0)
+        self.celoss = nn.CrossEntropyLoss(size_average=True)#,
+                                          #ignore_index=0)
         self.multi_language = multi_language
         self.str_to_int = {str(i): i for i in range(20)}
 

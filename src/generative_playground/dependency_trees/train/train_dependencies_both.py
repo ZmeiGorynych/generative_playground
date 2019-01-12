@@ -29,7 +29,7 @@ model, fitter1 = train_dependencies(EPOCHS=1000,
                                     use_self_attention='both', # None, True, False or Both
                                     vae=False,
                                     plot_ignore_initial=300,
-                                    target_names=['token' ,'head', 'upos', 'deprel'],
+                                    target_names=['head', 'upos', 'deprel'],#'token' ,
                                     meta=meta,
                                     languages=None)#['en'])#, 'de', 'fr'])
                                                 #preload_file='policy_gradient_run.h5')
