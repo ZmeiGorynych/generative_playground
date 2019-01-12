@@ -158,13 +158,13 @@ if __name__=='__main__':
               'UD_English-GUM/en_gum',
               'UD_English-ParTUT/en_partut'
               ]
-    # datasets['de'] = ['UD_German-GSD/de_gsd',
-    #                   'UD_German-PUD/de_pud']
-    # datasets['fr'] = ['UD_French-FTB/fr_ftb',
-    #                   'UD_French-GSD/fr_gsd',
-    #                   'UD_French-ParTUT/fr_partut',
-    #                   'UD_French-PUD/fr_pud',
-    #                   'UD_French-Sequoia/fr_sequoia']
+    datasets['de'] = ['UD_German-GSD/de_gsd',
+                      'UD_German-PUD/de_pud']
+    datasets['fr'] = ['UD_French-FTB/fr_ftb',
+                      'UD_French-GSD/fr_gsd',
+                      'UD_French-ParTUT/fr_partut',
+                      'UD_French-PUD/fr_pud',
+                      'UD_French-Sequoia/fr_sequoia']
 
     endings = {'valid': '-ud-dev.conllu',
                'test': '-ud-test.conllu',
