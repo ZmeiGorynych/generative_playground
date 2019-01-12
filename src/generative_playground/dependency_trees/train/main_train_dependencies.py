@@ -103,13 +103,12 @@ def train_dependencies(EPOCHS=None,
         pre_model = encoder
 
     model = MultipleOutputHead(pre_model,
-                               [n_src_vocab,# word
-                                meta['maxlen'],# head
-                                len(meta['upos']),# part of speech
-                                len(meta['deprel']) # dependency relationship
-                                ],
-                               drop_rate=drop_rate,
-                               labels=['token', 'head', 'upos', 'deprel'])
+                               {'token': n_src_vocab,# word
+                                'head': meta['maxlen'],# head
+                                'upos': len(meta['upos']),# part of speech
+                                'deprel': len(meta['deprel']) # dependency relationship
+                                },
+                               drop_rate=drop_rate)
 
     model = to_gpu(model)
 
