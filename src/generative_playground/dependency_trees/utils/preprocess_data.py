@@ -60,6 +60,11 @@ def get_metadata(data, max_len, cutoff):
         if len(count_list) > en_length:
             count_list_short = count_list[:en_length]
             print(len(count_list_short)/len(count_list), 'tokens get their own index in ', lang)
+            trimmed = True
+        else:
+            count_list_short = count_list
+            print('All tokens get their own indices in', lang)
+            trimmed = False
         nice_tokens = [token for token, count in count_list_short]
 
         # now define the mapping from frequent tokens to indices
@@ -72,9 +77,10 @@ def get_metadata(data, max_len, cutoff):
                 next_index += 1
             else:
                 emb_ind[lang][token] = pre_defined['other']
-
-        assert next_index == pre_defined['other'] + en_length + 1
-
+        if trimmed:
+            assert next_index == pre_defined['other'] + en_length + 1
+        else:
+            assert next_index <= pre_defined['other'] + en_length + 1
     print(len(token_counts), len(emb_ind))
 
     return {'emb_index': emb_ind,
@@ -146,25 +152,46 @@ def preprocess_data(sentence_lists, meta, lang):
 #     with open(fn,'r') as f:
 #         out = f.read()
 #     return out
+def split_lang(x):
+    if ', ' in x:
+        return x.split(', ')
+    else:
+        return (x, '')
+
+def long_to_short_fun(x):
+    if x in long_to_short:
+        return long_to_short[x]
+    else:
+        return ''
+
 
 if __name__=='__main__':
     print("Starting dataset ingestion...")
     data_root = '../data/ud-treebanks-v2.3/'
+    datasets = OrderedDict()
+    long_to_short = {}
+    import glob
+    import pandas as pd
+    dirs = glob.glob(data_root+'*')
+    for dir_ in dirs:
+        files = glob.glob(dir_ +'/*.conllu')
+        dir_root = files[0].replace(dir_,'').split('-')[0]
+        lang = dir_root.replace('/','').split('_')[0]
+        long_language = dir_.replace(data_root,'').replace('UD_','').split('-')[0].replace('_',' ')
+        long_to_short[long_language] = lang
+        if lang not in datasets:
+            datasets[lang] = []
+        datasets[lang].append(dir_ + dir_root)
 
-    datasets=OrderedDict()
-    datasets['en'] = ['UD_English-EWT/en_ewt',
-              'UD_English-LinES/en_lines',
-              'UD_English-ESL/en_esl',
-              'UD_English-GUM/en_gum',
-              'UD_English-ParTUT/en_partut'
-              ]
-    datasets['de'] = ['UD_German-GSD/de_gsd',
-                      'UD_German-PUD/de_pud']
-    datasets['fr'] = ['UD_French-FTB/fr_ftb',
-                      'UD_French-GSD/fr_gsd',
-                      'UD_French-ParTUT/fr_partut',
-                      'UD_French-PUD/fr_pud',
-                      'UD_French-Sequoia/fr_sequoia']
+    table = pd.read_csv('../data/languages.csv') # entered by hand from universaldependencies.org
+    table['code'] = table['LanguageName'].apply(long_to_short_fun)
+    table['group1'] = table['Classification'].apply(lambda x: split_lang(x)[0])
+    table['group2'] = table['Classification'].apply(lambda x: split_lang(x)[1])
+    table = table.drop(columns=['Classification'])
+    polyglot = pd.read_csv('../data/polyglot_codes.csv')
+    table = pd.merge(table, polyglot, how='left', on='code')
+    table.to_csv('../data/languages_ext.csv')
+
 
     endings = {'valid': '-ud-dev.conllu',
                'test': '-ud-test.conllu',
@@ -180,7 +207,7 @@ if __name__=='__main__':
         data[lang] = OrderedDict([(key, []) for key in endings.keys()])
         for d in names:
             print(d,'...')
-            fn_root = data_root + d
+            fn_root = d
             for etype, ending in endings.items():
                 fn = fn_root + ending
                 if os.path.isfile(fn):
@@ -191,7 +218,7 @@ if __name__=='__main__':
 
                     data[lang][etype].append(tmp)
 
-            print(OrderedDict(
+            print(lang, etype, OrderedDict(
                 [(key, 0 if len(value)==0 else len(value[-1])) for key,value in data[lang].items()]
                     ))
 
@@ -207,7 +234,7 @@ if __name__=='__main__':
     for lang, datasets in data.items():
         for dataset_type, dataset in datasets.items():
             embeds = preprocess_data(dataset, meta, lang)
-            print(dataset_type, len(embeds))
+            print(lang, dataset_type, len(embeds))
             with open('../data/processed/' + lang + '_' + dataset_type + '_data.pickle','wb') as f:
                 pickle.dump(embeds, f)
 
