@@ -35,7 +35,8 @@ def train_dependencies(EPOCHS=None,
                        target_names=['head'],
                        include_predefined_embedding=True,
                        plot_prefix = '',
-                       dashboard = 'policy gradient'):
+                       dashboard = 'policy gradient',
+                       ignore_padding=True):
 
     root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     root_location = root_location + '/../'
@@ -118,10 +119,11 @@ def train_dependencies(EPOCHS=None,
     if languages is not None:
         for i in range(len(languages)):
             model_outputs[str(i+1)] = len(meta['emb_index']['en'])# word
-        loss = MultipleCrossEntropyLoss(multi_language='token')
+        loss = MultipleCrossEntropyLoss(multi_language='token',
+                                        ignore_padding=ignore_padding)
     else:
         model_outputs['token'] = len(meta['emb_index']['en'])
-        loss = MultipleCrossEntropyLoss()
+        loss = MultipleCrossEntropyLoss(ignore_padding=ignore_padding)
 
     model = MultipleOutputHead(pre_model,
                                model_outputs,

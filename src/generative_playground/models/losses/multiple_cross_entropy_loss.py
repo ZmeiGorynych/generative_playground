@@ -18,11 +18,15 @@ def collect_fcs(model_out, target, str_to_int):
     return embeds
 
 class MultipleCrossEntropyLoss(nn.Module):
-    def __init__(self, multi_language=None):
+    def __init__(self, multi_language=None, ignore_padding=True):
         super().__init__()
         self.metrics ={}
-        self.celoss = nn.CrossEntropyLoss(size_average=True)#,
-                                          #ignore_index=0)
+        if ignore_padding:
+            self.celoss = nn.CrossEntropyLoss(size_average=True,
+                                              ignore_index=0)
+        else:
+            self.celoss = nn.CrossEntropyLoss(size_average=True)  # ,
+            # ignore_index=0)
         self.multi_language = multi_language
         self.str_to_int = {str(i): i for i in range(20)}
 
@@ -33,7 +37,7 @@ class MultipleCrossEntropyLoss(nn.Module):
         :param target_x: a dict of batch_size x maxlen longs, len(target_x) <= len(model_out)
         :return:
         '''
-        if self.multi_language is not None:
+        if self.multi_language is not None and self.multi_language in target_x:
             model_out[self.multi_language] = collect_fcs(model_out,
                                                          target_x[self.multi_language],
                                                          self.str_to_int)

@@ -172,8 +172,8 @@ if __name__=='__main__':
     valid = []
     train = []
     test = []
-    max_len = 31
-    cutoff = 4 # so at least 5 occurrences
+    max_len = 46
+    cutoff = 5 # so at least cutoff+1 occurrences
     data = OrderedDict()
 
     for lang, names in datasets.items():
@@ -184,10 +184,10 @@ if __name__=='__main__':
             for etype, ending in endings.items():
                 fn = fn_root + ending
                 if os.path.isfile(fn):
-                    f = codecs.open(fn, encoding='utf-8')
-                    data_string = f.read()
-                    tmp = pyconll.load_from_string(data_string)
-                    #tmp = pyconll.load_from_file(fn)
+                    # f = codecs.open(fn, encoding='utf-8')
+                    # data_string = f.read()
+                    # tmp = pyconll.load_from_string(data_string)
+                    tmp = pyconll.load_from_file(fn)
 
                     data[lang][etype].append(tmp)
 
