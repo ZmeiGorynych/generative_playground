@@ -275,7 +275,8 @@ def get_decoder(molecules = True,
                                        hidden_n=decoder_hidden_n,
                                        feature_len=feature_len,
                                        max_seq_length=max_seq_length,
-                                       drop_rate=drop_rate)
+                                       drop_rate=drop_rate,
+                                           use_last_action=True)
 
         elif decoder_type == 'action_resnet':
             pre_decoder = ResNetRNNDecoder(z_size=z_size,  # + feature_len,

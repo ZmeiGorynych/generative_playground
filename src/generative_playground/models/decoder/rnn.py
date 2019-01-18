@@ -4,7 +4,7 @@ from torch.autograd import Variable
 from torch.nn import functional as F
 
 from generative_playground.data_utils.to_one_hot import to_one_hot
-from generative_playground.utils.gpu_utils import to_gpu, FloatTensor
+from generative_playground.utils.gpu_utils import to_gpu, FloatTensor, device
 
 
 class SimpleRNNDecoder(nn.Module):
@@ -57,6 +57,7 @@ class SimpleRNNDecoder(nn.Module):
                                             n_dims=self.output_feature_size,
                                             out=self.one_hot_action)
 
+
             encoded = torch.cat([enc_output, self.one_hot_action], 1)
 
         return encoded
@@ -73,8 +74,13 @@ class SimpleRNNDecoder(nn.Module):
         # check we don't exceed max sequence length
         if self.n == self.max_seq_length:
             raise StopIteration()
+
         if remember_step:
-            self.n+=self.steps
+            self.n += self.steps
+
+        if self.enc_output is None:
+            self.batch_size = len(last_action)
+            self.enc_output = torch.zeros(self.batch_size, self.z_size, device=device)
 
         if self.hidden is None: # first step after reset
             # need to do it here as batch size might be different for each sequence
@@ -113,9 +119,13 @@ class SimpleRNNDecoder(nn.Module):
         :return:
         '''
         self.hidden = None
-        self.enc_output = self.batch_norm(z)
-        self.batch_size = z.size()[0]
-        self.z_size = z.size()[-1]
+        if z is not None:
+            self.enc_output = self.batch_norm(z)
+            self.batch_size = z.size()[0]
+            assert self.z_size == z.size()[-1]
+        else:
+            self.enc_output = None
+            self.batch_size = None
         self.n = 0
 
     # # TODO: remove this method!

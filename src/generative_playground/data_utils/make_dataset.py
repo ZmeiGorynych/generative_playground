@@ -17,7 +17,7 @@ from generative_playground.rdkit_utils.rdkit_utils import get_score_components_f
 # change this to False to produce the equation dataset
 molecules = True
 # change this to False to get character-based encodings instead of grammar-based
-grammar = 'new' #True true for the grammar used by Kusner et al
+grammar = 'new' #use True  for the grammar used by Kusner et al
 
 # can't define model class inside settings as it itself uses settings a lot
 _, my_model = get_model(molecules,grammar)
