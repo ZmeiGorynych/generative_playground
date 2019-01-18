@@ -1,11 +1,9 @@
 from nltk.tree import *
 import nltk
-from nltk.grammar import Nonterminal, Production, is_nonterminal
-import numpy as np
 from generative_playground.codec.cyk import *
 
 from generative_playground.codec.grammar_codec import GrammarModel
-from generative_playground.models.model_settings import get_decoder, get_settings
+from generative_playground.molecules.model_settings import get_settings
 
 settings = get_settings(True, 'new')
 from generative_playground.codec.smiles_grammar_new_2 import grammar_string_zinc_new

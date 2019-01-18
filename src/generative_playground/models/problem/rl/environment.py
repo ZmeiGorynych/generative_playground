@@ -1,6 +1,6 @@
 import numpy as np
 
-from generative_playground.models.model_settings import get_settings
+from generative_playground.molecules.model_settings import get_settings
 from rdkit import Chem
 
 class SequenceEnvironment:

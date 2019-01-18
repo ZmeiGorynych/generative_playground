@@ -24,7 +24,8 @@ class MetricPlotter:
 
         my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
         root_location = my_location + '/../'
-        self.save_file = root_location + 'train/vae/data/' + self.save_file
+        # TODO: pass that through in the constructor!
+        self.save_file = root_location + 'molecules/train/vae/data/' + self.save_file
         self.plot_ignore_initial = plot_ignore_initial
         self.loss_display_cap = loss_display_cap
         self.plot_counter = 0
@@ -32,7 +33,7 @@ class MetricPlotter:
         self.smooth_weight = smooth_weight
         self.smooth = {True: {}, False: {}}
         try:
-            from generative_playground.visdom_helper.visdom_helper import Dashboard
+            from generative_playground.utils.visdom_helper import Dashboard
             if dashboard_name is not None:
                 self.vis = Dashboard(dashboard_name)
                 self.have_visdom = True
