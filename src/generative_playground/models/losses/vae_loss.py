@@ -37,7 +37,7 @@ class VAELoss(nn.Module):
         avg_mu = torch.sum(mu, dim=0) / batch_size
         var = torch.mm(mu.t(), mu) / batch_size
         var_err = var - Variable(to_gpu(torch.eye(z_size)))
-        var_err = F.tanh(var_err)*var_err # so it's ~ x^2 asymptotically, not x^4
+        var_err = torch.tanh(var_err)*var_err # so it's ~ x^2 asymptotically, not x^4
         mom_err = (avg_mu * avg_mu).sum() / z_size + var_err.sum() / (z_size * z_size)
         if self.sample_z:
             # see Appendix B from VAE paper:

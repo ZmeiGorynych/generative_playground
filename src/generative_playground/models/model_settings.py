@@ -4,6 +4,7 @@ import generative_playground.models.heads.vae
 from generative_playground.codec.character_codec import CharacterModel
 from generative_playground.codec.grammar_codec import GrammarModel, zinc_tokenizer, eq_tokenizer, zinc_tokenizer_new
 from generative_playground.codec.grammar_helper import grammar_eq, grammar_zinc, grammar_zinc_new
+from generative_playground.codec.grammar_mask_gen import GrammarMaskGenerator
 from generative_playground.codec.mask_gen_new_2 import GrammarMaskGeneratorNew
 from generative_playground.models.decoder.rnn import SimpleRNNDecoder, ResettingRNNDecoder
 from generative_playground.models.decoder.resnet_rnn import ResNetRNNDecoder
@@ -300,8 +301,12 @@ def get_decoder(molecules = True,
 
         stepper = pre_decoder
 
-    if grammar:
+    if grammar=='new':
         mask_gen = GrammarMaskGeneratorNew(max_seq_length, grammar_zinc_new, sanity_checks=sanity_checks)#GrammarMaskGenerator(max_seq_length, grammar=settings['grammar'])
+        stepper = MaskingHead(stepper, mask_gen)
+
+    elif grammar==True:
+        mask_gen = GrammarMaskGenerator(max_seq_length, grammar=settings['grammar'])
         stepper = MaskingHead(stepper, mask_gen)
 
     policy = SoftmaxRandomSamplePolicy()

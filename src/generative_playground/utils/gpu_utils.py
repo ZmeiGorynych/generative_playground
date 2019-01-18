@@ -3,8 +3,6 @@ use_gpu = True
 if use_gpu and torch.cuda.is_available():
     device = torch.device('cuda:0')
     from torch.cuda import FloatTensor, LongTensor, ByteTensor
-    def to_gpu(x):
-        return x.cuda()
 else:
     device = torch.device('cpu')
     from torch import FloatTensor, LongTensor, ByteTensor
