@@ -4,6 +4,7 @@ from torch.optim import lr_scheduler
 from torch.utils.data import ConcatDataset
 import torch
 import pickle
+import gzip
 
 from generative_playground.models.transformer.Models import TransformerEncoder
 from generative_playground.utils.fit import fit
@@ -189,7 +190,7 @@ def train_dependencies(EPOCHS=None,
         all_train_data = []
         for lang in languages:
             print('loading', dtype, lang)
-            with open('../data/processed/' + lang + '_' + dtype + '_data.pickle', 'rb') as f:
+            with gzip.open(meta['files'][lang][dtype], 'rb') as f:
                 all_train_data.append(pickle.load(f))
         dataset = ConcatDataset(all_train_data)
         loader = torch.utils.data.DataLoader(dataset,

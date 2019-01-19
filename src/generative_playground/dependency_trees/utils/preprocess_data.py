@@ -1,17 +1,21 @@
 import pyconll
 import os
 import pickle
+import gzip
 import numpy as np
 from collections import OrderedDict
 import torch
 from polyglot.text import Word
+from polyglot.downloader import downloader
+import json
+import pandas as pd
+from generative_playground.dependency_trees.utils.prepare_for_processing import prepare_for_ingestion
 import codecs
 # https://github.com/UniversalDependencies/docs/blob/pages-source/format.md
-pre_defined = {'PAD': 0, 'en': 1, 'de': 2, 'fr': 3}
-pre_defined['other'] = len(pre_defined)
 
+PAD_INDEX = 0
 
-def get_metadata(data, max_len, cutoff):
+def get_metadata(data, pre_defined, max_len, cutoff):
     '''
 
     :param data: OrderedDict[lang: {'train':train,
@@ -92,13 +96,13 @@ def get_metadata(data, max_len, cutoff):
             }
 
 
-def pad(lst, tgt_len, pad_ind = pre_defined['PAD']):
+def pad(lst, tgt_len, pad_ind=PAD_INDEX):
     while len(lst) < tgt_len:
         lst.append(pad_ind)
     return lst
 
 
-def preprocess_data(sentence_lists, meta, lang):
+def preprocess_data(sentence_lists, pre_defined, meta, lang):
     # second pass:
     embeds = []
     #maxlen=meta['maxlen']
@@ -151,47 +155,29 @@ def preprocess_data(sentence_lists, meta, lang):
 # def read_string(fn):
 #     with open(fn,'r') as f:
 #         out = f.read()
-#     return out
-def split_lang(x):
-    if ', ' in x:
-        return x.split(', ')
-    else:
-        return (x, '')
-
-def long_to_short_fun(x):
-    if x in long_to_short:
-        return long_to_short[x]
-    else:
-        return ''
-
+def dowload_languages(language_table):
+    for row in language_table.iterrows():
+        if isinstance(row[1]['language'], str):#not np.isnan(row[1]['language']):
+            code = row[1]['code']
+            print('downloading', code)
+            downloader.download("LANG:" + code)
+            print('downloaded', code)
 
 if __name__=='__main__':
-    print("Starting dataset ingestion...")
-    data_root = '../data/ud-treebanks-v2.3/'
-    datasets = OrderedDict()
-    long_to_short = {}
-    import glob
-    import pandas as pd
-    dirs = glob.glob(data_root+'*')
-    for dir_ in dirs:
-        files = glob.glob(dir_ +'/*.conllu')
-        dir_root = files[0].replace(dir_,'').split('-')[0]
-        lang = dir_root.replace('/','').split('_')[0]
-        long_language = dir_.replace(data_root,'').replace('UD_','').split('-')[0].replace('_',' ')
-        long_to_short[long_language] = lang
-        if lang not in datasets:
-            datasets[lang] = []
-        datasets[lang].append(dir_ + dir_root)
+    datasets, language_table = prepare_for_ingestion('../data/')
+    pre_defined = {'PAD': PAD_INDEX}
+    for lang, names in datasets.items():
+        pre_defined[lang] = len(pre_defined)
+    pre_defined['other'] = len(pre_defined)
 
-    table = pd.read_csv('../data/languages.csv') # entered by hand from universaldependencies.org
-    table['code'] = table['LanguageName'].apply(long_to_short_fun)
-    table['group1'] = table['Classification'].apply(lambda x: split_lang(x)[0])
-    table['group2'] = table['Classification'].apply(lambda x: split_lang(x)[1])
-    table = table.drop(columns=['Classification'])
-    polyglot = pd.read_csv('../data/polyglot_codes.csv')
-    table = pd.merge(table, polyglot, how='left', on='code')
-    table.to_csv('../data/languages_ext.csv')
+    new_data ={}
+    new_data['zh'] = datasets['zh']
+    new_data['en'] = datasets['en']
 
+    datasets = new_data
+    if False:
+        # download polyglot language packages
+        dowload_languages(language_table)
 
     endings = {'valid': '-ud-dev.conllu',
                'test': '-ud-test.conllu',
@@ -222,20 +208,29 @@ if __name__=='__main__':
                 [(key, 0 if len(value)==0 else len(value[-1])) for key,value in data[lang].items()]
                     ))
 
-    meta = get_metadata(data, max_len, cutoff)
+    meta = get_metadata(data, pre_defined, max_len, cutoff)
     meta['cutoff'] = cutoff
     meta['maxlen'] = max_len
+    meta['files'] ={}
 
     # TODO: store the files zipped!
+
+
+    for lang, datasets in data.items():
+        if lang not in meta['files']:
+            meta['files'][lang] = {}
+        for dataset_type, dataset in datasets.items():
+            embeds = preprocess_data(dataset, pre_defined, meta, lang)
+            print(lang, dataset_type, len(embeds))
+            this_filename = '../data/processed/' + lang + '_' + dataset_type + \
+                      '_' + str(max_len) + '_' + str(cutoff) + '_data.pkz'
+            # TODO: save absolute filename!
+            meta['files'][lang][dataset_type] = this_filename
+            with gzip.open(this_filename,'wb') as f:
+                pickle.dump(embeds, f)
+
     with open('../data/processed/meta.pickle','wb') as f:
         pickle.dump(meta, f)
     print('tokens:', len(meta['emb_index']['en']))
-
-    for lang, datasets in data.items():
-        for dataset_type, dataset in datasets.items():
-            embeds = preprocess_data(dataset, meta, lang)
-            print(lang, dataset_type, len(embeds))
-            with open('../data/processed/' + lang + '_' + dataset_type + '_data.pickle','wb') as f:
-                pickle.dump(embeds, f)
 
 print('done!')

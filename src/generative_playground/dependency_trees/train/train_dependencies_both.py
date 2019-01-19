@@ -31,7 +31,7 @@ model, fitter1 = train_dependencies(EPOCHS=1000,
                                     plot_ignore_initial=300,
                                     target_names=['head', 'upos', 'deprel'],#'token' ,
                                     meta=meta,
-                                    languages=['en', 'de', 'fr'],
+                                    languages=['en','zh'],#['ca','fr','gl','ro','es','pt','it'],#['en', 'de', 'fr'],
                                     ignore_padding=True)
                                                 #preload_file='policy_gradient_run.h5')
 
