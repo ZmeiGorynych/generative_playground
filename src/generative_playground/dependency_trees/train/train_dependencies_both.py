@@ -4,8 +4,6 @@ except:
     import sys, os, inspect
     my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     sys.path.append('../../..')
-    #sys.path.append('../../../../DeepRL')
-    sys.path.append('../../../../../transformer_pytorch')
 
 import pickle
 from generative_playground.dependency_trees.train.main_train_dependencies import train_dependencies
@@ -31,7 +29,7 @@ model, fitter1 = train_dependencies(EPOCHS=1000,
                                     plot_ignore_initial=300,
                                     target_names=['head', 'upos', 'deprel'],#'token' ,
                                     meta=meta,
-                                    languages=['en','zh'],#['ca','fr','gl','ro','es','pt','it'],#['en', 'de', 'fr'],
+                                    languages=['pt'],#['ca','fr','gl','ro','es','pt','it'],#['en', 'de', 'fr'],
                                     ignore_padding=True)
                                                 #preload_file='policy_gradient_run.h5')
 

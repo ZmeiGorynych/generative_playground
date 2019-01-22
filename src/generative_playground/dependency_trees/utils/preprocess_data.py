@@ -15,7 +15,7 @@ import codecs
 
 PAD_INDEX = 0
 
-def get_metadata(data, pre_defined, max_len, cutoff):
+def get_metadata(data_dict, max_len, cutoff):
     '''
 
     :param data: OrderedDict[lang: {'train':train,
@@ -29,71 +29,91 @@ def get_metadata(data, pre_defined, max_len, cutoff):
     token_counts = OrderedDict()
     upos = {'PAD': 0}
     deprel = {'PAD': 0}
-    for lang, data_dict in data.items():
-        token_counts[lang] = OrderedDict()
-        data_list = []
-        for _, this_data in data_dict.items():
-            data_list += this_data
+    # for lang, data_dict in data.items():
+    lang = 'en';
+    token_counts[lang] = OrderedDict()
+    data_list = []
+    for _, this_data in data_dict.items():
+        data_list += this_data
 
-        for sentences in data_list:
-            for sentence in sentences:
-                if len(sentence) > max_len - 1: # no point in tokenizing stuff we'll drop later anyway
-                    continue
-                for token in sentence:
-                    if token.lemma in token_counts[lang]:
-                        token_counts[lang][token.lemma] += 1
-                    else:
-                        token_counts[lang][token.lemma] = 1
-
-                    if token.upos not in upos:
-                        upos[token.upos] = len(upos)
-
-                    if token.deprel not in deprel:
-                        deprel[token.deprel] = len(deprel)
-
+    for sentences in data_list:
+        for sentence in sentences:
+            if len(sentence) > max_len - 1: # no point in tokenizing stuff we'll drop later anyway
+                continue
+            for token in sentence:
+                if token.lemma in token_counts[lang]:
+                    token_counts[lang][token.lemma] += 1
+                else:
+                    token_counts[lang][token.lemma] = 1
     # plot frequencies, determine cutoff
     en_length = len([token for token, cnt in token_counts['en'].items() if cnt > cutoff])
 
-    # create dict from lemma to int, with cutoff
-    emb_ind = OrderedDict()
-    for lang, token_cnt in token_counts.items():
-        # sort by frequency and cut to same length as English
-        count_list = sorted([(token, count) for token, count in token_cnt.items()],
-                            key=lambda x: x[1],
-                            reverse=True)
-        if len(count_list) > en_length:
-            count_list_short = count_list[:en_length]
-            print(len(count_list_short)/len(count_list), 'tokens get their own index in ', lang)
-            trimmed = True
-        else:
-            count_list_short = count_list
-            print('All tokens get their own indices in', lang)
-            trimmed = False
-        nice_tokens = [token for token, count in count_list_short]
-
-        # now define the mapping from frequent tokens to indices
-        emb_ind[lang] = OrderedDict()
-        next_index = pre_defined['other'] + 1  # all earlier indices are used to encode other stuff
-        for token, count in count_list:
-            # TODO: what is the None token about?
-            if token in nice_tokens:
-                emb_ind[lang][token] = next_index
-                next_index += 1
-            else:
-                emb_ind[lang][token] = pre_defined['other']
-        if trimmed:
-            assert next_index == pre_defined['other'] + en_length + 1
-        else:
-            assert next_index <= pre_defined['other'] + en_length + 1
-    print(len(token_counts), len(emb_ind))
-
-    return {'emb_index': emb_ind,
-            'upos': upos,
+    return {'upos': upos,
             'deprel': deprel,
-            'counts': token_counts,
             'maxlen': max_len,
-            'num_tokens': en_length + len(pre_defined)
+            'en_length': en_length,
+            'emb_index': OrderedDict()
             }
+
+
+def update_meta_with_another_language(data_dict, meta, pre_defined):
+    en_length = meta['en_length']
+    max_len = meta['maxlen']
+    data_list = []
+    # combine train, valid and test datasets so we can tokenize together
+    for _, this_data in data_dict.items():
+        data_list += this_data
+
+    # collect token frequencies and all possible tags
+    token_counts = OrderedDict()
+    for sentences in data_list:
+        for sentence in sentences:
+            if len(sentence) > max_len - 1: # no point in tokenizing stuff we'll drop later anyway
+                continue
+            for token in sentence:
+                if token.lemma in token_counts:
+                    token_counts[token.lemma] += 1
+                else:
+                    token_counts[token.lemma] = 1
+
+                if token.upos not in meta['upos']:
+                    meta['upos'][token.upos] = len(meta['upos'])
+
+                if token.deprel not in meta['deprel']:
+                    meta['deprel'][token.deprel] = len(meta['deprel'])
+
+
+    # sort by frequency and trim to same length as English
+    count_list = sorted([(token, count) for token, count in token_counts.items()],
+                        key=lambda x: x[1],
+                        reverse=True)
+    if len(count_list) > en_length:
+        count_list_short = count_list[:en_length]
+        print(len(count_list_short)/len(count_list), 'tokens get their own index in ', lang)
+        trimmed = True
+    else:
+        count_list_short = count_list
+        print('All', len(count_list), 'tokens get their own indices in', lang)
+        trimmed = False
+    nice_tokens = [token for token, count in count_list_short]
+
+    # now define the mapping from frequent tokens to indices
+    meta['emb_index'][lang] = OrderedDict()
+    next_index = pre_defined['other'] + 1  # all earlier indices are used to encode other stuff
+    for token, count in count_list:
+        # TODO: what is the None token about?
+        if token in nice_tokens:
+            meta['emb_index'][lang][token] = next_index
+            next_index += 1
+        else:
+            meta['emb_index'][lang][token] = pre_defined['other']
+    if trimmed:
+        assert next_index == pre_defined['other'] + en_length + 1
+    else:
+        assert next_index <= pre_defined['other'] + en_length + 1
+    print('total tokens:', len(token_counts), len(meta['emb_index'][lang]))
+
+    return meta
 
 
 def pad(lst, tgt_len, pad_ind=PAD_INDEX):
@@ -102,7 +122,7 @@ def pad(lst, tgt_len, pad_ind=PAD_INDEX):
     return lst
 
 
-def preprocess_data(sentence_lists, pre_defined, meta, lang):
+def preprocess_data(sentence_lists, pre_defined, meta, lang, dataset_type):
     # second pass:
     embeds = []
     #maxlen=meta['maxlen']
@@ -114,6 +134,7 @@ def preprocess_data(sentence_lists, pre_defined, meta, lang):
                 # print(sentence)
                 continue
             try:
+                # first token is the root token for the dependency tree, also encodes the language
                 this_sentence = {'token': [pre_defined[lang]],
                                  'head': [pre_defined[lang]],
                                  'upos': [pre_defined[lang]],
@@ -148,8 +169,13 @@ def preprocess_data(sentence_lists, pre_defined, meta, lang):
 
             except ValueError:
                 continue
-
-    print('kept ', len(embeds)/count, ' of all sentences')
+    if count>0:
+        print('kept ', len(embeds)/count, ' of all sentences')
+    else:
+        print("no valid sentences at all - what's going on here?")
+    meta['stats'][lang][dataset_type] = OrderedDict()
+    meta['stats'][lang][dataset_type]['orig_size'] = count
+    meta['stats'][lang][dataset_type]['size'] = len(embeds)
     return embeds
 
 # def read_string(fn):
@@ -166,22 +192,24 @@ def dowload_languages(language_table):
 if __name__=='__main__':
     datasets, language_table = prepare_for_ingestion('../data/')
     pre_defined = {'PAD': PAD_INDEX}
-    for lang, names in datasets.items():
+
+    for lang in datasets.keys():
         pre_defined[lang] = len(pre_defined)
     pre_defined['other'] = len(pre_defined)
 
-    new_data ={}
-    new_data['zh'] = datasets['zh']
-    new_data['en'] = datasets['en']
+    # new_data ={}
+    # new_data['zh'] = datasets['zh']
+    # new_data['en'] = datasets['en']
+    # datasets = new_data
 
-    datasets = new_data
     if False:
         # download polyglot language packages
         dowload_languages(language_table)
 
-    endings = {'valid': '-ud-dev.conllu',
-               'test': '-ud-test.conllu',
-               'train': '-ud-train.conllu'}
+    endings = {'train': '-ud-train.conllu',
+               'valid': '-ud-dev.conllu',
+               'test': '-ud-test.conllu'
+               }
     valid = []
     train = []
     test = []
@@ -189,44 +217,52 @@ if __name__=='__main__':
     cutoff = 5 # so at least cutoff+1 occurrences
     data = OrderedDict()
 
-    for lang, names in datasets.items():
-        data[lang] = OrderedDict([(key, []) for key in endings.keys()])
-        for d in names:
+    #for lang, names in datasets.items():
+
+    def get_data_for_language(lang):
+        root_names = datasets[lang]
+        out = OrderedDict([(key, []) for key in endings.keys()])
+        for d in root_names:
             print(d,'...')
             fn_root = d
             for etype, ending in endings.items():
                 fn = fn_root + ending
                 if os.path.isfile(fn):
-                    # f = codecs.open(fn, encoding='utf-8')
-                    # data_string = f.read()
-                    # tmp = pyconll.load_from_string(data_string)
                     tmp = pyconll.load_from_file(fn)
-
-                    data[lang][etype].append(tmp)
+                    out[etype].append(tmp)
 
             print(lang, etype, OrderedDict(
-                [(key, 0 if len(value)==0 else len(value[-1])) for key,value in data[lang].items()]
+                [(key, 0 if len(value)==0 else len(value[-1])) for key,value in out.items()]
                     ))
+        return out
 
-    meta = get_metadata(data, pre_defined, max_len, cutoff)
+    meta = get_metadata(get_data_for_language('en'),
+                        max_len,
+                        cutoff)
+
     meta['cutoff'] = cutoff
     meta['maxlen'] = max_len
-    meta['files'] ={}
+    meta['files'] = {}
+    meta['num_tokens'] = meta['en_length'] + len(pre_defined) + 1
+    meta['stats'] = OrderedDict()
 
-    # TODO: store the files zipped!
-
-
-    for lang, datasets in data.items():
-        if lang not in meta['files']:
-            meta['files'][lang] = {}
-        for dataset_type, dataset in datasets.items():
-            embeds = preprocess_data(dataset, pre_defined, meta, lang)
+    languages = ['en'] + [lang for lang in datasets.keys()]
+    for lang in datasets.keys():
+        meta['files'][lang] = {}
+        meta['stats'][lang] = OrderedDict()
+        this_data = get_data_for_language(lang)
+        # make sure we have the token indices for that language, and have included any new tags from that language's datasets
+        meta = update_meta_with_another_language(this_data, meta, pre_defined)
+        meta['stats'][lang]['tokens'] = len(meta['emb_index'][lang])
+        for dataset_type, dataset in this_data.items():
+            embeds = preprocess_data(dataset, pre_defined, meta, lang, dataset_type)
             print(lang, dataset_type, len(embeds))
-            this_filename = '../data/processed/' + lang + '_' + dataset_type + \
+            my_path = os.path.dirname(os.path.realpath(__file__))
+            this_filename =  lang + '_' + dataset_type + \
                       '_' + str(max_len) + '_' + str(cutoff) + '_data.pkz'
-            # TODO: save absolute filename!
-            meta['files'][lang][dataset_type] = this_filename
-            with gzip.open(this_filename,'wb') as f:
+            target_path = os.path.join(my_path, '../data/processed/', this_filename)
+            meta['files'][lang][dataset_type] = target_path
+            with gzip.open(target_path,'wb') as f:
                 pickle.dump(embeds, f)
 
     with open('../data/processed/meta.pickle','wb') as f:

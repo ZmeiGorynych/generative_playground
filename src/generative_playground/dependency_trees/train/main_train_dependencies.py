@@ -59,7 +59,8 @@ def train_dependencies(EPOCHS=None,
     #                               batch_size=BATCH_SIZE,
     #                               max_steps=max_steps,
     #                               save_dataset=save_dataset)
-    n_src_vocab = len(meta['emb_index']['en']) # the same for all languages by construction
+
+    n_src_vocab = meta['num_tokens']  + 1 # TODO: remmove the +1 after next ingest # the same for all languages by construction
     d_model = 512
     if languages is not None:
         multi_embedder = MultiEmbedder(len(languages), n_src_vocab, d_model)
@@ -119,11 +120,11 @@ def train_dependencies(EPOCHS=None,
                     }
     if languages is not None:
         for i in range(len(languages)):
-            model_outputs[str(i+1)] = len(meta['emb_index']['en'])# word
+            model_outputs[str(i+1)] = n_src_vocab# word
         loss = MultipleCrossEntropyLoss(multi_language='token',
                                         ignore_padding=ignore_padding)
     else:
-        model_outputs['token'] = len(meta['emb_index']['en'])
+        model_outputs['token'] = n_src_vocab
         loss = MultipleCrossEntropyLoss(ignore_padding=ignore_padding)
 
     model = MultipleOutputHead(pre_model,
