@@ -11,7 +11,7 @@ from generative_playground.dependency_trees.train.main_train_dependencies import
 with open('../data/processed/meta.pickle','rb') as f:
     meta = pickle.load(f)
 
-batch_size = 100
+batch_size = 10
 drop_rate = 0.05
 max_steps = meta['maxlen']
 model, fitter1 = train_dependencies(EPOCHS=1000,
@@ -20,7 +20,7 @@ model, fitter1 = train_dependencies(EPOCHS=1000,
                                     lr=3e-5,
                                     drop_rate=drop_rate,
                                     decoder_type='attention',
-                                    plot_prefix='lr 3e-5 both',
+                                    plot_prefix='lr 3e-5 both rom',
                                     dashboard ='dependencies_novae',
                                     #save_file='dependencies_test.h5',
                                     include_predefined_embedding=True,
@@ -29,7 +29,7 @@ model, fitter1 = train_dependencies(EPOCHS=1000,
                                     plot_ignore_initial=300,
                                     target_names=['head', 'upos', 'deprel'],#'token' ,
                                     meta=meta,
-                                    languages=['pt'],#['ca','fr','gl','ro','es','pt','it'],#['en', 'de', 'fr'],
+                                    languages=['ca','fr','gl','ro','es','pt','it'],#['pt'],##['en', 'de', 'fr'],
                                     ignore_padding=True)
                                                 #preload_file='policy_gradient_run.h5')
 

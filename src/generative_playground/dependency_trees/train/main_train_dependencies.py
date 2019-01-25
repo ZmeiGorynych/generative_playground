@@ -60,10 +60,10 @@ def train_dependencies(EPOCHS=None,
     #                               max_steps=max_steps,
     #                               save_dataset=save_dataset)
 
-    n_src_vocab = meta['num_tokens']  + 1 # TODO: remmove the +1 after next ingest # the same for all languages by construction
+    n_src_vocab = meta['num_tokens'] + 1 # TODO: remmove the +1 after next ingest # the same for all languages by construction
     d_model = 512
     if languages is not None:
-        multi_embedder = MultiEmbedder(len(languages), n_src_vocab, d_model)
+        multi_embedder = MultiEmbedder(languages, meta['predefined'], n_src_vocab, d_model)
     else:
         multi_embedder = None
     embedder1 = Embedder(max_steps,

@@ -9,16 +9,18 @@ def split_lang(x):
     else:
         return x, ''
 
-
+def fix_backslash(data):
+    # convert windows-style directory delimiters to Unix-style
+    return [d.replace('\\','/') for d in data]
 
 
 def prepare_for_ingestion(data_root):
     print("Checking which languages are available in UD...")
     datasets = OrderedDict()
-    dirs = glob.glob(data_root + 'ud-treebanks-v2.3/*')
+    dirs = fix_backslash(glob.glob(data_root + 'ud-treebanks-v2.3/*'))
     long_to_short = {}
     for dir_ in dirs:
-        files = glob.glob(dir_ + '/*.conllu')
+        files = fix_backslash(glob.glob(dir_ + '/*.conllu'))
         dir_root = files[0].replace(dir_, '').split('-')[0]
         lang = dir_root.replace('/', '').split('_')[0]
         long_language = dir_.replace(data_root+'ud-treebanks-v2.3/', '').replace('UD_', '').split('-')[0].replace('_', ' ')

@@ -44,7 +44,7 @@ class MultipleCrossEntropyLoss(nn.Module):
         loss = 0
         for label, tgt in target_x.items():
             input = model_out[label].transpose(1, 2) # CrossEntropyLoss wants the one-hot dim to be 1
-            this_loss = self.celoss(input, tgt)
+            this_loss = self.celoss(input[:,:,1:], tgt[:,1:]) # don't want to predict the language, we know it already
             self.metrics[label] = this_loss.item()
             loss += this_loss
 

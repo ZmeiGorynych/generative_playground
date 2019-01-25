@@ -125,13 +125,18 @@ def pad(lst, tgt_len, pad_ind=PAD_INDEX):
 def preprocess_data(sentence_lists, pre_defined, meta, lang, dataset_type):
     # second pass:
     embeds = []
-    #maxlen=meta['maxlen']
+    max_len = meta['maxlen']
     count = 0
+    too_long = 0
+    errors = 0
+    no_embedding = 0
+    strange_id = 0
     for sentences in sentence_lists:
         for sentence in sentences:
             count += 1
             if len(sentence) > max_len-1: # first token will denote language
                 # print(sentence)
+                too_long += 1
                 continue
             try:
                 # first token is the root token for the dependency tree, also encodes the language
@@ -139,18 +144,33 @@ def preprocess_data(sentence_lists, pre_defined, meta, lang, dataset_type):
                                  'head': [pre_defined[lang]],
                                  'upos': [pre_defined[lang]],
                                  'deprel': [pre_defined[lang]]}
-                for t,token in enumerate(sentence):
+
+                #go through the sentence, discarding all the tokens with composite id
+                tokens =[]
+                for tok in sentence:
+                    if tok.head is None:
+                        continue
+                    try:
+                        int(tok.id) # check if that fails
+                        tokens.append(tok)
+                    except:
+                        continue
+
+                for t,token in enumerate(tokens):
                     try:
                         assert int(token.id) == t+1, "token.id must equal t+1, instead got " +token.id+ ", t=" + t
                         assert int(token.head) <= len(sentence)
                     except:
-                        raise ValueError
+                        strange_id +=1
+                        raise ValueError("strange id")
 
                     word = Word(token.form, language=lang)
                     try:
                         word_vector = word.vector
                     except:
-                        raise ValueError #word_vector = np.ones(256, dtype=np.float32)/256
+                        no_embedding +=1
+                        word_vector = np.zeros(256, dtype=np.float32)
+                        #raise ValueError("no embedding") #
 
                     if 'embed' not in this_sentence:
                         this_sentence['embed'] = [np.zeros_like(word_vector)]
@@ -167,12 +187,18 @@ def preprocess_data(sentence_lists, pre_defined, meta, lang, dataset_type):
                 this_sentence_nice['embed'] = pad_embed_nice
                 embeds.append(this_sentence_nice)
 
-            except ValueError:
+            except ValueError as e:
+                errors +=1
                 continue
     if count>0:
         print('kept ', len(embeds)/count, ' of all sentences')
     else:
         print("no valid sentences at all - what's going on here?")
+
+    print('total', count, ', too long', too_long,
+          ', no_embedding', no_embedding,
+          ', strange ids', strange_id,
+          ', total errors', errors)
     meta['stats'][lang][dataset_type] = OrderedDict()
     meta['stats'][lang][dataset_type]['orig_size'] = count
     meta['stats'][lang][dataset_type]['size'] = len(embeds)
@@ -197,12 +223,13 @@ if __name__=='__main__':
         pre_defined[lang] = len(pre_defined)
     pre_defined['other'] = len(pre_defined)
 
+    #datasets = {key:value for key, value in datasets.items() if key in ['en','ca','fr','gl']}
     # new_data ={}
     # new_data['zh'] = datasets['zh']
     # new_data['en'] = datasets['en']
     # datasets = new_data
 
-    if False:
+    if True:
         # download polyglot language packages
         dowload_languages(language_table)
 
@@ -240,11 +267,13 @@ if __name__=='__main__':
                         max_len,
                         cutoff)
 
+    meta['num_lang'] = len(pre_defined) - 2 # also has 'PAD' and 'other'
     meta['cutoff'] = cutoff
     meta['maxlen'] = max_len
     meta['files'] = {}
     meta['num_tokens'] = meta['en_length'] + len(pre_defined) + 1
     meta['stats'] = OrderedDict()
+    meta['predefined'] = pre_defined
 
     languages = ['en'] + [lang for lang in datasets.keys()]
     for lang in datasets.keys():
