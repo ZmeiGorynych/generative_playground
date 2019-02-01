@@ -1,5 +1,5 @@
 import torch
-use_gpu = False
+use_gpu = True
 
 if use_gpu and torch.cuda.is_available():
     device = torch.device('cuda:0')
