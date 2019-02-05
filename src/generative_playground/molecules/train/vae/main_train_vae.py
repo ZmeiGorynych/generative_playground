@@ -7,7 +7,7 @@ from generative_playground.utils.fit import fit
 from generative_playground.data_utils.data_sources import DatasetFromHDF5, train_valid_loaders, TwinGenerator
 from generative_playground.utils.gpu_utils import use_gpu
 from generative_playground.molecules.model_settings import get_settings, get_model
-from generative_playground.utils.metric_monitor import MetricPlotter
+from generative_playground.metrics.metric_monitor import MetricPlotter
 from generative_playground.utils.checkpointer import Checkpointer
 def train_vae(molecules = True,
               grammar = True,

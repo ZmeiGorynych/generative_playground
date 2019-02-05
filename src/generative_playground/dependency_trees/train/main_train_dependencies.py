@@ -10,7 +10,7 @@ from generative_playground.models.transformer.Models import TransformerEncoder
 from generative_playground.utils.fit import fit
 from generative_playground.models.losses.multiple_cross_entropy_loss import MultipleCrossEntropyLoss
 from generative_playground.utils.gpu_utils import use_gpu, to_gpu
-from generative_playground.utils.metric_monitor import MetricPlotter
+from generative_playground.metrics.metric_monitor import MetricPlotter
 from generative_playground.utils.checkpointer import Checkpointer
 from generative_playground.data_utils.data_sources import IterableTransform
 from generative_playground.models.heads.multiple_output_head import MultipleOutputHead

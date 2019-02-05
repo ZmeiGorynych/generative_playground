@@ -229,7 +229,7 @@ if __name__=='__main__':
     # new_data['en'] = datasets['en']
     # datasets = new_data
 
-    if True:
+    if False:
         # download polyglot language packages
         dowload_languages(language_table)
 

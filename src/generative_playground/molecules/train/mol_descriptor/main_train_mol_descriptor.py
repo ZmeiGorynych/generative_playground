@@ -14,7 +14,7 @@ from generative_playground.data_utils.data_sources import MultiDatasetFromHDF5, 
     SamplingWrapper
 from generative_playground.utils.gpu_utils import use_gpu, to_gpu
 from generative_playground.molecules.model_settings import get_settings, get_encoder, get_decoder
-from generative_playground.utils.metric_monitor import MetricPlotter
+from generative_playground.metrics.metric_monitor import MetricPlotter
 from generative_playground.utils.checkpointer import Checkpointer
 from generative_playground.models.heads.mean_variance_head import MeanVarianceSkewHead
 from generative_playground.molecules.rdkit_utils.rdkit_utils  import property_scorer

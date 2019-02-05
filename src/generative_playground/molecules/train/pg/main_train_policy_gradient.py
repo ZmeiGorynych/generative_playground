@@ -7,7 +7,7 @@ from generative_playground.utils.fit_rl import fit_rl
 from generative_playground.data_utils.data_sources import DatasetFromHDF5
 from generative_playground.utils.gpu_utils import use_gpu, to_gpu
 from generative_playground.molecules.model_settings import get_settings
-from generative_playground.utils.metric_monitor import MetricPlotter
+from generative_playground.metrics.metric_monitor import MetricPlotter
 from generative_playground.utils.checkpointer import Checkpointer
 from generative_playground.models.problem.rl.task import SequenceGenerationTask
 from generative_playground.molecules.model_settings import get_decoder

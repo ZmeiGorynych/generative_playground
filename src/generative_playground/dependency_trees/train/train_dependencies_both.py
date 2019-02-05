@@ -20,7 +20,7 @@ model, fitter1 = train_dependencies(EPOCHS=1000,
                                     lr=3e-5,
                                     drop_rate=drop_rate,
                                     decoder_type='attention',
-                                    plot_prefix='lr 3e-5 both rom',
+                                    plot_prefix='lr 3e-5 both roman',
                                     dashboard ='dependencies_novae',
                                     #save_file='dependencies_test.h5',
                                     include_predefined_embedding=True,
@@ -29,7 +29,7 @@ model, fitter1 = train_dependencies(EPOCHS=1000,
                                     plot_ignore_initial=300,
                                     target_names=['head', 'upos', 'deprel'],#'token' ,
                                     meta=meta,
-                                    languages=['ca','fr','gl','ro','es','pt','it'],#['pt'],##['en', 'de', 'fr'],
+                                    languages=['ca','fr','gl'],#,'ro','es','pt','it'],#['pt'],##['en', 'de', 'fr'],
                                     ignore_padding=True)
                                                 #preload_file='policy_gradient_run.h5')
 
