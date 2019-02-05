@@ -89,7 +89,12 @@ def fit(train_gen = None,
                     scheduler.step(avg_loss)
 
             if metric_monitor is not None:
-                metric_monitor(train, this_loss, loss_fn.metrics if hasattr(loss_fn, 'metrics') else None)
+                metric_monitor(train,
+                               this_loss,
+                               metrics=loss_fn.metrics if hasattr(loss_fn, 'metrics') else None,
+                               inputs=inputs,
+                               model_out=outputs,
+                               targets=targets)
             if train:
                 yield this_loss
 

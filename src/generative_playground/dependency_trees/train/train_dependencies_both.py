@@ -26,7 +26,7 @@ model, fitter1 = train_dependencies(EPOCHS=1000,
                                     include_predefined_embedding=True,
                                     use_self_attention='both', # None, True, False or Both
                                     vae=False,
-                                    plot_ignore_initial=300,
+                                    plot_ignore_initial=0,
                                     target_names=['head', 'upos', 'deprel'],#'token' ,
                                     meta=meta,
                                     languages=['ca','fr','gl'],#,'ro','es','pt','it'],#['pt'],##['en', 'de', 'fr'],

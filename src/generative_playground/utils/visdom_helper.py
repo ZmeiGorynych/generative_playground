@@ -33,6 +33,12 @@ class Dashboard(Visdom):
         else:
             self.plot(name, type, *args, **kwargs)
 
+    def plot_metric_dict(self, metric_dict):
+        for title, metric in metric_dict.items():
+                self.append(title,
+                          metric['type'],
+                          **{key:value for key, value in metric.items() if key not in ['type','smooth']})
+
     def remove(self, name):
         del self.plots[name]
 

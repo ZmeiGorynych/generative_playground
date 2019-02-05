@@ -3,6 +3,7 @@ import copy
 import pandas as pd
 import pickle, gzip
 import datetime
+from collections import OrderedDict
 from generative_playground.utils.gpu_utils import get_gpu_memory_map
 import os, inspect
 
@@ -14,9 +15,11 @@ class MetricPlotter:
                  dashboard_name=None,
                  plot_ignore_initial=0,
                  process_model_fun=None,
+                 extra_metric_fun=None,
                  smooth_weight=0.0):
         self.plot_prefix = plot_prefix
         self.process_model_fun = process_model_fun
+        self.extra_metric_fun = extra_metric_fun
         if save_file is not None:
             self.save_file = save_file
         else:
@@ -31,7 +34,7 @@ class MetricPlotter:
         self.plot_counter = 0
         self.stats = pd.DataFrame(columns=['batch', 'timestamp', 'gpu_usage', 'train', 'loss'])
         self.smooth_weight = smooth_weight
-        self.smooth = {True: {}, False: {}}
+        self.smooth = {}
         try:
             from generative_playground.utils.visdom_helper import Dashboard
             if dashboard_name is not None:
@@ -41,7 +44,13 @@ class MetricPlotter:
             self.have_visdom = False
             self.vis = None
 
-    def __call__(self, train, loss, metrics=None, model_out=None):
+    def __call__(self,
+                 train,
+                 loss,
+                 metrics=None,
+                 model_out=None,
+                 inputs=None,
+                 targets=None):
         '''
         Plot the results of the latest batch
         :param train: bool: was this a traning batch?
@@ -60,24 +69,41 @@ class MetricPlotter:
         print(loss_name, loss, self.plot_counter, gpu_usage)
         self.plot_counter += 1
         if self.vis is not None and self.plot_counter > self.plot_ignore_initial and self.have_visdom:
-            #try:
-                self.vis.append('gpu_usage',
-                           'line',
-                           X=np.array([self.plot_counter]),
-                           Y=np.array([gpu_usage[0]]))
-                self.vis.append(loss_name,
-                           'line',
-                                X=np.array([self.plot_counter]),
-                                Y=np.array([min(self.loss_display_cap, loss)]))
-                if metrics is not None and len(metrics)>0:
-                    self.smooth[train] = smooth_data(self.smooth[train], metrics, self.smooth_weight)
-                    self.vis.append(loss_name + ' metrics',
-                               'line',
-                               X=np.array([self.plot_counter]),
-                               Y=np.array([[val for key, val in self.smooth[train].items()]]),
-                               opts={'legend': [key for key, val in self.smooth[train].items()]})#['aaa','bbb','aaa','bbb','aaa','bbb','aaa','bbb','aaa']})#
-                if self.process_model_fun is not None:
-                    self.process_model_fun(model_out, self.vis, self.plot_counter)
+            all_metrics = {}
+            all_metrics['gpu_usage'] ={'type':'line',
+                            'X': np.array([self.plot_counter]),
+                            'Y':np.array([gpu_usage[0]])}
+            all_metrics[loss_name] ={'type': 'line',
+                            'X': np.array([self.plot_counter]),
+                            'Y': np.array([min(self.loss_display_cap, loss)]),
+                                'smooth':self.smooth_weight}
+            if metrics is not None and len(metrics) > 0:
+                all_metrics[loss_name + ' metrics']={'type':'line',
+                            'X': np.array([self.plot_counter]),
+                            'Y': np.array([[val for key, val in metrics.items()]]),
+                            'opts':{'legend': [key for key, val in metrics.items()]},
+                                    'smooth': self.smooth_weight}
+
+            if self.extra_metric_fun is not None:
+                all_metrics.update(self.extra_metric_fun(inputs, targets, model_out, train))
+
+
+            # now do the smooth:
+            smoothed_metrics = {}
+            for title, metric in all_metrics.items():
+                if title not in self.smooth or 'smooth' not in metric:
+                    self.smooth[title] = metric
+                else:
+                    self.smooth[title] = smooth_data(self.smooth[title], metric, metric['smooth'])
+
+            self.vis.plot_metric_dict(self.smooth)
+
+            # TODO: factor this out
+            if self.process_model_fun is not None:
+                self.process_model_fun(model_out, self.vis, self.plot_counter)
+
+
+
         metrics =  {} if metrics is None else copy.copy(metrics)
         metrics['train'] = train
         metrics['gpu_usage'] = gpu_usage[0]
@@ -92,10 +118,25 @@ class MetricPlotter:
                 pickle.dump(self.stats, f)
 
 
-def smooth_data(smoothed, metrics, w):
-    for key, value in metrics.items():
-        if key in smoothed:
-            smoothed[key] = w*smoothed[key] + (1-w)*metrics[key]
-        else:
-            smoothed[key] = metrics[key]
+def smooth_data(smoothed, metric, w):
+    if 'opts' in metric: # need to match the legend entries, they may vary by batch
+        sm_data = OrderedDict(zip(smoothed['opts']['legend'], smoothed['Y'].T))
+        new_data = OrderedDict(zip(metric['opts']['legend'], metric['Y'].T))
+        # compose all sm legend entries
+        for key,value in new_data.items():
+            if key not in sm_data:
+                sm_data[key] = value
+            else:
+                sm_data[key] = w*sm_data[key] + (1-w)*value
+        sm_legend =[]
+        sm_Y = []
+        for key, value in sm_data.items():
+            sm_legend.append(key)
+            sm_Y.append(value)
+
+        smoothed['opts']['legend'] = sm_legend
+        smoothed['Y'] = np.array(sm_Y).T
+    else:
+        smoothed['Y'] = w*smoothed['Y'] + (1-w)*metric['Y']
+    smoothed['X'] = metric["X"]
     return smoothed
