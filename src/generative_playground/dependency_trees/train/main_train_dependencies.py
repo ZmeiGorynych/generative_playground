@@ -5,6 +5,8 @@ from torch.utils.data import ConcatDataset
 import torch
 import pickle
 import gzip
+from collections import OrderedDict
+from functools import partial
 
 from generative_playground.models.transformer.Models import TransformerEncoder
 from generative_playground.utils.fit import fit
@@ -18,6 +20,8 @@ from generative_playground.models.decoder.encoder_as_decoder import EncoderAsDec
 from generative_playground.models.heads.vae import VariationalAutoEncoderHead
 from generative_playground.models.embedder.embedder import Embedder
 from generative_playground.models.embedder.multi_embedder import MultiEmbedder
+from generative_playground.metrics.metrics import language_metrics_for_monitor
+
 
 def train_dependencies(EPOCHS=None,
                        BATCH_SIZE=None,
@@ -53,19 +57,13 @@ def train_dependencies(EPOCHS=None,
     if BATCH_SIZE is not None:
         settings['BATCH_SIZE'] = BATCH_SIZE
 
-    # task = SequenceGenerationTask(molecules=molecules,
-    #                               grammar=grammar,
-    #                               reward_fun=reward_fun_on,
-    #                               batch_size=BATCH_SIZE,
-    #                               max_steps=max_steps,
-    #                               save_dataset=save_dataset)
-
-    n_src_vocab = meta['num_tokens'] + 1 # TODO: remmove the +1 after next ingest # the same for all languages by construction
+    n_src_vocab = meta['num_tokens'] + 1 # TODO: remove the +1 after next ingest # the same for all languages by construction
     d_model = 512
     if languages is not None:
         multi_embedder = MultiEmbedder(languages, meta['predefined'], n_src_vocab, d_model)
     else:
         multi_embedder = None
+
     embedder1 = Embedder(max_steps,
                          n_src_vocab,  # feature_len
                          encode_position=True,
@@ -158,11 +156,16 @@ def train_dependencies(EPOCHS=None,
                                                    patience=100)#.StepLR(optimizer, step_size=100, gamma=0.99)
 
         if dashboard is not None:
+            index_to_lang_ordered = OrderedDict()
+            for lang in languages:
+                index_to_lang_ordered[meta['predefined'][lang]] = lang
             metric_monitor = MetricPlotter(plot_prefix=fit_plot_prefix,
                                        loss_display_cap=loss_display_cap,
                                        dashboard_name=dashboard,
                                        plot_ignore_initial=plot_ignore_initial,
                                        process_model_fun=model_process_fun,
+                                           extra_metric_fun=partial(language_metrics_for_monitor,
+                                                                    index_to_lang=index_to_lang_ordered),
                                            smooth_weight=0.9)
         else:
             metric_monitor = None

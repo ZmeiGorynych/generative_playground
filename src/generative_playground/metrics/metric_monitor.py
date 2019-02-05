@@ -70,9 +70,10 @@ class MetricPlotter:
         self.plot_counter += 1
         if self.vis is not None and self.plot_counter > self.plot_ignore_initial and self.have_visdom:
             all_metrics = {}
-            all_metrics['gpu_usage'] ={'type':'line',
-                            'X': np.array([self.plot_counter]),
-                            'Y':np.array([gpu_usage[0]])}
+            if not train: # don't want to call it too often as it takes time
+                all_metrics['gpu_usage'] ={'type':'line',
+                                'X': np.array([self.plot_counter]),
+                                'Y':np.array([gpu_usage[0]])}
             all_metrics[loss_name] ={'type': 'line',
                             'X': np.array([self.plot_counter]),
                             'Y': np.array([min(self.loss_display_cap, loss)]),
@@ -85,7 +86,7 @@ class MetricPlotter:
                                     'smooth': self.smooth_weight}
 
             if self.extra_metric_fun is not None:
-                all_metrics.update(self.extra_metric_fun(inputs, targets, model_out, train))
+                all_metrics.update(self.extra_metric_fun(inputs, targets, model_out, train, self.plot_counter))
 
 
             # now do the smooth:
@@ -96,7 +97,7 @@ class MetricPlotter:
                 else:
                     self.smooth[title] = smooth_data(self.smooth[title], metric, metric['smooth'])
 
-            self.vis.plot_metric_dict(self.smooth)
+            self.vis.plot_metric_dict({title:value for title, value in self.smooth.items() if title in all_metrics.keys()})
 
             # TODO: factor this out
             if self.process_model_fun is not None:
@@ -126,6 +127,8 @@ def smooth_data(smoothed, metric, w):
         for key,value in new_data.items():
             if key not in sm_data:
                 sm_data[key] = value
+            elif np.isnan(value):
+                pass
             else:
                 sm_data[key] = w*sm_data[key] + (1-w)*value
         sm_legend =[]
