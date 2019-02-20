@@ -4,14 +4,15 @@ import numpy as np
 
 import generative_playground.codec.grammar_helper as grammar_helper
 from generative_playground.codec.codec import GenericCodec
-
+from generative_playground.codec.rpe import RPEParser
 
 class GrammarModel(GenericCodec):
     def __init__(self,
                  model = None,
                  max_len = None,
                  grammar = None,
-                 tokenizer = None):
+                 tokenizer = None,
+                 rpe_rules = None):
         """ Load the (trained) zinc encoder/decoder, grammar model. """
         self.grammar = grammar
         #self._model = model
@@ -21,7 +22,10 @@ class GrammarModel(GenericCodec):
         self._prod_map = {}
         for ix, prod in enumerate(self._productions):
             self._prod_map[prod] = ix
-        self._parser = nltk.ChartParser(self.grammar.GCFG)
+        if rpe_rules is None:
+            self._parser = nltk.ChartParser(self.grammar.GCFG)
+        else:
+            self._parser = RPEParser(nltk.ChartParser(self.grammar.GCFG), rpe_rules)
         self._n_chars = len(self._productions)
 
         if model is not None:
