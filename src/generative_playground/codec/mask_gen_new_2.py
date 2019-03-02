@@ -18,7 +18,6 @@ def get_grammar_mask(token, grammar):
 
 def get_ring_mask(this_token, grammar, ring_num_map=None, this_S=None, this_index=None):
     assert(this_S is None or this_token == this_S[this_index])
-
     if 'num' in this_token: # if this token is part of a cycle
         # if it's a numeral, choose which one to use from its stored guid
         if str(this_token['token']._symbol) in ['num', 'num1']:
@@ -189,7 +188,7 @@ class TerminalDistanceCalculator:
         # if is_nonterminal(sym['token']) and sym['token']._symbol == 'nonH_bond':
         #     print('let''s see...')
         if self.checks:
-            assert(any(mask))
+            assert any(mask)
         return mask
 
 
@@ -292,11 +291,7 @@ class GrammarMaskGeneratorNew:
         # get the formal grammar mask
         self.grammar_mask = self.get_grammar_mask(this_token)
 
-        #print('generating mask:', this_token)
-
         if this_token['token'] == nltk.grammar.Nonterminal('Nothing'):
-            # print('done')
-            # print([p for j,p in enumerate(self.grammar.GCFG.productions()) if self.grammar_mask[j]])
             # # we only get to this point if the sequence is fully expanded
             return this_S, self.grammar_mask
 
@@ -316,47 +311,13 @@ class GrammarMaskGeneratorNew:
         self.ring_mask = self.get_ring_mask(this_token, this_S, this_index)
 
         mask = self.grammar_mask * self.terminal_mask * self.ring_mask
-        # if is_nonterminal(this_token['token']) and this_token['token']._symbol == 'nonH_bond':
-        #     print('let''s see...')
-        # #print([str(p) + '\n' for j, p in enumerate(self.grammar.GCFG.productions()) if mask[j]])
-        #[p for ip, p in enumerate(self.grammar.GCFG.productions()) if self.terminal_mask[ip]]
+
         if self.checks:
             assert(not all([x == 0 for x in mask]))
         return this_S, mask
 
     def get_ring_mask(self, this_token, this_S=None, this_index=None):
         return get_ring_mask(this_token, self.grammar, self.ring_num_map, this_S, this_index)
-        # assert(this_S is None or this_token == this_S[this_index])
-        #
-        # if 'num' in this_token: # if this token is part of a cycle
-        #     # if it's a numeral, choose which one to use from its stored guid
-        #     if str(this_token['token']._symbol) in ['num', 'num1']:
-        #         if this_token['num'] is None:
-        #             nums_to_use = self.grammar.numeric_tokens
-        #         elif this_token['num'] in self.ring_num_map: # if we're closing a cycle
-        #             nums_to_use = [self.ring_num_map[this_token['num']]]
-        #         else: # if we're opening a cycle
-        #             free_numerals = find_free_numerals(this_S,
-        #                                                this_index=this_index,
-        #                                                grammar=self.grammar)
-        #             nums_to_use = [free_numerals[0]]
-        #             self.ring_num_map[this_token['num']] = free_numerals[0]
-        #
-        #         ring_mask = np.array(
-        #             [1 if a.rhs()[0] in nums_to_use else 0 for a in self.grammar.GCFG.productions()])
-        #     else: # control minimal and maximal ring size
-        #         ring_mask = np.ones([len(self.grammar.GCFG.productions())])
-        #         if this_token['size'] > 6: # 4# max cycle length 6
-        #             # block out cycle continuation
-        #             for k in self.grammar.cycle_continues:
-        #                 ring_mask[k] = 0
-        #         if this_token['size'] < 4: #4# minimum cycle length 5
-        #             # block out cycle finish
-        #             for k in self.grammar.cycle_ends:
-        #                 ring_mask[k] = 0
-        # else:
-        #     ring_mask = np.ones([len(self.grammar.GCFG.productions())])
-        # return ring_mask
 
     def get_grammar_mask(self, token):
         return get_grammar_mask(token, self.grammar)
@@ -386,30 +347,3 @@ def find_free_numerals(S, this_index, grammar, reuse_numerals=True):
     else:
         return free_numerals
 
-
-
-# def terminal_distance(grammar, x):
-#     # due to masking that enforces minimal ring length, must override term distances derived purely from grammar
-#     if x['token'] == Nonterminal('aliphatic_ring'):
-#         return 8
-#     elif x['token'] == Nonterminal('cycle_bond'):
-#         return max(2, 7 - x['ring_size'])
-#     elif x['token'] == Nonterminal('cycle_double_bond'):
-#         # need to go at least to cycle_bond -> num1 -> number
-#         return max(3, 7 - x['ring_size'])
-#     else:
-#         return grammar.terminal_dist(x['token'])
-
-# def rule_d_term_dist(grammar, x, t):
-#     # calculates the change in terminal distance by each of the potential rules starting from x
-#     d_td = []
-#     for p in grammar.GCFG.productions():
-#         # TODO: fall back to lookup where that is possible
-#         if p.lhs() == x['token']:
-#             new_tokens = apply_rule(x, p, t)
-#             d_td.append(sum([terminal_distance(grammar, n) for n in new_tokens]) -
-#                         terminal_distance(grammar, x))
-#         else:
-#             d_td.append(0)
-#
-#     return np.array(d_td)
