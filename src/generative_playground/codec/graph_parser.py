@@ -92,7 +92,9 @@ def build_junction_tree(mol):
 
         child_bonds = {key:value for key, value in neighbor_bonds.items() if value[1] not in parent_bonds}
 
-        me = {'atoms': my_atoms, 'child_bonds': child_bonds}
+        me = {'atoms': my_atoms,
+              'neighbor_bonds': neighbor_bonds,
+              'parent_bonds': parent_bonds}
 
         child_bond_groups = []
         processed = []
@@ -122,12 +124,26 @@ def build_junction_tree(mol):
             next_start_atoms = [child_bonds[g][0][1] for g in group]
             children[tuple(group)] = junction_tree_stage(next_start_atoms, next_parent_bonds)
 
-        me['children'] = children
+        if len(children):
+            me['children'] = children
         return me
 
     # could be smarter about the starting atom, but let's keep it simple for now
     return junction_tree_stage([0])
 
+'''
+So to extract the rules from the molecules:
+1. Build the tree
+2. From each tree extract a list of subst rules directly
+3. Build a list of non-isomorphic rules, respecting edge type and parent atoms
+4. For each isomorphy class, build a list of possible instances
+5. So the actual parse tree always has two steps: select isomorphy class, then select representative
+6. Then build a parser and decoder from that
+'''
+
+'''
+
+'''
 
 if __name__ == '__main__':
     settings = get_settings(molecules=True, grammar='new')
@@ -144,19 +160,11 @@ if __name__ == '__main__':
 
     # components = collect_ring_types(L[:thresh])
     # test = components[0]
-
-    mol = MolFromSmiles(L[0])
-    tree = build_junction_tree(mol)
+    for smile in L[:100]:
+        mol = MolFromSmiles(L[0])
+        tree = build_junction_tree(mol)
     # look at isomorphisms between them
     print('aaa')
 
-    '''
-    So how do we turn the molecule into a tree?
-    1. Start at any vertex, let's suppose for simplcity it's not a ring.
-    2. The children are all connected components, so top node is atom + list
-    of edges wth type
-    3. If nearest atom is not part of a ring, just take its children - nice and iterative
-    4. If child is a ring: fine, that ring is the child. Its children are the branches and any further rings attached to it
 
 
-    '''
