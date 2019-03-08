@@ -105,26 +105,71 @@ class HyperGraphFragment:
         for atom in mol.GetAtoms():
             assert atom.GetIdx() not in self.node
             this_node_edges = [bond.GetIdx() for bond in atom.GetBonds()]
-            this_node_data = {'atomic_num': atom.GetAtomicNum(),
-                                        'formal_charge': atom.GetFormalCharge(),
-                                        'chiral_tag': atom.GetChiralTag(),
-                                        # 'hybridization': atom.GetHybridization(),
-                                        # 'num_explicit_hs': atom.GetNumExplicitHs(),
-                                        # 'is_aromatic':atom.GetIsAromatic(),
-                              }
-            this_node = Node(edges=this_node_edges, data=this_node_data, is_terminal=True)
+            this_node = Node(edges=this_node_edges,
+                             data=atom_to_properties(atom), is_terminal=True)
             self.node[atom.GetIdx()] = this_node
 
         for bond in mol.GetBonds():
-            # TODO: replace edge['nodes'] with a function to avoid redundancy
             assert bond.GetIdx() not in self.edges
-            this_bond_data = {'direction': bond.GetBondDir(),
-                                         'stereo': bond.GetStereo()}
-            this_bond = Edge(type=bond.GetBondType(), data=this_bond_data)
+            this_bond = Edge(type=bond.GetBondType(),
+                             data=bond_to_properties(bond))
             self.edges[bond.GetIdx()] = this_bond
 
         return self
 
+    @classmethod
+    def from_tree_node(Class, tree_node):
+        '''
+
+        :param tree_node:
+        :return:
+        '''
+        '''
+        Add all the atoms as nodes
+        Add a 'parent' node, store its index
+        Add child nodes from ['children'].keys()
+        add all edges just as they are
+        make sure to generate uids for nodes and edges as we create them
+        '''
+        pass
+
+
+def bond_to_properties(bond):
+    this_bond_data = {'direction': bond.GetBondDir(),
+                      'stereo': bond.GetStereo()}
+    return this_bond_data
+
+
+def properties_to_bond(mol, atoms, bond_type, props):
+    mol.AddBond(atoms[0], atoms[1], bond_type)  # sadly this doesn't return the index of the new bond
+    bond = [bond for bond in mol.GetBonds()
+            if bond.GetBeginAtomIdx() == atoms[0] and
+            bond.GetEndAtomIdx() == atoms[1]][0]
+    if 'stereo' in props:
+        bond.SetStereo(props['stereo'])
+    if 'direction' in props:
+        bond.SetBondDir(props['direction'])
+    return bond
+
+
+def atom_to_properties(atom):
+    this_node_data = {'atomic_num': atom.GetAtomicNum(),
+                      'formal_charge': atom.GetFormalCharge(),
+                      'chiral_tag': atom.GetChiralTag(),
+                      # 'hybridization': atom.GetHybridization(),
+                      # 'num_explicit_hs': atom.GetNumExplicitHs(),
+                      # 'is_aromatic':atom.GetIsAromatic(),
+                      }
+    return this_node_data
+
+def atom_from_properties(props):
+    a = Chem.Atom(props['atomic_num'])
+    a.SetChiralTag(props['chiral_tag'])
+    a.SetFormalCharge(props['formal_charge'])
+    # a.SetIsAromatic(node['is_aromatic'])
+    # a.SetHybridization(node['hybridization'])
+    # a.SetNumExplicitHs(node['num_explicit_hs'])
+    return a
 
 def to_mol(graph):
     '''
@@ -137,53 +182,27 @@ def to_mol(graph):
     for node_id, node in graph.node.items():
         if 'dict' in str(type(node)).lower():
             node = node['node']
-        a = Chem.Atom(node.data['atomic_num'])
-        a.SetChiralTag(node.data['chiral_tag'])
-        a.SetFormalCharge(node.data['formal_charge'])
-        # a.SetIsAromatic(node['is_aromatic'])
-        # a.SetHybridization(node['hybridization'])
-        # a.SetNumExplicitHs(node['num_explicit_hs'])
+        a = atom_from_properties(node.data)
         idx = mol.AddAtom(a)
         node_to_idx[node_id] = idx
 
     for edge_id, edge in graph.edges.items():
-        # TODO: should we be iterating over vertices instead, thus guaranteeing no loose edges
         if type(edge_id) == tuple:  # nx.Graph, edge uniquely identified by vertices
-            first, second = edge_id
+            atom_ids = edge_id
             edge = edge['data']
         else:  # HyperGraphFragment, edge has own id
-            first, second = graph.node_ids_from_edge_id(edge_id)
-        if first not in graph.node or second not in graph.node:
+            atom_ids = graph.node_ids_from_edge_id(edge_id)
+        if atom_ids[0] not in graph.node or atom_ids[1] not in graph.node:
             continue  # ignore loose edges, if any
 
-        ifirst = node_to_idx[first]
-        isecond = node_to_idx[second]
-        bond_type = edge.type
-        mol.AddBond(ifirst, isecond, bond_type)  # sadly this doesn't return the index of the new bond
-        bond = [bond for bond in mol.GetBonds()
-                if bond.GetBeginAtomIdx() == ifirst and
-                bond.GetEndAtomIdx() == isecond][0]
-        bond.SetStereo(edge.data['stereo'])
-        bond.SetBondDir(edge.data['direction'])
+        bond = properties_to_bond(mol,
+                                  atoms=[node_to_idx[x] for x in atom_ids],
+                                  bond_type=edge.type,
+                                  props=edge.data)
 
     Chem.SanitizeMol(mol)
     return mol
 
-    @classmethod
-    def from_tree_node(Class, tree_node):
-        '''
-        A tree node has:
-        * atoms -> nodes
-        Edges:
-        * internal edges -> just add to graph
-        * parent edges -> open_edges, group to Nonterminal(parent_node)
-        * child_edges, grouped by child_groups -> link to appropriate nonterminals
-        - appropriate nonterminal is simply Nonterminal (list of edges w/properties)
-        - parent edges ->
-        :param tree_node:
-        :return:
-        '''
-        pass
 
 if __name__ == '__main__':
     import rdkit

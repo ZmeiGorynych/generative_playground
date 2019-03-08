@@ -1,5 +1,6 @@
 from generative_playground.codec.hyperedge import HyperGraphFragment, to_mol
 from generative_playground.molecules.model_settings import get_settings
+from collections import OrderedDict
 from rdkit.Chem import MolFromSmiles, AddHs, MolToSmiles, RemoveHs
 import networkx as nx
 import copy
@@ -52,17 +53,23 @@ def collect_ring_types(smiles_list):
             add_if_new(components, c)
     return components
 
-def get_neighbor_atoms(mol, my_index):
-    neighbor_atoms = [(my_index, n.GetIdx()) for n in mol.GetAtomWithIdx(my_index).GetNeighbors()]
-    return neighbor_atoms
+def get_neighbors(mol, my_index):
+    # returns a dict from all the bonds ids to pairs of respective atom ids
+    bonds = OrderedDict()
+    atom_pairs = [(my_index, n.GetIdx()) for n in mol.GetAtomWithIdx(my_index).GetNeighbors()]
+    for pair in atom_pairs:
+        bonds[bond_id_from_atom_ids(mol, pair)] = pair
+    return bonds
 
+def bond_id_from_atom_ids(mol, atoms):
+    return mol.GetBondBetweenAtoms(atoms[0],atoms[1]).GetIdx()
 
 def build_junction_tree(mol):
     atom_rings = mol.GetRingInfo().AtomRings()
     bond_rings = mol.GetRingInfo().BondRings()
     atoms_left = set(atom.GetIdx() for atom in mol.GetAtoms())
 
-    def junction_tree_stage(my_start_atoms, parent_bonds=[]):
+    def junction_tree_stage(my_start_atoms, parent_bond_inds=[]):
         # TODO: assert that start atoms are in parent bonds, if any
 
         # am I part of any rings?
@@ -80,21 +87,24 @@ def build_junction_tree(mol):
             assert idx in atoms_left
             atoms_left.discard(idx)
 
-        # determine my children:
-        neighbor_atoms = []
+        # determine all my bonds
+        my_bonds_pre = OrderedDict()
         for atom_idx in my_atoms:
-            pre_neighbors = get_neighbor_atoms(mol, atom_idx)
-            neighbor_atoms += [n for n in pre_neighbors if n[1] not in my_atoms]
+            my_bonds_pre.update(get_neighbors(mol, atom_idx))
 
-        # maps the internal index this node uses for the bond to rdkit's index of this bond
-        neighbor_bonds = {i: (n, mol.GetBondBetweenAtoms(n[0],n[1]).GetIdx())
-                       for i, n in enumerate(neighbor_atoms)}
-
-        child_bonds = {key:value for key, value in neighbor_bonds.items() if value[1] not in parent_bonds}
+        # enumerate my bonds
+        my_bonds = OrderedDict(enumerate(list(my_bonds_pre.items())))
+        internal_bonds = OrderedDict([(key, value) for key, value in my_bonds.items()
+                                      if value[1][0] in my_atoms and value[1][1] in my_atoms])
+        parent_bonds = OrderedDict([(key, value) for key, value in my_bonds.items()
+                                      if value[0] in parent_bond_inds])
+        child_bonds = OrderedDict([(key, value) for key, value in my_bonds.items()
+                                      if key not in internal_bonds and key not in parent_bonds])
 
         me = {'atoms': my_atoms,
-              'neighbor_bonds': neighbor_bonds,
-              'parent_bonds': parent_bonds}
+              'internal_bonds': internal_bonds,
+              'parent_bonds': parent_bonds,
+              'child_bonds': child_bonds}
 
         child_bond_groups = []
         processed = []
@@ -107,10 +117,10 @@ def build_junction_tree(mol):
             processed.append(i)
             this_group = [i]
             for bond_ring in bond_rings:
-                if child_bond[1] in bond_ring:
+                if child_bond[0] in bond_ring:
                     # what other bonds are part of the same ring?
                     for j, bond_idx in child_bonds.items():
-                        if bond_idx[1] in bond_ring and j not in this_group:
+                        if bond_idx[0] in bond_ring and j not in this_group:
                             this_group.append(j)
                             processed.append(j)
 
@@ -120,8 +130,8 @@ def build_junction_tree(mol):
         # and now the recursive call
         children = {}
         for group in child_bond_groups:
-            next_parent_bonds = [child_bonds[g][1] for g in group]
-            next_start_atoms = [child_bonds[g][0][1] for g in group]
+            next_parent_bonds = [child_bonds[g][0] for g in group]
+            next_start_atoms = [child_bonds[g][1][1] for g in group]
             children[tuple(group)] = junction_tree_stage(next_start_atoms, next_parent_bonds)
 
         if len(children):
