@@ -1,5 +1,6 @@
 import copy
 import networkx as nx
+import uuid
 from rdkit import Chem
 from rdkit.Chem import MolFromSmiles, AddHs, MolToSmiles, RemoveHs, Kekulize
 
@@ -14,24 +15,12 @@ class Node:
         self.data = data
         self.is_terminal = is_terminal
 
+
 class Edge:
     def __init__(self, type, data={}):
         self.type = type
         self.data = data
 
-
-def nodes_match(node1, node2):
-    if len(node1.edges) != len(node2.edges):
-        return False
-    else:
-        for edge1, edge2 in zip(node1.edges, node2.edges):
-            if not edges_match(edge1, edge2):
-                return False
-        return True
-
-
-def edges_match(bond1, bond2):
-    return bond1.type == bond2.type
 
 # so changes: use Bond class
 # don't store endpoints in bonds, that just creates a mess! They're stored in the atoms!
@@ -39,12 +28,23 @@ class HyperGraphFragment:
     def __init__(self):
         self.node = OrderedDict()  # of Nodes
         self.edges = OrderedDict() # of edges
-        self.parent_node_id = None  # just a list of IDs from the edges list
+        self.parent_node_id = None  # The node we'll match/merge when expanding
+
+    def nonterminal_ids(self):
+        return [key for key, value in self.node.items() if value.is_terminal is False]
+
+    def child_ids(self):
+        return [key for key in self.nonterminal_ids() if key != self.parent_node_id]
+
+    def is_parent_node(self, x):
+        if self.parent_node_id is None:
+            return False
+        return self.node[self.parent_node_id] == x
 
 
-    def check_validity(self):
+    def validate(self):
         edge_count = {}
-        edge_lists = [node['edges'] for node in self.node.values()] + [self.open_edges]
+        edge_lists = [node.edges for node in self.node.values()]
         for node in edge_lists:
             for edge_id in node:
                 if edge_id not in edge_count:
@@ -54,6 +54,8 @@ class HyperGraphFragment:
 
         for count in edge_count.values():
             assert count == 2
+
+        assert set(edge_count.keys()) == set(self.edges.keys())
 
     def to_nx(self):
         # create a networkx Graph from self, ignoring any open edges
@@ -118,20 +120,80 @@ class HyperGraphFragment:
         return self
 
     @classmethod
-    def from_tree_node(Class, tree_node):
+    def from_tree_node(Class, mol, tree_node):
         '''
-
+        Constructs a graph from a junction tree node, with nonterminals for parent and children
         :param tree_node:
         :return:
         '''
         '''
-        Add all the atoms as nodes
+        
         Add a 'parent' node, store its index
         Add child nodes from ['children'].keys()
         add all edges just as they are
         make sure to generate uids for nodes and edges as we create them
         '''
-        pass
+        self = Class()
+
+        atom_id_map = OrderedDict()
+        bond_id_map = OrderedDict()
+        atoms_to_bonds = OrderedDict()
+        for bond_old_id, bond_atoms in tree_node['bonds'].items():
+            bond_id = uuid.uuid4()
+            assert bond_id not in self.edges
+            bond_id_map[bond_old_id] = bond_id
+            bond = mol.GetBonds()[bond_old_id]
+            for old_atom_id in bond_atoms:
+                if old_atom_id not in atom_id_map:
+                    atom_id_map[old_atom_id] = uuid.uuid4()
+                if atom_id_map[old_atom_id] not in atoms_to_bonds:
+                    atoms_to_bonds[atom_id_map[old_atom_id]] = []
+                atoms_to_bonds[atom_id_map[old_atom_id]].append(bond_id)
+
+            this_bond = Edge(type=bond.GetBondType(),
+                             data=bond_to_properties(bond))
+            self.edges[bond_id] = this_bond
+
+        for old_atom_id, new_atom_id in atom_id_map.items():
+            if old_atom_id in tree_node['atoms']:
+                atom_properties = atom_to_properties(mol.GetAtoms()[old_atom_id])
+                this_node = Node(edges=atoms_to_bonds[new_atom_id],
+                                data=atom_properties,
+                                is_terminal=True)
+                self.node[new_atom_id] = this_node
+
+        # now create the nonterminal nodes from bunches of loose bonds
+        def create_node_from_bondlist(bond_list): # create a node from a bunch of loose bonds
+            if len(bond_list):
+                new_node_id = uuid.uuid4()
+                my_edges = []
+                for old_bond_id in bond_list:
+                    my_edges.append(bond_id_map[old_bond_id])
+                    for x in tree_node['bonds'][old_bond_id]: # remove the atom placeholder created when we created the edges
+                        if x not in tree_node['atoms']:
+                            del atoms_to_bonds[atom_id_map[x]]
+
+                new_node = Node(edges=my_edges,
+                                 data=OrderedDict(),
+                                 is_terminal=False)
+                self.node[new_node_id] = new_node
+                return new_node_id
+            else:
+                return None
+
+        self.parent_node_id = create_node_from_bondlist(tree_node['parent_bonds'].keys())
+        if 'children' in tree_node:
+            for child_group in tree_node['children'].keys():
+                create_node_from_bondlist(child_group)
+
+        if self.parent_node_id is not None:
+            assert self.parent_node_id in self.node
+
+        self.validate()
+
+        return self
+
+
 
 
 def bond_to_properties(bond):
@@ -199,6 +261,7 @@ def to_mol(graph):
                                   atoms=[node_to_idx[x] for x in atom_ids],
                                   bond_type=edge.type,
                                   props=edge.data)
+    RemoveHs(mol)
 
     Chem.SanitizeMol(mol)
     return mol

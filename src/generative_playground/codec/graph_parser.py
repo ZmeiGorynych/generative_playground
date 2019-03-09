@@ -1,9 +1,9 @@
-from generative_playground.codec.hyperedge import HyperGraphFragment, to_mol
+from generative_playground.codec.hyperedge import HyperGraphFragment, to_mol, Edge
 from generative_playground.molecules.model_settings import get_settings
 from collections import OrderedDict
 from rdkit.Chem import MolFromSmiles, AddHs, MolToSmiles, RemoveHs
 import networkx as nx
-import copy
+import copy, uuid
 
 
 def get_rings(mol):
@@ -30,8 +30,8 @@ def get_rings(mol):
     return components
 
 
-def edge_match(e1, e2):
-    return e1['bond_type'] == e2['bond_type']
+# def edge_match(e1, e2):
+#     return e1['bond_type'] == e2['bond_type']
 
 
 def add_if_new(old, candidate):
@@ -93,67 +93,152 @@ def build_junction_tree(mol):
             my_bonds_pre.update(get_neighbors(mol, atom_idx))
 
         # enumerate my bonds
-        my_bonds = OrderedDict(enumerate(list(my_bonds_pre.items())))
+        my_bonds = my_bonds_pre
         internal_bonds = OrderedDict([(key, value) for key, value in my_bonds.items()
-                                      if value[1][0] in my_atoms and value[1][1] in my_atoms])
+                                      if value[0] in my_atoms and value[1] in my_atoms])
         parent_bonds = OrderedDict([(key, value) for key, value in my_bonds.items()
-                                      if value[0] in parent_bond_inds])
+                                      if key in parent_bond_inds])
         child_bonds = OrderedDict([(key, value) for key, value in my_bonds.items()
                                       if key not in internal_bonds and key not in parent_bonds])
 
         me = {'atoms': my_atoms,
-              'internal_bonds': internal_bonds,
-              'parent_bonds': parent_bonds,
-              'child_bonds': child_bonds}
+              'bonds': my_bonds,
+              'parent_bonds': parent_bonds}
 
         child_bond_groups = []
         processed = []
         # now go over the neighbor atoms checking if they're part of another ring
-        for i, child_bond in child_bonds.items():
+        for child_bond, child_bond_atoms in child_bonds.items():
 
-            if i in processed: # already  processed
+            if child_bond in processed: # already  processed
                 continue
 
-            processed.append(i)
-            this_group = [i]
+            processed.append(child_bond)
+            this_group = [child_bond]
             for bond_ring in bond_rings:
-                if child_bond[0] in bond_ring:
+                if child_bond in bond_ring:
                     # what other bonds are part of the same ring?
-                    for j, bond_idx in child_bonds.items():
-                        if bond_idx[0] in bond_ring and j not in this_group:
-                            this_group.append(j)
-                            processed.append(j)
-
+                    for other_bond_idx in child_bonds.keys():
+                        if other_bond_idx in bond_ring and other_bond_idx not in this_group:
+                            this_group.append(other_bond_idx)
+                            processed.append(other_bond_idx)
 
             child_bond_groups.append(this_group)
 
         # and now the recursive call
-        children = {}
+        children = OrderedDict()
         for group in child_bond_groups:
-            next_parent_bonds = [child_bonds[g][0] for g in group]
-            next_start_atoms = [child_bonds[g][1][1] for g in group]
+            next_parent_bonds = group
+            next_start_atoms = [child_bonds[g][1] for g in group]
             children[tuple(group)] = junction_tree_stage(next_start_atoms, next_parent_bonds)
 
         if len(children):
             me['children'] = children
+
+        me['node'] = HyperGraphFragment.from_tree_node(mol, me)
+
         return me
 
     # could be smarter about the starting atom, but let's keep it simple for now
     return junction_tree_stage([0])
 
-'''
-So to extract the rules from the molecules:
-1. Build the tree
-2. From each tree extract a list of subst rules directly
-3. Build a list of non-isomorphic rules, respecting edge type and parent atoms
-4. For each isomorphy class, build a list of possible instances
-5. So the actual parse tree always has two steps: select isomorphy class, then select representative
-6. Then build a parser and decoder from that
-'''
+def replace_nonterminal(orig_node, loc, new_node):
+    node_to_replace = orig_node.node[loc]
+    new_root_node = new_node.node[new_node.parent_node_id]
+    new_node = copy.deepcopy(new_node)
+    assert len(node_to_replace.edges) == len(new_root_node.edges)
+    for edge1_id, edge2_id in zip(node_to_replace.edges, new_root_node.edges):
+        edge1 = orig_node.edges[edge1_id]
+        edge2 = new_node.edges[edge2_id]
+        assert edge1.type == edge2.type
+        new_edge = Edge(type=edge1.type, data={**edge1.data, **edge2.data})
+        orig_node.edges[edge1_id] = new_edge
+        del new_node.edges[edge2_id]
+        # in the new segment, replace the edges leading to the root node with edges from the parent
+        for node in new_node.node.values():
+            for i in range(len(node.edges)):
+                if node.edges[i] == edge2_id:
+                    node.edges[i] = edge1_id
+
+    orig_node.edges.update(new_node.edges)
+    del new_node.node[new_node.parent_node_id]
+    del orig_node.node[loc]
+    orig_node.node.update(new_node.node)
+    orig_node.validate()
+    return orig_node
+
+def graph_from_tree(tree):
+    if 'children' in tree:
+        this_node = tree['node']
+        child_nodes = [graph_from_tree(x) for x in tree['children'].values()]
+        # as we're recursively reconstructing
+        for child_node in child_nodes:
+            check_validity(child_node)
+
+        child_ids = this_node.child_ids()
+        assert len(child_ids) == len(child_nodes)
+        for id, new_node in zip(child_ids, child_nodes):
+            this_node = replace_nonterminal(this_node, id, new_node)
+
+        check_validity(this_node)
+        this_node.validate()
+        return this_node
+    else:
+        child_node = tree['node']
+        check_validity(child_node)
+        return child_node
+
+def check_validity(child_node):
+    for node_id, node in child_node.node.items():
+        assert node_id == child_node.parent_node_id or len(node.data) > 0
+
+def apply_rule(start_graph, rule, loc=None):
+    if loc == None:
+        loc = start_graph.child_ids()[-1]
+    start_graph = replace_nonterminal(start_graph, loc, rule)
+    return start_graph
+
+def apply_rules(rules):
+    start_graph = rules[0]
+    for num, rule in enumerate(rules[1:]):
+        start_graph = apply_rule(start_graph, rule)
+    return start_graph
+
+def tree_to_rules_list(tree):
+    rules_list = [tree['node']]
+    if 'children' in tree:
+        for child in reversed(tree['children'].values()):
+            rules_list += tree_to_rules_list(child)
+    return rules_list
 
 '''
-
+So when are rules equivalent:
+nodes_match:
+nonterminals: 
+    if one is a parent node, another must also be
+terminals:
+    node1.data == node2.data
+    
+edges_match: if types match
 '''
+
+def hypergraphs_are_equivalent(graph1, graph2):
+    def nodes_match(node1, node2):
+        if node1['node'].is_terminal != node2['node'].is_terminal:
+            return False
+        elif node1['node'].is_terminal:
+            # for terminals (atoms), data must match
+            return node1['node'].data == node2['node'].data
+        else:
+            # parent nodes must be aligned
+            return graph1.is_parent_node(node1['node']) == graph2.is_parent_node(node2['node'])
+
+    def edges_match(edge1, edge2):
+        return edge1['data'].type == edge2['data'].type
+
+    return nx.is_isomorphic(graph1.to_nx(), graph2.to_nx(), edge_match=edges_match, node_match=nodes_match)
+
+
 
 if __name__ == '__main__':
     settings = get_settings(molecules=True, grammar='new')
@@ -169,10 +254,27 @@ if __name__ == '__main__':
     f.close()
 
     # components = collect_ring_types(L[:thresh])
-    # test = components[0]
-    for smile in L[:100]:
-        mol = MolFromSmiles(L[0])
+    distinct_rules = []
+    all_rule_count = 0
+    for num, smile in enumerate(L[:100]):
+        smile = MolToSmiles(MolFromSmiles(smile))
+        mol = MolFromSmiles(smile)
         tree = build_junction_tree(mol)
+        rules_list = tree_to_rules_list(copy.deepcopy(tree))
+        # for rule in rules_list:
+        #     if not any([hypergraphs_are_equivalent(rule, x) for x in distinct_rules]):
+        #         distinct_rules.append(rule)
+        # all_rule_count += len(rules_list)
+        # root_node = tree['node']
+        graph2 = apply_rules(rules_list)
+        graph = graph_from_tree(tree)
+        mol2 = to_mol(graph)
+        smiles2 = MolToSmiles(mol2)
+        mol3 = to_mol(graph2)
+        smiles3 = MolToSmiles(mol3)
+        print(smile)
+        print(smiles2)
+        print(smiles3)
     # look at isomorphisms between them
     print('aaa')
 
