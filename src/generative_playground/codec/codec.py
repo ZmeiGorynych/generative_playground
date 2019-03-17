@@ -3,6 +3,15 @@ import torch
 import numpy as np
 
 class GenericCodec:
+    def __init__(self):
+        self.decoder = None # must be supplied by the child
+
+    def decode_from_actions(self, smiles):
+        raise NotImplementedError()
+
+    def string_to_actions(self, smiles):
+        raise NotImplementedError()
+
     def encode(self, smiles):
         one_hot = self.string_to_one_hot(smiles)
         z_mean = self.vae.encoder.encode(one_hot)

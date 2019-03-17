@@ -9,6 +9,14 @@ from polyglot.text import Word
 from polyglot.downloader import downloader
 import json
 import pandas as pd
+
+try:
+    import generative_playground
+except:
+    import sys, os, inspect
+
+    my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+    sys.path.append('../../..')
 from generative_playground.dependency_trees.utils.prepare_for_processing import prepare_for_ingestion
 import codecs
 # https://github.com/UniversalDependencies/docs/blob/pages-source/format.md
@@ -122,7 +130,7 @@ def pad(lst, tgt_len, pad_ind=PAD_INDEX):
     return lst
 
 
-def preprocess_data(sentence_lists, pre_defined, meta, lang, dataset_type):
+def preprocess_data(sentence_lists, pre_defined, meta, lang, dataset_type, missing_embed_to_zeros):
     # second pass:
     embeds = []
     max_len = meta['maxlen']
@@ -169,8 +177,10 @@ def preprocess_data(sentence_lists, pre_defined, meta, lang, dataset_type):
                         word_vector = word.vector
                     except:
                         no_embedding +=1
-                        word_vector = np.zeros(256, dtype=np.float32)
-                        #raise ValueError("no embedding") #
+                        if missing_embed_to_zeros:
+                            word_vector = np.zeros(256, dtype=np.float32)
+                        else:
+                            raise ValueError("no embedding")
 
                     if 'embed' not in this_sentence:
                         this_sentence['embed'] = [np.zeros_like(word_vector)]
@@ -207,6 +217,12 @@ def preprocess_data(sentence_lists, pre_defined, meta, lang, dataset_type):
 # def read_string(fn):
 #     with open(fn,'r') as f:
 #         out = f.read()
+def get_filename_root(max_len, cutoff, missing_embed_to_zeros):
+    return str(max_len) + '_' + str(cutoff) + '_' + str(missing_embed_to_zeros)
+
+def get_meta_filename(max_len, cutoff, missing_embed_to_zeros):
+    return 'meta_'+ get_filename_root(max_len, cutoff, missing_embed_to_zeros) +'.pickle'
+
 def dowload_languages(language_table):
     for row in language_table.iterrows():
         if isinstance(row[1]['language'], str):#not np.isnan(row[1]['language']):
@@ -216,6 +232,10 @@ def dowload_languages(language_table):
             print('downloaded', code)
 
 if __name__=='__main__':
+
+
+    print("Starting the new data preprocessing...")
+
     datasets, language_table = prepare_for_ingestion('../data/')
     pre_defined = {'PAD': PAD_INDEX}
 
@@ -240,6 +260,7 @@ if __name__=='__main__':
     valid = []
     train = []
     test = []
+    missing_embed_to_zeros = False
     max_len = 46
     cutoff = 5 # so at least cutoff+1 occurrences
     data = OrderedDict()
@@ -274,6 +295,7 @@ if __name__=='__main__':
     meta['num_tokens'] = meta['en_length'] + len(pre_defined) + 1
     meta['stats'] = OrderedDict()
     meta['predefined'] = pre_defined
+    filename_root = get_filename_root(max_len,cutoff,missing_embed_to_zeros)
 
     languages = ['en'] + [lang for lang in datasets.keys()]
     for lang in datasets.keys():
@@ -284,17 +306,17 @@ if __name__=='__main__':
         meta = update_meta_with_another_language(this_data, meta, pre_defined)
         meta['stats'][lang]['tokens'] = len(meta['emb_index'][lang])
         for dataset_type, dataset in this_data.items():
-            embeds = preprocess_data(dataset, pre_defined, meta, lang, dataset_type)
+            embeds = preprocess_data(dataset, pre_defined, meta, lang, dataset_type, missing_embed_to_zeros)
             print(lang, dataset_type, len(embeds))
             my_path = os.path.dirname(os.path.realpath(__file__))
-            this_filename =  lang + '_' + dataset_type + \
-                      '_' + str(max_len) + '_' + str(cutoff) + '_data.pkz'
+            this_filename = lang + '_' + dataset_type + '_' + filename_root + '_data.pkz'
             target_path = os.path.join(my_path, '../data/processed/', this_filename)
             meta['files'][lang][dataset_type] = target_path
             with gzip.open(target_path,'wb') as f:
                 pickle.dump(embeds, f)
 
-    with open('../data/processed/meta.pickle','wb') as f:
+    with open('../data/processed/' + get_meta_filename(max_len, cutoff, missing_embed_to_zeros),
+              'wb') as f:
         pickle.dump(meta, f)
     print('tokens:', len(meta['emb_index']['en']))
 
