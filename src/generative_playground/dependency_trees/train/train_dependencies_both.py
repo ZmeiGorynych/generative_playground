@@ -7,9 +7,15 @@ except:
 
 import pickle
 from generative_playground.dependency_trees.train.main_train_dependencies import train_dependencies
+from generative_playground.dependency_trees.utils.preprocess_data import get_meta_filename
 
-with open('../data/processed/meta.pickle','rb') as f:
+max_len = 46
+cutoff = 5
+missing_embed_to_zeros=True
+meta_filename = get_meta_filename(max_len, cutoff, missing_embed_to_zeros)
+with open('../data/processed/' + meta_filename,'rb') as f:
     meta = pickle.load(f)
+
 
 batch_size = 100
 drop_rate = 0.05

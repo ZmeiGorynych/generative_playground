@@ -1,5 +1,6 @@
 from collections import OrderedDict
 import frozendict
+from generative_playground.codec.parent_codec import GenericCodec
 from generative_playground.codec.hypergraph import HyperGraphFragment, HypergraphTree, replace_nonterminal, to_mol, MolToSmiles, MolFromSmiles
 from generative_playground.codec.hypergraph_parser import hypergraph_parser
 import networkx as nx
@@ -10,8 +11,8 @@ import numpy as np
 from pathlib import Path
 
 
-class HypergraphGrammar():
-    def __init__(self, cache_file=None, pad_index=0):
+class HypergraphGrammar(GenericCodec):
+    def __init__(self, cache_file=None, pad_index=0, max_len=None):
         self.id_by_parent = {'DONE': [0]} # from str(parent_node) to rule index
         self.parent_by_id = {0: 'DONE'} # from rule index to str(parent_node)
         self.rules = [None] # list of HyperGraphFragments
@@ -21,11 +22,14 @@ class HypergraphGrammar():
         self.terminal_distance_by_parent = {}
         self.rule_term_dist_deltas = []
         self.shortest_rule_by_parent = {}
-        # self.MAX_LEN = max_len
+        self.MAX_LEN = max_len # only used to pad string_to_actions output, factor out?
         self.pad_index = pad_index
 
     def __len__(self):
         return len(self.rules)
+
+    def feature_len(self):
+        return len(self)
 
     @classmethod
     def load(Class, filename):
@@ -42,14 +46,14 @@ class HypergraphGrammar():
         # just loop through the batch
         out = []
         for action_seq in actions:
-            rules = [self.rules[i] for i in action_seq if i >= 0]
+            rules = [self.rules[i] for i in action_seq if i >=0 and i != self.pad_index]
             graph = evaluate_rules(rules)
             mol = to_mol(graph)
             smiles = MolToSmiles(mol)
             out.append(smiles)
         return out
 
-    def string_to_actions(self, smiles, MAX_LEN=100):
+    def strings_to_actions(self, smiles, MAX_LEN=100):
         '''
         Convert a list of valid SMILES string to actions
         :param smiles: a list of valid SMILES strings
@@ -155,7 +159,7 @@ class HypergraphGrammar():
 
         return new_rule_index, {i: i for i in rule.node.keys()}# {i:i for i in rule.edges.keys()}
 
-class MaskGenerator:
+class HypergraphMaskGenerator:
     def __init__(self, max_len, grammar):
         self.grammar = grammar
         self.MAX_LEN = max_len

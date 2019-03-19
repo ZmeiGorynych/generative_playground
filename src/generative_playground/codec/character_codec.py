@@ -1,14 +1,15 @@
 import numpy as np
 # from generative_playground.models.decoders import OneStepDecoderContinuous, SimpleDiscreteDecoder
 # from generative_playground.models.policy import SoftmaxRandomSamplePolicy
-from generative_playground.codec.codec import GenericCodec
+from generative_playground.codec.parent_codec import GenericCodec
 
-class CharacterModel(GenericCodec):
+class CharacterCodec(GenericCodec):
     def __init__(self,
                  model = None,
                  max_len = None,
                  charlist = None
                  ):
+        self.set_model(model)
         self.charlist = charlist
         self._n_chars = len(charlist)
         # below is the shared code
@@ -16,13 +17,11 @@ class CharacterModel(GenericCodec):
         self._char_index = {}
         for ix, char in enumerate(self.charlist):
             self._char_index[char] = ix
-        #self.mask_gen = None
-        if model is not None:
-            self.vae = model
-            self.vae.eval()
-            self.decoder = self.vae.decoder
 
-    def string_to_actions(self, smiles):
+    def feature_len(self):
+        return len(self.charlist)
+
+    def strings_to_actions(self, smiles):
         actions = [[self._char_index[c] for c in entry] for entry in smiles]
         # now pad them to full length
         actions = np.array([a + [self._n_chars - 1] * (self.MAX_LEN - len(a)) for a in actions]).astype(int)

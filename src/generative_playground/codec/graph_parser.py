@@ -1,4 +1,4 @@
-from generative_playground.codec.hypergraph_grammar import MaskGenerator
+from generative_playground.codec.hypergraph_grammar import HypergraphMaskGenerator
 
 from generative_playground.codec.hypergraph_parser import hypergraph_parser, \
     check_validity
@@ -39,7 +39,7 @@ if __name__ == '__main__':
                 smile = MolToSmiles(MolFromSmiles(smile))
                 print(smile)
                 mol = MolFromSmiles(smile)
-                actions = rm.string_to_actions([smile])
+                actions = rm.strings_to_actions([smile])
                 re_smile = rm.decode_from_actions(actions)[0]
                 mol = MolFromSmiles(smile)
                 if re_smile != smile:
@@ -56,7 +56,7 @@ if __name__ == '__main__':
     batch_size = 10
     all_actions = []
     next_action = [None for _ in range(batch_size)]
-    mask_gen = MaskGenerator(max_rules, rm)
+    mask_gen = HypergraphMaskGenerator(max_rules, rm)
     while True:
         try:
             next_masks = mask_gen(next_action)

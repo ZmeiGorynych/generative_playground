@@ -195,6 +195,8 @@ def train_dependencies(EPOCHS=None,
         for lang in languages:
             print('loading', dtype, lang)
             with gzip.open(meta['files'][lang][dtype], 'rb') as f:
+                data = pickle.load(f)
+                print('loaded', len(data), 'records')
                 all_train_data.append(pickle.load(f))
         dataset = ConcatDataset(all_train_data)
         loader = torch.utils.data.DataLoader(dataset,

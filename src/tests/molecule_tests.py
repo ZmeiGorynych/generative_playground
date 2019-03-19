@@ -4,7 +4,7 @@ import numpy as np
 from unittest import TestCase
 from generative_playground.codec.hypergraph import to_mol, HyperGraphFragment
 from generative_playground.codec.hypergraph_parser import hypergraph_parser, graph_from_graph_tree
-from generative_playground.codec.hypergraph_grammar import evaluate_rules, HypergraphGrammar, MaskGenerator
+from generative_playground.codec.hypergraph_grammar import evaluate_rules, HypergraphGrammar, HypergraphMaskGenerator
 from rdkit.Chem import MolFromSmiles, AddHs, MolToSmiles, RemoveHs, Kekulize, BondType
 
 smiles = ['CC(C)(C)c1ccc2occ(CC(=O)Nc3ccccc3F)c2c1',
@@ -48,20 +48,20 @@ class TestStart(TestCase):
         # TODO: cheating a bit here, reconstruction does fail for some smiles
         # in particular, rearranging subtrees to allow for isomorphism sometimes screws up chirality
         g = HypergraphGrammar()
-        actions = g.string_to_actions(smiles)
+        actions = g.strings_to_actions(smiles)
         re_smiles = g.decode_from_actions(actions)
         for old, new in zip(smiles, re_smiles):
             assert old == new
 
     def test_mask_gen(self):
         g = HypergraphGrammar()
-        g.string_to_actions(smiles) # that initializes g with the rules from these molecules
+        g.strings_to_actions(smiles) # that initializes g with the rules from these molecules
         g.calc_terminal_distance()
         batch_size = 10
         max_rules = 50
         all_actions = []
         next_action = [None for _ in range(batch_size)]
-        mask_gen = MaskGenerator(max_rules, g)
+        mask_gen = HypergraphMaskGenerator(max_rules, g)
         while True:
             try:
                 next_masks = mask_gen(next_action)
