@@ -6,7 +6,7 @@ from generative_playground.codec.hypergraph_grammar import HypergraphGrammar, Hy
 from generative_playground.codec.mask_gen_new_2 import GrammarMaskGeneratorNew
 
 
-def get_codec(molecules, grammar, max_seq_length, grammar_cache=None):
+def get_codec(molecules, grammar, max_seq_length):
     if grammar is True:
         grammar = 'classic'
     # character-based models
@@ -28,7 +28,7 @@ def get_codec(molecules, grammar, max_seq_length, grammar_cache=None):
             codec = CFGrammarCodec(max_len=max_seq_length,
                            grammar=grammar_eq,
                            tokenizer=eq_tokenizer)
-            codec.mask_gen = GrammarMaskGenerator(max_seq_length, codec.grammar)
+        codec.mask_gen = GrammarMaskGenerator(max_seq_length, codec.grammar)
 
     elif grammar == 'new':
         codec = CFGrammarCodec(max_len=max_seq_length,
@@ -36,7 +36,8 @@ def get_codec(molecules, grammar, max_seq_length, grammar_cache=None):
                                tokenizer=zinc_tokenizer_new)
         codec.mask_gen = GrammarMaskGeneratorNew(max_seq_length, codec.grammar)
 
-    elif grammar == 'hypergraph':
+    elif 'hypergraph' in grammar:
+        grammar_cache = grammar.split(':')[1]
         assert grammar_cache is not None, "Invalid cached hypergraph grammar file:" + str(grammar_cache)
         codec = HypergraphGrammar.load(grammar_cache)
         codec.MAX_LEN = max_seq_length

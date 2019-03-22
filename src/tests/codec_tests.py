@@ -39,13 +39,11 @@ class TestStart(TestCase):
     def codec_test(self,
                    input,
                    molecules,
-                   grammar,
-                   grammar_cache=None):
+                   grammar):
         settings = get_settings(molecules, grammar)
         codec = get_codec(molecules,
                           grammar,
-                          settings['max_seq_length'],
-                          grammar_cache=grammar_cache)
+                          settings['max_seq_length'])
         actions = codec.strings_to_actions([input])
         re_input = codec.actions_to_strings(actions)
         self.assertEqual(input, re_input[0])
@@ -83,11 +81,11 @@ class TestStart(TestCase):
 
     def test_hypergraph_grammar_codec(self):
         molecules = True
-        grammar = 'hypergraph'
         input = smiles1
         grammar_cache = 'tmp.pickle'
+        grammar = 'hypergraph:' + grammar_cache
         # create a grammar cache inferred from our sample molecules
         g = HypergraphGrammar(cache_file=grammar_cache)
         g.strings_to_actions(smiles)
-        self.codec_test(input, molecules, grammar, grammar_cache=grammar_cache)
+        self.codec_test(input, molecules, grammar)
 

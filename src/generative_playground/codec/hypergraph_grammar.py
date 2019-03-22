@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from generative_playground.molecules.lean_settings import get_data_location
 import frozendict
 from generative_playground.codec.parent_codec import GenericCodec
 from generative_playground.codec.hypergraph import HyperGraphFragment, HypergraphTree, replace_nonterminal, to_mol, MolToSmiles, MolFromSmiles
@@ -59,7 +60,7 @@ class HypergraphGrammar(GenericCodec):
         :param smiles: a list of valid SMILES strings
         :return:
         '''
-        assert type(smiles) == list or type(smiles) == tuple
+        assert type(smiles) == list or type(smiles) == tuple, "Input must be a list or a tuple"
         actions = []
         for smile in smiles:
             these_actions = []
@@ -296,3 +297,22 @@ def evaluate_rules(rules):
         if rule is not None:  # None are the padding rules
             start_graph = apply_rule(start_graph, rule)
     return start_graph
+
+def init_grammar(filename, num_mols):
+    settings = get_data_location(molecules=True)
+    # Read in the strings
+    with open(settings['source_data'], 'r') as f:
+        L = []
+        for line in f:
+            line = line.strip()
+            L.append(line)
+            if len(L) > num_mols:
+                break
+
+    g = HypergraphGrammar(cache_file=filename)
+    for smiles in L:
+        try:
+            # this causes g to remember all the rules occurring in these molecules
+            g.strings_to_actions([smiles])
+        except Exception as e: #TODO: fix this, make errors not happen ;)
+            print(e)

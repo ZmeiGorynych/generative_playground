@@ -68,12 +68,12 @@ class TestStart(TestCase):
 
     def test_hypergraph_mask_gen(self):
         molecules = False
-        grammar = 'hypergraph'
         grammar_cache = 'tmp.pickle'
+        grammar = 'hypergraph:' + grammar_cache
         # create a grammar cache inferred from our sample molecules
         g = HypergraphGrammar(cache_file=grammar_cache)
         g.strings_to_actions(smiles)
-        codec = get_codec(molecules, grammar, max_seq_length, grammar_cache=grammar_cache)
+        codec = get_codec(molecules, grammar, max_seq_length)
         self.generate_and_validate(codec)
 
     def generate_and_validate(self, codec):

@@ -1,5 +1,5 @@
 import numpy as np
-
+from generative_playground.codec.codec import get_codec
 from generative_playground.molecules.model_settings import get_settings
 from rdkit import Chem
 
@@ -10,15 +10,16 @@ class SequenceEnvironment:
                  reward_fun=None,
                  batch_size=1,
                  max_steps=None,
-                 save_dataset=None):
+                 save_dataset=None,
+                 grammar_cache=None):
         settings = get_settings(molecules, grammar)
-        self.action_dim = settings['feature_len']
+        self.codec = get_codec(molecules, grammar, settings['max_seq_length'])
+        self.action_dim = self.codec.feature_len()
         self.state_dim = self.action_dim
         if max_steps is None:
             self._max_episode_steps = settings['max_seq_length']
         else:
             self._max_episode_steps = max_steps
-        self.codec = settings['codec']
         self.reward_fun = reward_fun
         self.batch_size = batch_size
         self.save_dataset = save_dataset
@@ -61,7 +62,7 @@ class SequenceEnvironment:
         for i in range(len(action)):
             if self.done_rewards[i] is None and done[i]:
                 this_action_seq = np.concatenate(self.actions, axis=1)[i:(i+1),:]
-                this_char_seq = self.codec.decode_from_actions(this_action_seq) # codec expects a batch
+                this_char_seq = self.codec.actions_to_strings(this_action_seq) # codec expects a batch
                 self.smiles[i] = this_char_seq[0]
                 this_mol = Chem.MolFromSmiles(self.smiles[i])
                 if this_mol is None:
