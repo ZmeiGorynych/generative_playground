@@ -15,7 +15,8 @@ class CFGrammarCodec(GenericCodec):
                  tokenizer=None,
                  rpe_rules=None):
         """ Load the (trained) zinc encoder/decoder, grammar model. """
-        self.set_model(model)
+        super().__init__()
+        # self.set_model(model)
         self.grammar = grammar
         # self._model = model
         self._tokenize = tokenizer

@@ -10,8 +10,7 @@ class SequenceEnvironment:
                  reward_fun=None,
                  batch_size=1,
                  max_steps=None,
-                 save_dataset=None,
-                 grammar_cache=None):
+                 save_dataset=None):
         settings = get_settings(molecules, grammar)
         self.codec = get_codec(molecules, grammar, settings['max_seq_length'])
         self.action_dim = self.codec.feature_len()
@@ -53,7 +52,7 @@ class SequenceEnvironment:
 
         next_state = action
         if len(self.actions) < self._max_episode_steps:
-            done = action == self.action_dim-1 # max index is padding, by convention
+            done = self.codec.is_padding(action) # max index is padding, by convention
         else:
             done = np.ones_like(action) == 1
 

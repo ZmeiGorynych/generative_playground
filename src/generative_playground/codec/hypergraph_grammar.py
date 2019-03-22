@@ -13,7 +13,7 @@ from pathlib import Path
 
 
 class HypergraphGrammar(GenericCodec):
-    def __init__(self, cache_file=None, pad_index=0, max_len=None):
+    def __init__(self, cache_file=None, max_len=None):
         self.id_by_parent = {'DONE': [0]} # from str(parent_node) to rule index
         self.parent_by_id = {0: 'DONE'} # from rule index to str(parent_node)
         self.rules = [None] # list of HyperGraphFragments
@@ -24,7 +24,7 @@ class HypergraphGrammar(GenericCodec):
         self.rule_term_dist_deltas = []
         self.shortest_rule_by_parent = {}
         self.MAX_LEN = max_len # only used to pad string_to_actions output, factor out?
-        self.pad_index = pad_index
+        self.PAD_INDEX = 0
 
     def __len__(self):
         return len(self.rules)
@@ -47,14 +47,14 @@ class HypergraphGrammar(GenericCodec):
         # just loop through the batch
         out = []
         for action_seq in actions:
-            rules = [self.rules[i] for i in action_seq if i >=0 and i != self.pad_index]
+            rules = [self.rules[i] for i in action_seq if not self.is_padding(i)]
             graph = evaluate_rules(rules)
             mol = to_mol(graph)
             smiles = MolToSmiles(mol)
             out.append(smiles)
         return out
 
-    def strings_to_actions(self, smiles, MAX_LEN=100):
+    def raw_strings_to_actions(self, smiles):
         '''
         Convert a list of valid SMILES string to actions
         :param smiles: a list of valid SMILES strings
@@ -69,7 +69,11 @@ class HypergraphGrammar(GenericCodec):
             tree = hypergraph_parser(mol)
             norm_tree = self.normalize_tree(tree)
             these_actions = [rule.rule_id for rule in norm_tree.rules()]
-            actions.append(these_actions + [self.pad_index] * (MAX_LEN - len(these_actions)))
+            actions.append(these_actions)
+        return actions
+
+    def strings_to_actions(self, list_of_action_lists, MAX_LEN=100):
+        actions = [a + [self.PAD_INDEX] * (MAX_LEN - len(a)) for a in list_of_action_lists ]
         return np.array(actions)
 
     def normalize_tree(self, tree):
@@ -153,7 +157,7 @@ class HypergraphGrammar(GenericCodec):
         self.id_by_parent[str(parent_node)].append(new_rule_index)
         self.parent_by_id[new_rule_index] = str(parent_node)
         self.rate_tracker.append((self.candidate_counter, len(self.rules)))
-        print(self.rate_tracker[-1])
+        # print(self.rate_tracker[-1])
         if self.cache_file is not None:
             with open(self.cache_file, 'wb') as f:
                 pickle.dump(self, f)
@@ -298,21 +302,58 @@ def evaluate_rules(rules):
             start_graph = apply_rule(start_graph, rule)
     return start_graph
 
-def init_grammar(filename, num_mols):
-    settings = get_data_location(molecules=True)
-    # Read in the strings
-    with open(settings['source_data'], 'r') as f:
-        L = []
-        for line in f:
-            line = line.strip()
-            L.append(line)
-            if len(L) > num_mols:
-                break
+class GrammarInitializer:
+    def __init__(self, filename):
+        self.grammar_filename = filename
+        self.own_filename = 'init_'+ filename
+        self.max_len = 0 # maximum observed number of rules so far
+        self.last_processed = -1
+        self.new_rules = []
+        if os.path.isfile(filename):
+            self.grammar = HypergraphGrammar.load(filename)
+        else:
+            self.grammar = HypergraphGrammar(cache_file=filename)
 
-    g = HypergraphGrammar(cache_file=filename)
-    for smiles in L:
-        try:
-            # this causes g to remember all the rules occurring in these molecules
-            g.strings_to_actions([smiles])
-        except Exception as e: #TODO: fix this, make errors not happen ;)
-            print(e)
+    def save(self):
+        with open(self.own_filename, 'wb') as f:
+            pickle.dump(self, f)
+
+    @classmethod
+    def load(Class, filename):
+        with open(filename, 'rb') as f:
+            out = pickle.load(f)
+        assert type(out) == Class
+        return out
+
+    def init_grammar(self, max_num_mols):
+        L = []
+        settings = get_data_location(molecules=True)
+        # Read in the strings
+        with open(settings['source_data'], 'r') as f:
+            for line in f:
+                line = line.strip()
+                L.append(line)
+
+        print('loaded data!')
+        for ind, smiles in enumerate(L):
+            if ind >= max_num_mols:
+                break
+            if ind > self.last_processed: # don't repeat
+                try:
+                    # this causes g to remember all the rules occurring in these molecules
+                    these_actions = self.grammar.raw_strings_to_actions([smiles])
+                    new_max_len = max([len(x) for x in these_actions])
+                    if new_max_len > self.max_len:
+                        self.max_len = new_max_len
+                        print("Max len so far:", self.max_len)
+                except Exception as e: #TODO: fix this, make errors not happen ;)
+                    print(e)
+                self.last_processed = ind
+                # if we discovered a new rule, remember that
+                if not len(self.new_rules) or self.grammar.rate_tracker[-1][-1] > self.new_rules[-1][-1]:
+                    self.new_rules.append((ind,*self.grammar.rate_tracker[-1]))
+                    print(self.new_rules[-1])
+            if ind % 10 == 9:
+                self.save()
+
+        return self.max_len # maximum observed molecule length

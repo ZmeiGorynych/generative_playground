@@ -20,6 +20,7 @@ class RandomDecoder(nn.Module):
         :return: batch x feature_len zeros
         '''
         # check we don't exceed max sequence length
+        self.n += 1
         if self.n == self.max_seq_length:
             raise StopIteration()
 

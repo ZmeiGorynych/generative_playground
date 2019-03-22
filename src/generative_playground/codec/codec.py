@@ -29,13 +29,11 @@ def get_codec(molecules, grammar, max_seq_length):
                            grammar=grammar_eq,
                            tokenizer=eq_tokenizer)
         codec.mask_gen = GrammarMaskGenerator(max_seq_length, codec.grammar)
-
     elif grammar == 'new':
         codec = CFGrammarCodec(max_len=max_seq_length,
                                grammar=grammar_zinc_new,
                                tokenizer=zinc_tokenizer_new)
         codec.mask_gen = GrammarMaskGeneratorNew(max_seq_length, codec.grammar)
-
     elif 'hypergraph' in grammar:
         grammar_cache = grammar.split(':')[1]
         assert grammar_cache is not None, "Invalid cached hypergraph grammar file:" + str(grammar_cache)
@@ -43,4 +41,5 @@ def get_codec(molecules, grammar, max_seq_length):
         codec.MAX_LEN = max_seq_length
         codec.calc_terminal_distance() # just in case it wasn't initialized yet
         codec.mask_gen = HypergraphMaskGenerator(max_seq_length, codec)
+    assert hasattr(codec, 'PAD_INDEX')
     return codec

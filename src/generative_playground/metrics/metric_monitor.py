@@ -16,7 +16,8 @@ class MetricPlotter:
                  plot_ignore_initial=0,
                  process_model_fun=None,
                  extra_metric_fun=None,
-                 smooth_weight=0.0):
+                 smooth_weight=0.0,
+                 frequent_calls=False):
         self.plot_prefix = plot_prefix
         self.process_model_fun = process_model_fun
         self.extra_metric_fun = extra_metric_fun
@@ -38,7 +39,8 @@ class MetricPlotter:
         try:
             from generative_playground.utils.visdom_helper import Dashboard
             if dashboard_name is not None:
-                self.vis = Dashboard(dashboard_name)
+                self.vis = Dashboard(dashboard_name,
+                                     call_every=10 if frequent_calls else 1)
                 self.have_visdom = True
         except:
             self.have_visdom = False
@@ -70,10 +72,10 @@ class MetricPlotter:
         self.plot_counter += 1
         if self.vis is not None and self.plot_counter > self.plot_ignore_initial and self.have_visdom:
             all_metrics = {}
-            if not train: # don't want to call it too often as it takes time
-                all_metrics['gpu_usage'] ={'type':'line',
-                                'X': np.array([self.plot_counter]),
-                                'Y':np.array([gpu_usage[0]])}
+            # if not train: # don't want to call it too often as it takes time
+            all_metrics['gpu_usage'] ={'type':'line',
+                            'X': np.array([self.plot_counter]),
+                            'Y':np.array([gpu_usage[0]])}
             all_metrics[loss_name] ={'type': 'line',
                             'X': np.array([self.plot_counter]),
                             'Y': np.array([min(self.loss_display_cap, loss)]),

@@ -10,7 +10,7 @@ from generative_playground.molecules.model_settings import get_settings
 from generative_playground.metrics.metric_monitor import MetricPlotter
 from generative_playground.utils.checkpointer import Checkpointer
 from generative_playground.models.problem.rl.task import SequenceGenerationTask
-from generative_playground.molecules.model_settings import get_decoder
+from generative_playground.models.decoder.decoder import get_decoder
 from generative_playground.models.losses.policy_gradient_loss import PolicyGradientLoss
 from generative_playground.models.decoder.policy import SoftmaxRandomSamplePolicy, PolicyFromTarget
 from generative_playground.data_utils.data_sources import train_valid_loaders

@@ -6,7 +6,8 @@ from generative_playground.models.losses.vae_loss import VAELoss
 from generative_playground.utils.fit import fit
 from generative_playground.data_utils.data_sources import DatasetFromHDF5, train_valid_loaders, TwinGenerator
 from generative_playground.utils.gpu_utils import use_gpu
-from generative_playground.molecules.model_settings import get_settings, get_model
+from generative_playground.molecules.model_settings import get_settings
+from generative_playground.models.heads.vae import get_vae
 from generative_playground.metrics.metric_monitor import MetricPlotter
 from generative_playground.utils.checkpointer import Checkpointer
 def train_vae(molecules = True,
@@ -45,15 +46,15 @@ def train_vae(molecules = True,
         settings['BATCH_SIZE'] = BATCH_SIZE
 
 
-    model,_ = get_model(molecules=molecules,
-                        grammar=grammar,
-                        drop_rate=drop_rate,
-                        sample_z = sample_z,
-                        rnn_encoder=encoder_type,
-                        decoder_type = decoder_type,
-                        weights_file=preload_path if preload_weights else None,
-                        epsilon_std=epsilon_std
-                        )
+    model,_ = get_vae(molecules=molecules,
+                      grammar=grammar,
+                      drop_rate=drop_rate,
+                      sample_z = sample_z,
+                      rnn_encoder=encoder_type,
+                      decoder_type = decoder_type,
+                      weights_file=preload_path if preload_weights else None,
+                      epsilon_std=epsilon_std
+                      )
 
     nice_params = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = optim.Adam(nice_params, lr=lr)

@@ -5,18 +5,28 @@ import numpy as np
 
 class GenericCodec:
     def __init__(self):
-        self.vae = None
-        self.decoder = None
+        # self.vae = None
+        # self.decoder = None
         # these have to be supplied by the implementations
         self.grammar = None
         self.MAX_LEN = None
+        self.PAD_INDEX = 'max' # TODO: largest possible index is pad index - want to change that to 0 eventually
 
-    # TODO: model shouldn't be entangled with the codec, take that out!
-    def set_model(self, model):
-        if model is not None:
-            self.vae = model
-            self.vae.eval()
-            self.decoder = self.vae.decoder
+    # # TODO: model shouldn't be entangled with the codec, take that out!
+    # def set_model(self, model):
+    #     if model is not None:
+    #         self.vae = model
+    #         self.vae.eval()
+    #         self.decoder = self.vae.decoder
+
+    def is_padding(self, x):
+        if self.PAD_INDEX == 'max':
+            return x == self.feature_len() -1
+        else:
+            return x == self.PAD_INDEX
+
+    def feature_len(self):
+        return NotImplementedError()
 
     def decode_from_actions(self, smiles):
         raise NotImplementedError()

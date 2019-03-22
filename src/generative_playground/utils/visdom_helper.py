@@ -8,7 +8,10 @@ import copy
 from frozendict import frozendict
 
 class Dashboard(Visdom):
-    def __init__(self, name, server='http://52.213.134.161', call_every=10):
+    def __init__(self,
+                 name,
+                 server='http://52.213.134.161',
+                 call_every=1):
         super(Dashboard, self).__init__(server=server)
         self.env = name
         self.plots = {}

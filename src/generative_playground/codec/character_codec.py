@@ -9,7 +9,8 @@ class CharacterCodec(GenericCodec):
                  max_len = None,
                  charlist = None
                  ):
-        self.set_model(model)
+        # self.set_model(model)
+        super().__init__()
         self.charlist = charlist
         self._n_chars = len(charlist)
         # below is the shared code

@@ -10,7 +10,8 @@ except:
     sys.path.append('../..')
     sys.path.append('../../../../transformer_pytorch')
 
-from generative_playground.molecules.model_settings import get_settings, get_model
+from generative_playground.molecules.model_settings import get_settings
+from generative_playground.models.heads.vae import get_vae
 from generative_playground.data_utils.data_sources import IncrementingHDF5Dataset
 from generative_playground.molecules.rdkit_utils.rdkit_utils  import get_score_components_from_mol
 
@@ -20,7 +21,7 @@ molecules = True
 grammar = 'new' #use True  for the grammar used by Kusner et al
 
 # can't define model class inside settings as it itself uses settings a lot
-_, my_model = get_model(molecules,grammar)
+_, my_model = get_vae(molecules, grammar)
 def pre_parser(x):
     try:
         return next(my_model._parser.parse(x))

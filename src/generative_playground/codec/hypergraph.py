@@ -446,11 +446,11 @@ def replace_nonterminal(orig_node, loc, new_node):
     new_node = new_node.clone()
     orig_node.validate()
     new_node.validate()
-    orig_node_copy = copy.deepcopy(orig_node)
-    new_node_copy = copy.deepcopy(new_node)
+    # orig_node_copy = copy.deepcopy(orig_node)
+    # new_node_copy = copy.deepcopy(new_node)
     node_to_replace = orig_node.node[loc]
     new_root_node = new_node.parent_node()
-    new_node = copy.deepcopy(new_node)
+    # new_node = copy.deepcopy(new_node)
     assert len(node_to_replace.edge_ids) == len(new_root_node.edge_ids)
     for edge1_id, edge2_id in zip(node_to_replace.edge_ids, new_root_node.edge_ids):
         edge1 = orig_node.edges[edge1_id]
