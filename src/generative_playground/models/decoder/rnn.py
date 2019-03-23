@@ -53,7 +53,7 @@ class SimpleRNNDecoder(nn.Module):
         else:
             if last_action is not None and last_action[0] is not None:
                 # if the above is false, it uses the original value of self.one_hot_action, which is zeros
-                self.one_hot_action = to_one_hot(last_action,
+                self.one_hot_action = to_one_hot(last_action.view(self.batch_size),
                                             n_dims=self.output_feature_size,
                                             out=self.one_hot_action)
 
