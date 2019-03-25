@@ -2,6 +2,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
+from generative_playground.models.decoder.stepper import Stepper
 import generative_playground.models.transformer.Constants as Constants
 from generative_playground.models.transformer.DecoderLayerStep import DecoderLayerStep
 from generative_playground.utils.gpu_utils import to_gpu, FloatTensor, LongTensor, ByteTensor
@@ -30,7 +31,7 @@ def get_attn_padding_mask(seq_q, seq_k, num_actions=Constants.PAD):
     return pad_attn_mask
 
 
-class SelfAttentionDecoderStep(nn.Module):
+class SelfAttentionDecoderStep(Stepper):
     ''' One continuous step of the decoder '''
     def __init__(self,
                  num_actions,
@@ -45,7 +46,7 @@ class SelfAttentionDecoderStep(nn.Module):
                  enc_output_size=76,
                  batch_size=None):
 
-        super().__init__()
+        super().__init__() # TODO: properly integrate this with the parent
         n_position = max_seq_len + 1 # Why the +1? Because of the dummy prev action for first step
         self.max_seq_len = max_seq_len
         self.d_model = d_model

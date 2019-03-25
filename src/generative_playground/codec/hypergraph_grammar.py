@@ -17,6 +17,7 @@ class HypergraphGrammar(GenericCodec):
         self.id_by_parent = {'DONE': [0]} # from str(parent_node) to rule index
         self.parent_by_id = {0: 'DONE'} # from rule index to str(parent_node)
         self.rules = [None] # list of HyperGraphFragments
+        self.node_data_index = OrderedDict()
         self.rate_tracker = []
         self.candidate_counter = 0
         self.cache_file = cache_file
@@ -72,7 +73,8 @@ class HypergraphGrammar(GenericCodec):
             actions.append(these_actions)
         return actions
 
-    def strings_to_actions(self, list_of_action_lists, MAX_LEN=100):
+    def strings_to_actions(self, smiles, MAX_LEN=100):
+        list_of_action_lists = self.raw_strings_to_actions(smiles)
         actions = [a + [self.PAD_INDEX] * (MAX_LEN - len(a)) for a in list_of_action_lists ]
         return np.array(actions)
 
@@ -151,8 +153,10 @@ class HypergraphGrammar(GenericCodec):
         # if got this far, no match so this is a new rule
         if no_new_rules:
             raise ValueError("Unknown rule hypergraph " + str(rule))
-        rule.is_rule = True
+        # rule.is_rule = True
         self.rules.append(rule)
+        for node in rule.node.values():
+            self.index_node_data(node)
         new_rule_index = len(self.rules)-1
         self.id_by_parent[str(parent_node)].append(new_rule_index)
         self.parent_by_id[new_rule_index] = str(parent_node)
@@ -162,7 +166,19 @@ class HypergraphGrammar(GenericCodec):
             with open(self.cache_file, 'wb') as f:
                 pickle.dump(self, f)
 
-        return new_rule_index, {i: i for i in rule.node.keys()}# {i:i for i in rule.edges.keys()}
+        return new_rule_index, {i: i for i in rule.node.keys()}
+
+    def index_node_data(self, node):
+        for fn in node.data.keys():
+            if fn not in self.node_data_index:
+                self.node_data_index[fn] = OrderedDict()
+            if node.data[fn] not in self.node_data_index[fn]:
+                self.node_data_index[fn][node.data[fn]] = len(self.node_data_index[fn])
+
+    def node_data_index_length(self):
+        # an extra slot needed for 'other' for each fieldname
+        return len(self.node_data_index) + sum([len(x) for x in self.node_data_index.values()])
+
 
 class HypergraphMaskGenerator:
     def __init__(self, max_len, grammar):

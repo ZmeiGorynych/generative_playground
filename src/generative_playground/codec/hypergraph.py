@@ -11,7 +11,11 @@ bond_types =[]
 # each edge is a FrozenDict with a random ID
 # each node is an OrderedDict with value 'edges' containing a list of edges, and optional other values from rdkit, and has a random ID too
 class Node:
-    def __init__(self, edge_ids=[], edges=None, graph = None, is_terminal=False, data={}):
+    def __init__(self, edge_ids=[],
+                 edges=None,
+                 graph=None,
+                 is_terminal=False,
+                 data={}):
         self.edge_ids = edge_ids
         self.data = data
         self.is_terminal = is_terminal

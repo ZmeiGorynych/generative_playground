@@ -5,9 +5,10 @@ from torch.nn import functional as F
 
 from generative_playground.data_utils.to_one_hot import to_one_hot
 from generative_playground.utils.gpu_utils import to_gpu, FloatTensor, device
+from generative_playground.models.decoder.stepper import Stepper
 
 
-class SimpleRNNDecoder(nn.Module):
+class SimpleRNNDecoder(Stepper):
     # implementation matches model_eq.py _buildDecoder, at least in intent
     def __init__(self,
                  z_size=200,
@@ -18,8 +19,8 @@ class SimpleRNNDecoder(nn.Module):
                  drop_rate = 0.0,
                  num_layers = 3,
                  use_last_action = False):
-        super(SimpleRNNDecoder, self).__init__()
-        self.max_seq_length = max_seq_length
+        super().__init__(feature_len=feature_len, max_seq_len=max_seq_length)
+        # self.max_seq_length = max_seq_length
         self.steps = steps
         if use_last_action:
             eff_z_size = z_size + feature_len
@@ -72,6 +73,7 @@ class SimpleRNNDecoder(nn.Module):
         :return: batch x steps x feature_len
         '''
         # check we don't exceed max sequence length
+        # TODO: use parent's method instead
         if self.n == self.max_seq_length:
             raise StopIteration()
 
@@ -127,14 +129,6 @@ class SimpleRNNDecoder(nn.Module):
             self.enc_output = None
             self.batch_size = None
         self.n = 0
-
-    # # TODO: remove this method!
-    # def decode(self, z):
-    #     if 'numpy' in str(type(z)):
-    #         z = Variable(FloatTensor(z))
-    #     self.reset_state()
-    #     output = self.forward(z)
-    #     return output.data.cpu().numpy()
 
     def init_hidden(self, batch_size):
         # NOTE: assume only 1 layer no bi-direction

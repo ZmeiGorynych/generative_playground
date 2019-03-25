@@ -1,7 +1,7 @@
 import torch
 from torch import nn as nn
 import numpy as np
-
+from generative_playground.models.decoder.stepper import Stepper
 from generative_playground.utils.gpu_utils import to_gpu, FloatTensor, LongTensor
 from generative_playground.models.decoder.policy import SimplePolicy
 sanity_checks = False
@@ -43,7 +43,7 @@ class OneStepDecoderContinuous(nn.Module):
 # TODO: split that in two decoders, with and without task
 class SimpleDiscreteDecoderWithEnv(nn.Module):
     def __init__(self,
-                 stepper,
+                 stepper: Stepper,
                  policy: SimplePolicy,
                  task=None,
                  mask_gen=None,
@@ -124,6 +124,8 @@ class SimpleDiscreteDecoderWithEnv(nn.Module):
             out_rewards_all = torch.cat([x.unsqueeze(1) for x in out_rewards], 1)
             out_terminals_all = torch.cat([x.unsqueeze(1) for x in out_terminals], 1)
             return out_actions_all, out_logits_all, out_rewards_all, out_terminals_all, (info[0], to_pytorch(info[1]))
+
+
 
 def to_pytorch(x):
     if 'ndarray' in str(type(x)):
