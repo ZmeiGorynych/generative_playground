@@ -12,12 +12,12 @@ from generative_playground.models.transformer.Layers import EncoderLayer, Decode
 __author__ = "Yu-Hsiang Huang, much refactored and amended by Egor Kraev"
 
 
-def get_attn_padding_mask(seq_q, seq_k, num_actions=Constants.PAD):
+def get_attn_padding_mask(seq_q, seq_k, padding_idx=Constants.PAD):
     ''' Indicate the padding-related part to mask '''
     assert seq_q.dim() == 2 and seq_k.dim() == 2
     mb_size, len_q = seq_q.size()
     mb_size, len_k = seq_k.size()
-    pad_attn_mask = seq_k.data.eq(num_actions).unsqueeze(1)   # bx1xsk
+    pad_attn_mask = seq_k.data.eq(padding_idx).unsqueeze(1)   # bx1xsk
     pad_attn_mask = pad_attn_mask.expand(mb_size, len_q, len_k) # bxsqxsk
     return pad_attn_mask
 
@@ -31,6 +31,19 @@ def get_attn_subsequent_mask(seq):
         subsequent_mask = subsequent_mask.cuda()
     return subsequent_mask
 
+def get_attn_padding_seq_from_tensor(x, padding_idx=Constants.PAD):
+    '''
+    Takes a 3D tensor and creates a mask, treating all-zero features as padding
+    :param x:
+    :param padding_idx:
+    :return:
+    '''
+    assert len(x.size()) == 3
+    non_pad_idx = 1 if padding_idx == 0 else 0
+    out = torch.ones(*(x.size()[:2])).to(dtype=torch.long)*non_pad_idx
+    elems_for_masking = (torch.sum(torch.abs(x),dim=2) == 0)
+    out[elems_for_masking] = padding_idx
+    return out
 
 class TransformerEncoder(nn.Module):
     ''' A encoder model with self attention mechanism. '''
@@ -48,7 +61,7 @@ class TransformerEncoder(nn.Module):
                  use_self_attention=False,
                  transpose_self_attention=False,
                  embedder=None,
-                 padding_idx=Constants.PAD  # TODO: remember to set this to n_src_vocab-1 when calling from my code!
+                 padding_idx=Constants.PAD # TODO: remember to set this to n_src_vocab-1 when calling from my code!
                  ):
 
         super(TransformerEncoder, self).__init__()
@@ -89,29 +102,33 @@ class TransformerEncoder(nn.Module):
         :return: batch_size x n_max_seq x d_model
         '''
 
-        enc_input, src_seq_for_masking = self.embedder(*args, **kwargs)
-        if self.include_self_attention:
-            enc_slf_attns = []
+        enc_input = self.embedder(*args, **kwargs)
+        if isinstance(enc_input, tuple):
+            enc_input, src_seq_for_masking = enc_input
+        else:
+            src_seq_for_masking = get_attn_padding_seq_from_tensor(enc_input)
+        # if self.include_self_attention:
+        #     enc_slf_attns = []
 
         enc_output = enc_input
         enc_slf_attn_mask = get_attn_padding_mask(src_seq_for_masking, src_seq_for_masking)
         for enc_layer in self.layer_stack:
             enc_output, enc_slf_attn = enc_layer(
                 enc_output, slf_attn_mask=enc_slf_attn_mask)
-            if self.include_self_attention:
-                enc_slf_attns += [enc_slf_attn]
+            # if self.include_self_attention:
+            #     enc_slf_attns += [enc_slf_attn]
 
         # if self.z_size is not None:
         #     enc_output = self.z_enc(enc_output.view(batch_size*seq_len,-1)).view(batch_size,seq_len,-1)
 
-        if False:#self.include_self_attention:
-            nice_attentions = [reshape_self_attention(x,
-                                                      self.n_head,
-                                                      len(enc_output),
-                                                      self.n_max_seq,
-                                                      self.transpose_self_attention) for x in enc_slf_attns]
-            enc_output = torch.cat([enc_output] + nice_attentions, dim=2)
-            enc_output = self.final_fc(F.relu(enc_output))
+        # if False:#self.include_self_attention:
+        #     nice_attentions = [reshape_self_attention(x,
+        #                                               self.n_head,
+        #                                               len(enc_output),
+        #                                               self.n_max_seq,
+        #                                               self.transpose_self_attention) for x in enc_slf_attns]
+        #     enc_output = torch.cat([enc_output] + nice_attentions, dim=2)
+        #     enc_output = self.final_fc(F.relu(enc_output))
 
         return enc_output
 

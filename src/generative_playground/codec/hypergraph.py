@@ -67,7 +67,7 @@ def graph_tree_to_rules_list(tree):
     return rules_list
 
 
-class HyperGraphFragment:
+class HyperGraph:
     def __init__(self):
         self.node = OrderedDict()  # of Nodes
         self.edges = OrderedDict() # of edges
@@ -77,7 +77,7 @@ class HyperGraphFragment:
         assert len(mapping) == len(self.node), "Invalid mapping length"
         node_list = list(self.node.items())
         new_node_list = [node_list[ind] for ind in mapping]
-        out = HyperGraphFragment()
+        out = HyperGraph()
         out.node = OrderedDict(new_node_list)
         out.edges = self.edges
         out.parent_node_id = self.parent_node_id
@@ -85,7 +85,7 @@ class HyperGraphFragment:
         return out
 
     def clone(self): #create a copy of self that uses different uuids
-        clone = HyperGraphFragment()
+        clone = HyperGraph()
         clone.add_edges(self.edges.values())
         edge_id_map = {old: new for old, new in zip(self.edges.keys(), clone.edges.keys())}
         for node_id, node in self.node.items():

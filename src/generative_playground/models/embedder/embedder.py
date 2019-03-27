@@ -21,7 +21,6 @@ def position_encoding_init(n_position, d_pos_vec):
 
 
 class InputSequenceNormalizer(nn.Module):
-
     def __init__(self):
         super().__init__()
 

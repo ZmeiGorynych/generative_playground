@@ -9,6 +9,7 @@ class TestGrammarInitializer(TestCase):
     def test_grammar_initializer(self):
         tmp_file = 'tmp.pickle'
         gi = GrammarInitializer(tmp_file)
+
         # delete the cached files
         if os.path.isfile(gi.own_filename):
             os.remove(gi.own_filename)

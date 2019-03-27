@@ -2,7 +2,7 @@ import logging
 import random
 import numpy as np
 from unittest import TestCase
-from generative_playground.codec.hypergraph import to_mol, HyperGraphFragment
+from generative_playground.codec.hypergraph import to_mol, HyperGraph
 from generative_playground.codec.hypergraph_parser import hypergraph_parser, graph_from_graph_tree
 from generative_playground.codec.hypergraph_grammar import evaluate_rules, HypergraphGrammar, HypergraphMaskGenerator
 from rdkit.Chem import MolFromSmiles, AddHs, MolToSmiles, RemoveHs, Kekulize, BondType
@@ -16,14 +16,14 @@ smiles1 = smiles[0]
 class TestStart(TestCase):
     def test_hypergraph_roundtrip(self):
         mol = MolFromSmiles(smiles1)
-        hg = HyperGraphFragment.from_mol(mol)
+        hg = HyperGraph.from_mol(mol)
         re_mol = to_mol(hg)
         re_smiles = MolToSmiles(re_mol)
         assert re_smiles == smiles1
 
     def test_hypergraph_via_nx_graph_roundtrip(self):
         mol = MolFromSmiles(smiles1)
-        hg = HyperGraphFragment.from_mol(mol)
+        hg = HyperGraph.from_mol(mol)
         re_mol = to_mol(hg.to_nx())
         re_smiles = MolToSmiles(re_mol)
         assert re_smiles == smiles1

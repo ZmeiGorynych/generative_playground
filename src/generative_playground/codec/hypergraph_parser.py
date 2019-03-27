@@ -3,7 +3,7 @@ from collections import OrderedDict
 from rdkit.Chem import MolFromSmiles, AddHs, MolToSmiles, RemoveHs, Kekulize, BondType
 from rdkit.Chem.rdmolops import Kekulize
 
-from generative_playground.codec.hypergraph import HyperGraphFragment, Node, HypergraphTree, replace_nonterminal
+from generative_playground.codec.hypergraph import HyperGraph, Node, HypergraphTree, replace_nonterminal
 
 
 def get_neighbors(mol, my_index):
@@ -91,7 +91,7 @@ def build_junction_tree(mol):
         if len(children):
             me['children'] = children
 
-        me['node'] = HyperGraphFragment.from_tree_node(mol, me)
+        me['node'] = HyperGraph.from_tree_node(mol, me)
 
         return me
 
@@ -99,7 +99,7 @@ def build_junction_tree(mol):
     return junction_tree_stage([0])
 
 
-def abstract_ring_atom(graph: HyperGraphFragment, loc):
+def abstract_ring_atom(graph: HyperGraph, loc):
     graph.validate()
     atom = graph.node[loc]
     # replace ring atoms with nonterminals that just have the connections necessary for the ring
@@ -112,7 +112,7 @@ def abstract_ring_atom(graph: HyperGraphFragment, loc):
     if len(internal_neighbor_ids) >= 2 and len(internal_neighbor_ids) < len(neighbors):
         # create the edges between the parent placeholder and the atom being abstracted
         new_edges = [copy.deepcopy(graph.edges[edge_id[0]]) for edge_id in internal_neighbor_ids]
-        new_graph = HyperGraphFragment()
+        new_graph = HyperGraph()
         new_graph.add_edges(new_edges)
         parent = Node(edge_ids=[x for x in new_graph.edges.keys()], edges=new_edges)
         old_new_edge_map = {old[0]: new for old, new in zip(internal_neighbor_ids, parent.edge_ids)}
@@ -159,13 +159,13 @@ def abstract_ring_atom(graph: HyperGraphFragment, loc):
         return None, None
 
 
-def abstract_atom(graph: HyperGraphFragment, loc):
+def abstract_atom(graph: HyperGraph, loc):
     atom = graph.node[loc]
     # replace ring atoms with nonterminals that just have the connections necessary for the ring
     assert atom.is_terminal, "We only can abstract terminal atoms!"
     new_edges = [copy.deepcopy(graph.edges[edge_id]) for edge_id in atom.edge_ids]
 
-    new_graph = HyperGraphFragment()
+    new_graph = HyperGraph()
     new_graph.add_edges(new_edges)
 
     atom_copy = Node(edge_ids=[x for x in new_graph.edges.keys()],

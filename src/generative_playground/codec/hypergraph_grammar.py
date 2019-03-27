@@ -2,8 +2,9 @@ from collections import OrderedDict
 from generative_playground.molecules.lean_settings import get_data_location
 import frozendict
 from generative_playground.codec.parent_codec import GenericCodec
-from generative_playground.codec.hypergraph import HyperGraphFragment, HypergraphTree, replace_nonterminal, to_mol, MolToSmiles, MolFromSmiles
+from generative_playground.codec.hypergraph import HyperGraph, HypergraphTree, replace_nonterminal, to_mol, MolToSmiles, MolFromSmiles
 from generative_playground.codec.hypergraph_parser import hypergraph_parser
+from generative_playground.molecules.data_utils.zinc_utils import get_zinc_smiles
 import networkx as nx
 import pickle
 import zipfile
@@ -137,7 +138,7 @@ class HypergraphGrammar(GenericCodec):
         for rule in rules:
             self.rule_to_index(rule)
 
-    def rule_to_index(self, rule: HyperGraphFragment, no_new_rules=False):
+    def rule_to_index(self, rule: HyperGraph, no_new_rules=False):
         self.candidate_counter +=1
         parent_node = rule.parent_node()
 
@@ -191,61 +192,133 @@ class HypergraphMaskGenerator:
         self.graphs = None
         self.t = 0
 
+    def apply_one_action(self, graph, last_action, expand_id):
+        # TODO: allow None action
+        last_rule = self.grammar.rules[last_action]
+        if graph is None:
+            # first call, graph is being created
+            assert last_rule.parent_node() is None, "The first rule in the sequence must have no parent node"
+            graph = last_rule.clone()
+        else:
+            if expand_id is not None:
+                graph = replace_nonterminal(graph,
+                                            expand_id,
+                                            last_rule)
+            else:
+                # no more nonterminals, nothing for us to do but assert rule validity
+                assert last_rule is None, "Trying to expand a graph with no nonterminals" # the padding rule
+        # validity check
+        assert graph.parent_node_id is None
+        return graph
+
+    def get_one_mask(self, graph, expand_id):
+        if graph is None:
+            next_rule_string = 'None'
+        else:
+            if expand_id is not None:
+                next_rule_string = str(graph.node[expand_id])
+            else:
+                next_rule_string = 'DONE'
+
+        free_rules_left = self.MAX_LEN - self.t - 1 - \
+                          self.grammar.terminal_distance(graph)
+
+        this_mask = self.grammar.get_mask(next_rule_string, free_rules_left)
+        return this_mask
+
     def __call__(self, last_action):
-        '''
-        Consumes one action at a time, responds with the mask for next action
-        : param last_action: previous action, array of ints of len = batch_size; None for the very first step
-        '''
+
+        # '''
+        # Consumes one action at a time, responds with the mask for next action, always expands last available node
+        # : param last_action: previous action, array of ints of len = batch_size; None for the very first step
+        # '''
+        # if self.t >= self.MAX_LEN:
+        #     raise StopIteration("maximum sequence length exceeded for decoder")
+        #
+        # # apply the last action
+        # if last_action[0] is None:
+        #     assert self.t == 0 and self.graphs is None, "Trying to apply a None action to initialized graphs"
+        #     # first call: get the batch size from the input
+        #     self.graphs = [None for _ in range(len(last_action))]
+        #     self.next_expand_location = copy.deepcopy(self.graphs)
+        # else:
+        #     # evaluate the rule; assume the rule is valid
+        #     for ind, graph, last_act in zip(range(len(self.graphs)),self.graphs, last_action):
+        #         new_graph = self.apply_one_action(graph, last_act)
+        #         self.graphs[ind] = new_graph
+        #
+        # # now go over the graphs and determine the next mask
+        #
+        #
+        # self.t += 1
+        self.apply_action(last_action)
+        return self.valid_action_mask()
+
+    def apply_action(self, last_action):
         if self.t >= self.MAX_LEN:
             raise StopIteration("maximum sequence length exceeded for decoder")
 
-        # apply the last action
+            # apply the last action
         if last_action[0] is None:
+            assert self.t == 0 and self.graphs is None, "Trying to apply a None action to initialized graphs"
             # first call
             self.graphs = [None for _ in range(len(last_action))]
+
         else:
             # evaluate the rule; assume the rule is valid
-            for ind, graph, last_act in zip(range(len(self.graphs)),self.graphs, last_action):
-                last_rule = self.grammar.rules[last_act]
-                if graph is None:
-                    # first call, graph is being created
-                    assert last_rule.parent_node() is None
-                    graph = last_rule.clone()
-                else:
-                    nonterminals_left = graph.nonterminal_ids()
-                    if len(nonterminals_left):
-                        # choose the next node to expand
-                        expand_location = nonterminals_left[-1]
-                        graph = replace_nonterminal(graph,
-                                                expand_location,
-                                                last_rule)
-                    else:
-                        # no more nonterminals, nothing for us to do but assert rule validity
-                        assert last_rule == None
-        # validity check
-                assert graph.parent_node_id is None
-                self.graphs[ind] = graph
-
-        # now go over the graphs and determine the next mask
-        masks = []
-        for graph in self.graphs:
-            if graph is None:
-                next_rule_string = 'None'
-            else:
-                nonterminals_left = graph.nonterminal_ids()
-                if len(nonterminals_left):
-                    expand_location = nonterminals_left[-1]
-                    next_rule_string = str(graph.node[expand_location])
-                else:
-                    next_rule_string = 'DONE'
-            free_rules_left = self.MAX_LEN - self.t - 1 - \
-                              self.grammar.terminal_distance(graph)
-
-            this_mask = self.grammar.get_mask(next_rule_string, free_rules_left)
-            masks.append(this_mask)
-
+            for ind, graph, last_act, exp_loc in \
+                    zip(range(len(self.graphs)), self.graphs, last_action, self.next_expand_location):
+                new_graph = self.apply_one_action(graph, last_act, exp_loc)
+                self.graphs[ind] = new_graph
+        # reset the expand locations
+        self.next_expand_location = [None for _ in range(len(self.graphs))]
         self.t += 1
+
+    def valid_action_mask(self):
+        masks = []
+        for graph, expand_loc in zip(self.graphs, self.next_expand_location):
+            this_mask = self.get_one_mask(graph, expand_loc)
+            masks.append(this_mask)
         return np.array(masks)
+
+
+    def valid_node_mask(self, max_nodes):
+        out = np.zeros((len(self.graphs), max_nodes))
+        for g, graph in enumerate(self.graphs):
+            child_ids = graph.child_ids()
+            for n, node_id in enumerate(graph.node.keys()):
+                if node_id in child_ids and n < max_nodes:
+                    out[g, n] = 1
+        return out
+
+
+    def pick_next_node_to_expand(self, node_idx):
+        if self.next_expand_location is None:
+            self.next_expand_location = [None for _ in range(len(node_idx))]
+        assert len(node_idx) == len(self.graphs), "Wrong number of node locations"
+        for i, graph, node_index in zip(range(len(self.graphs)), self.graphs, node_idx):
+            if graph is not None: # during the very first step graph is None, before first rule was picked
+                self.next_expand_location[i] = expand_index_to_id(graph, node_index)
+
+def expand_index_to_id(graph, expand_index=None):
+    '''
+    
+    :param graph: HyperGraph
+    :param expand_index: None or an index of the node in graph.node that we want to expand next
+    :return: id of the next node to expand, or None if we have nothing left to expand
+    '''
+    nonterminals_left = graph.nonterminal_ids()
+    if len(nonterminals_left):
+        if expand_index is None:
+            expand_id = nonterminals_left[-1]
+        else:
+            expand_id = list(graph.node.keys())[expand_index]
+            assert expand_id in nonterminals_left, \
+                "The proposed expand location is not valid"
+    else:
+        expand_id = None
+    return expand_id
+
 
 def hypergraphs_are_equivalent(graph1, graph2):
     def nodes_match(node1, node2):
@@ -342,15 +415,16 @@ class GrammarInitializer:
         return out
 
     def init_grammar(self, max_num_mols):
-        L = []
-        settings = get_data_location(molecules=True)
-        # Read in the strings
-        with open(settings['source_data'], 'r') as f:
-            for line in f:
-                line = line.strip()
-                L.append(line)
-
-        print('loaded data!')
+        # L = []
+        # settings = get_data_location(molecules=True)
+        # # Read in the strings
+        # with open(settings['source_data'], 'r') as f:
+        #     for line in f:
+        #         line = line.strip()
+        #         L.append(line)
+        #
+        # print('loaded data!')
+        L = get_zinc_smiles(max_num_mols)
         for ind, smiles in enumerate(L):
             if ind >= max_num_mols:
                 break
