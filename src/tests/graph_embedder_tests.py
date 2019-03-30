@@ -7,6 +7,9 @@ from generative_playground.codec.hypergraph import HyperGraph
 from generative_playground.codec.hypergraph_grammar import GrammarInitializer
 from generative_playground.models.embedder.graph_embedder import GraphEmbedder
 from generative_playground.molecules.data_utils.zinc_utils import get_zinc_molecules
+from generative_playground.models.decoder.graph_decoder import GraphEncoder
+from generative_playground.codec.codec import get_codec
+
 
 # create a grammar from scratch # TODO: later, want to load a cached grammar instead
 tmp_file = 'tmp.pickle'
@@ -39,4 +42,12 @@ class TestGraphEmbedder(TestCase):
         graphs = gi.grammar.rules[1:11] # the first rule is None, corresponding to the padding index
         out = ge(graphs)
 
+
+    def test_graph_encoder(self):
+        encoder = GraphEncoder(grammar=gi.grammar,
+                               d_model=512,
+                               drop_rate=0.0)
+        mol_graphs = [HyperGraph.from_mol(mol) for mol in get_zinc_molecules(5)]
+        out = encoder(mol_graphs)
+        print('success!')
 

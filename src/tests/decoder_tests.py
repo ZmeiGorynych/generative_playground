@@ -5,18 +5,27 @@ import os
 import torch
 from unittest import TestCase
 from generative_playground.models.decoder.decoder import get_decoder
+from generative_playground.models.decoder.graph_decoder import GraphEncoder
 from generative_playground.codec.codec import get_codec
 from generative_playground.codec.hypergraph_grammar import GrammarInitializer
+from generative_playground.models.heads import MultipleOutputHead
+from generative_playground.codec.hypergraph import HyperGraph
+from generative_playground.molecules.data_utils.zinc_utils import get_zinc_molecules
+from generative_playground.utils.gpu_utils import device
 
 # make sure there's a cached grammar for us to use
 tmp_file = 'tmp.pickle'
-if not os.path.isfile(tmp_file):
-    gi = GrammarInitializer(tmp_file)
-    gi.init_grammar(10)
+if os.path.isfile(tmp_file):
+    os.remove(tmp_file)
+if os.path.isfile('init_' + tmp_file):
+    os.remove('init_' + tmp_file)
+
+gi = GrammarInitializer(tmp_file)
+gi.init_grammar(10)
 
 z_size = 200
 batch_size = 5
-max_seq_length = 30
+max_seq_length = 50
 
 class TestDecoders(TestCase):
     def generic_decoder_test(self, decoder_type, grammar):
@@ -61,4 +70,26 @@ class TestDecoders(TestCase):
             print("testing ", decoder_type, g)
             out = self.generic_decoder_test(decoder_type, g)
 
-    # TODO: action_resnet is broken, maybe want to fix some day
+    def test_graph_encoder_with_head(self):
+        codec = get_codec(molecules=True,
+                          grammar='hypergraph:' + tmp_file,
+                          max_seq_length=max_seq_length)
+        encoder = GraphEncoder(grammar=gi.grammar,
+                               d_model=512,
+                               drop_rate=0.0)
+        mol_graphs = [HyperGraph.from_mol(mol) for mol in get_zinc_molecules(5)]
+        model = MultipleOutputHead(model=encoder,
+                                   output_spec={'node': 1,  # to be used to select next node to expand
+                                                'action': codec.feature_len()},  # to select the action for chosen node
+                                   drop_rate=0.1).to(device)
+        out = model(mol_graphs)
+
+
+    def test_graph_decoder(self):
+        decoder_type = 'attn_graph'
+        grammar = 'hypergraph:' + tmp_file
+        print("testing ", decoder_type, grammar)
+        out = self.generic_decoder_test(decoder_type, grammar)
+        print('success!')
+
+    # TODO: 'action_resnet' decoder is broken, maybe want to fix some day

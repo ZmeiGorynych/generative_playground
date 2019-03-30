@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 # from torch._C import device
-
+from generative_playground.utils.gpu_utils import device
 import generative_playground.models.transformer.Constants as Constants
 from generative_playground.models.embedder.embedder import Embedder
 from generative_playground.models.transformer.Layers import EncoderLayer, DecoderLayer
@@ -40,7 +40,7 @@ def get_attn_padding_seq_from_tensor(x, padding_idx=Constants.PAD):
     '''
     assert len(x.size()) == 3
     non_pad_idx = 1 if padding_idx == 0 else 0
-    out = torch.ones(*(x.size()[:2])).to(dtype=torch.long)*non_pad_idx
+    out = torch.ones(*(x.size()[:2]), dtype=torch.long, device=device)*non_pad_idx
     elems_for_masking = (torch.sum(torch.abs(x),dim=2) == 0)
     out[elems_for_masking] = padding_idx
     return out

@@ -50,6 +50,8 @@ class SoftmaxRandomSamplePolicy(SimplePolicy):
         _, out = torch.max(to_gpu(self.gumbel.sample(logits.shape)) + logits, -1)
         return out
 
+
+
 class PolicyFromTarget(SimplePolicy):
     '''
     Just returns the next row from a target int sequence - useful for computing losses for encoders

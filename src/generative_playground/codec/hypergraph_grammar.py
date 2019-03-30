@@ -34,6 +34,10 @@ class HypergraphGrammar(GenericCodec):
     def feature_len(self):
         return len(self)
 
+    @property
+    def grammar(self):
+        return self
+
     @classmethod
     def load(Class, filename):
         with open(filename, 'rb') as f:
@@ -109,7 +113,7 @@ class HypergraphGrammar(GenericCodec):
 
         for rule in self.rules:
             if rule is None:
-                rule_term_dist_delta = 0
+                rule_term_dist_delta = float('-inf') # the padding rule
             else:
                 rule_term_dist_delta = 1 + sum([self.terminal_distance_by_parent[str(child)] for child in rule.children()])\
                                    - self.terminal_distance_by_parent[str(rule.parent_node())]
@@ -285,10 +289,14 @@ class HypergraphMaskGenerator:
     def valid_node_mask(self, max_nodes):
         out = np.zeros((len(self.graphs), max_nodes))
         for g, graph in enumerate(self.graphs):
-            child_ids = graph.child_ids()
-            for n, node_id in enumerate(graph.node.keys()):
-                if node_id in child_ids and n < max_nodes:
-                    out[g, n] = 1
+            if graph is None: # no graph, return value will be used as a mask but the result ignored, so return al
+                out[g,:] = 1
+            else: # have a partially expanded graph, look for remaining nonterminals
+                assert isinstance(graph, HyperGraph)
+                child_ids = graph.child_ids()
+                for n, node_id in enumerate(graph.node.keys()):
+                    if node_id in child_ids and n < max_nodes:
+                        out[g, n] = 1
         return out
 
 

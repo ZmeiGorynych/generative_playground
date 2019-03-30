@@ -25,12 +25,11 @@ class MultipleOutputHead(nn.Module):
             self.fcs = nn.ModuleList(module_list)
             self.fcs_dict = None
             self.output_shape = [model.output_shape[:-1] + [s] for s in self.sizes]
-        else:
+        else: # assume output_spec is a dict
             module_dict = {key: self._get_module(val) for key,val in output_spec.items()}
             self.fcs_dict = nn.ModuleDict(module_dict)
             self.fcs = None
-            # TODO: fix this later
-            #self.output_shape = {label: model.output_shape[:-1] + [s] for label, s in zip(labels,self.sizes)}
+            self.output_shape = {label: model.output_shape[:-1] + [s] for label, s in self.output_spec.items()}
 
     def _get_module(self, spec):
         if isinstance(spec, nn.Module):
@@ -54,3 +53,12 @@ class MultipleOutputHead(nn.Module):
             out = [fc(out) for fc in self.fcs]
 
         return out
+
+    # def init_encoder_output(self, z):
+    #     '''
+    #     Must be called at the start of each new sequence
+    #     :param z: encoder output
+    #     :return: None
+    #     '''
+    #     assert hasattr(self.model,'init_encoder_output'), "The underlying model is missing the init_encoder_output method"
+    #     self.model.init_encoder_output(z)

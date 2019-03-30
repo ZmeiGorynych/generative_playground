@@ -35,20 +35,24 @@ def get_decoder(molecules=True,
                                           drop_rate=drop_rate)
         stepper = OneStepDecoderContinuous(stepper)
     elif decoder_type == 'attn_graph':
-        assert 'hypergraph' in grammar
+        assert 'hypergraph' in grammar, "Only the hypergraph grammar can be used with attn_graph decoder type"
         encoder = GraphEncoder(grammar=codec.grammar,
                                d_model=512,
                                drop_rate=drop_rate)
+
         model = MultipleOutputHead(model=encoder,
-                                   output_spec={'node':[], 'action':[]},
+                                   output_spec={'node': 1,  # to be used to select next node to expand
+                                                'action': codec.feature_len()}, # to select the action for chosen node
                                    drop_rate=drop_rate)
+
+        # don't support using this model in VAE-style scenarios yet
+        model.init_encoder_output = lambda x: None
+
         mask_gen = HypergraphMaskGenerator(max_len=max_seq_length,
                                       grammar=codec.grammar)
 
         stepper = GraphDecoder(model=model,
-                               mask_gen=mask_gen,
-                               grammar=codec.grammar,
-                               node_selection_policy=SoftmaxRandomSamplePolicy())
+                               mask_gen=mask_gen)
 
     else:
         if decoder_type == 'step':
