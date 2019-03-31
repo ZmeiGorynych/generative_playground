@@ -221,7 +221,7 @@ class HypergraphMaskGenerator:
         else:
             if expand_id is not None:
                 next_rule_string = str(graph.node[expand_id])
-            else:
+            else: # we're out of nonterminals, just use the padding rule
                 next_rule_string = 'DONE'
 
         free_rules_left = self.MAX_LEN - self.t - 1 - \
@@ -272,10 +272,11 @@ class HypergraphMaskGenerator:
             # evaluate the rule; assume the rule is valid
             for ind, graph, last_act, exp_loc in \
                     zip(range(len(self.graphs)), self.graphs, last_action, self.next_expand_location):
+                # exp_loc_id = expand_index_to_id(graph, exp_loc)
                 new_graph = self.apply_one_action(graph, last_act, exp_loc)
                 self.graphs[ind] = new_graph
         # reset the expand locations
-        self.next_expand_location = [None for _ in range(len(self.graphs))]
+        self.next_expand_location = [expand_index_to_id(graph, None) for graph in self.graphs]
         self.t += 1
 
     def valid_action_mask(self):
@@ -289,7 +290,7 @@ class HypergraphMaskGenerator:
     def valid_node_mask(self, max_nodes):
         out = np.zeros((len(self.graphs), max_nodes))
         for g, graph in enumerate(self.graphs):
-            if graph is None: # no graph, return value will be used as a mask but the result ignored, so return al
+            if graph is None: # no graph, return value will be used as a mask but the result ignored
                 out[g,:] = 1
             else: # have a partially expanded graph, look for remaining nonterminals
                 assert isinstance(graph, HyperGraph)
@@ -301,6 +302,11 @@ class HypergraphMaskGenerator:
 
 
     def pick_next_node_to_expand(self, node_idx):
+        '''
+        Sets the specific nonterminals to expand in the next step
+        :param node_idx:
+        :return: None
+        '''
         if self.next_expand_location is None:
             self.next_expand_location = [None for _ in range(len(node_idx))]
         assert len(node_idx) == len(self.graphs), "Wrong number of node locations"
@@ -311,10 +317,13 @@ class HypergraphMaskGenerator:
 def expand_index_to_id(graph, expand_index=None):
     '''
     
-    :param graph: HyperGraph
+    :param graph: HyperGraph or None for the first step
     :param expand_index: None or an index of the node in graph.node that we want to expand next
     :return: id of the next node to expand, or None if we have nothing left to expand
     '''
+    if graph is None:
+        return None # expand_id will be ignored as we'll be starting a new graph
+
     nonterminals_left = graph.nonterminal_ids()
     if len(nonterminals_left):
         if expand_index is None:

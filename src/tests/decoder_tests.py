@@ -24,8 +24,8 @@ gi = GrammarInitializer(tmp_file)
 gi.init_grammar(10)
 
 z_size = 200
-batch_size = 5
-max_seq_length = 50
+batch_size = 2
+max_seq_length = 30
 
 class TestDecoders(TestCase):
     def generic_decoder_test(self, decoder_type, grammar):
