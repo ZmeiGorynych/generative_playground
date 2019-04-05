@@ -73,7 +73,6 @@ class GraphDecoder(Stepper):
 class GraphEncoder(nn.Module):
     def __init__(self,
                  grammar,
-                 max_nodes=70,  # TODO: remove this parameter altogether
                  d_model=512,
                  drop_rate=0.1,
                  transformer_params={'n_layers': 6,
@@ -81,10 +80,9 @@ class GraphEncoder(nn.Module):
                                      'd_k': 64,
                                      'd_v': 64}):
         super().__init__()
-        self.embedder = GraphEmbedder(max_nodes, d_model, grammar)
+        self.embedder = GraphEmbedder(target_dim=d_model, grammar=grammar)
         # TODO: get the transformer parameters from model_settings, also d_model
         self.transformer = TransformerEncoder(n_src_vocab=None,
-                                              n_max_seq=max_nodes,
                                               d_model=d_model,
                                               dropout=drop_rate,
                                               embedder=self.embedder,

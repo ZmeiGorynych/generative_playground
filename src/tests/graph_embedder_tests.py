@@ -27,7 +27,7 @@ first_10 = gi.init_grammar(10)
 
 class TestGraphEmbedder(TestCase):
     def test_graph_embedder_on_complete_hypergraphs(self):
-        ge = GraphEmbedder(max_nodes=100, target_dim=512, grammar=gi.grammar)
+        ge = GraphEmbedder(target_dim=512, grammar=gi.grammar)
         mol_graphs = [HyperGraph.from_mol(mol) for mol in get_zinc_molecules(5)]
         out = ge(mol_graphs)
 
@@ -38,7 +38,7 @@ class TestGraphEmbedder(TestCase):
     #     out = ge([mg.to_nx() for mg in mol_graphs])
 
     def test_graph_embedder_on_hgs_with_nonterminals(self):
-        ge = GraphEmbedder(100, target_dim=512, grammar=gi.grammar)
+        ge = GraphEmbedder(target_dim=512, grammar=gi.grammar)
         graphs = gi.grammar.rules[1:11] # the first rule is None, corresponding to the padding index
         out = ge(graphs)
 

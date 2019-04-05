@@ -18,7 +18,7 @@ class EncoderLayer(nn.Module):
         self.slf_attn = MultiHeadAttention(
             n_head, d_model, d_k, d_v, dropout=dropout)
         self.pos_ffn = PositionwiseFeedForward(d_model, d_inner_hid, dropout=dropout)
-        if self.use_attentions is not None:
+        if self.use_attentions is not None and self.use_attentions:
             self.n_max_seq = n_max_seq
             both_mult = 2 if self.use_attentions=='both' else 1
             self.attn_fc = nn.Linear(d_model + both_mult*n_head*n_max_seq, d_model)
@@ -27,7 +27,7 @@ class EncoderLayer(nn.Module):
         batch_size = enc_input.size()[0]
         enc_output, enc_slf_attn = self.slf_attn(
             enc_input, enc_input, enc_input, attn_mask=slf_attn_mask)
-        if self.use_attentions is not None:
+        if self.use_attentions is not None and self.use_attentions:
             self_attn_nice = reshape_self_attention(enc_slf_attn,
                                                     self.n_head,
                                                     batch_size,

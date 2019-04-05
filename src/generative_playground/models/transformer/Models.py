@@ -49,8 +49,8 @@ class TransformerEncoder(nn.Module):
     ''' A encoder model with self attention mechanism. '''
 
     def __init__(self,
-                 n_src_vocab,  # feature_len
-                 n_max_seq,
+                 n_src_vocab=None,  # feature_len
+                 n_max_seq=None, # only required when use_self_attention = True # TODO: is it needed even then?
                  n_layers=6,  #6,
                  n_head=8,  #6,
                  d_k=64,  #16,
@@ -88,10 +88,11 @@ class TransformerEncoder(nn.Module):
                          n_max_seq=n_max_seq,
                          use_attentions=use_self_attention)
             for _ in range(n_layers)])
-        both_mult = 2 if transpose_self_attention=='both' else 1
-        self.final_fc = nn.Linear(d_model + both_mult*n_head*n_max_seq*n_layers, d_model)
+        # both_mult = 2 if transpose_self_attention=='both' else 1
+        # self.final_fc = nn.Linear(d_model + both_mult*n_head*n_max_seq*n_layers, d_model)
 
         self.output_shape = [None, n_max_seq, d_model]
+        self.to(device=device)
 
     def forward(self, *args, **kwargs):
         '''
