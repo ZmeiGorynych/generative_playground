@@ -42,7 +42,7 @@ class GraphDecoder(Stepper):
         # it remembers the node to apply it to from the previous step
         self.mask_gen.apply_action(last_action)
         model_out = self.model(self.mask_gen.graphs)  # batch x num_nodes, batch x num_nodes x num_actions
-        node_mask = self.mask_gen.valid_node_mask(max_nodes=self.model.output_shape['node'][1])
+        node_mask = self.mask_gen.valid_node_mask()
 
         # this is a hacky workaround to always select the last valid node, will deal with arbitrary node selection later
         next_node = []

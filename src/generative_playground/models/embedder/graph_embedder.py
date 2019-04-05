@@ -33,17 +33,18 @@ class GraphEmbedder(nn.Module):
         """
         # the very first time, we need to pick the starting node, so all the graphs passed in will be None
         batch_size = len(graphs)
+        if all([graph is None for graph in graphs]):
+            return 0.1*torch.ones(batch_size, 1, self.output_shape[-1], device=device)
+
+        # if we got this far, it's not the first step anymore
+        for graph in graphs:
+            assert isinstance(graph, HyperGraph) or isinstance(graph, nx.Graph), "Wrong input type:" + str(
+                type(graph))
+
         this_max_nodes = max([len(g) for g in graphs])
         # TODO: log if this is > self.max_nodes
         this_pre_output_shape = (batch_size, this_max_nodes, self.pre_output_shape[-1])
         this_output_shape = (batch_size,  this_max_nodes, self.output_shape[-1])
-
-        if all([graph is None for graph in graphs]):
-            return 0.1*torch.ones(*this_output_shape, device=device)
-
-        # if we got this far, it's not the first step anymore
-        for graph in graphs:
-            assert isinstance(graph, HyperGraph) or isinstance(graph, nx.Graph), "Wrong input type:" + str(type(graph))
 
         out = torch.zeros(*this_pre_output_shape, device=device)
 

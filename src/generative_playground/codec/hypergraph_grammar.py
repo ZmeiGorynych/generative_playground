@@ -287,7 +287,8 @@ class HypergraphMaskGenerator:
         return np.array(masks)
 
 
-    def valid_node_mask(self, max_nodes):
+    def valid_node_mask(self):
+        max_nodes = max([1 if g is None else len(g) for g in self.graphs])
         out = np.zeros((len(self.graphs), max_nodes))
         for g, graph in enumerate(self.graphs):
             if graph is None: # no graph, return value will be used as a mask but the result ignored
