@@ -2,8 +2,9 @@ import torch
 from torch import nn as nn
 from torch.autograd import Variable
 from torch.distributions import Gumbel
+import numpy as np
 
-from generative_playground.utils.gpu_utils import to_gpu
+from generative_playground.utils.gpu_utils import device
 
 
 class SimplePolicy(nn.Module):
@@ -38,16 +39,27 @@ class SoftmaxRandomSamplePolicy(SimplePolicy):
     TODO: should probably switch that to something more like
     http://pytorch.org/docs/master/distributions.html
     '''
-    def __init__(self):
+    def __init__(self, bias=None):
+        '''
+
+        :param bias: a vector of log frequencies, to bias the sampling towards what we want
+        '''
         super().__init__()
         self.gumbel = Gumbel(loc=0, scale=1)
+        if bias is not None:
+            self.bias = torch.from_numpy(np.array(bias)).to(dtype=torch.float32, device=device).unsqueeze(0)
+        else:
+            self.bias = None
     def forward(self, logits: Variable):
         '''
 
-        :param logits: Logits to generate probabilities from
+        :param logits: Logits to generate probabilities from, batch_size x out_dim float32
         :return:
         '''
-        _, out = torch.max(to_gpu(self.gumbel.sample(logits.shape)) + logits, -1)
+        x = self.gumbel.sample(logits.shape).to(device) + logits
+        if self.bias is not None:
+            x += self.bias
+        _, out = torch.max(x, -1)
         return out
 
 

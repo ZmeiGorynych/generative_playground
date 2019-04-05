@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from generative_playground.molecules.lean_settings import get_data_location
+from generative_playground.molecules.lean_settings import get_data_location, molecules_root_location
 import frozendict
 from generative_playground.codec.parent_codec import GenericCodec
 from generative_playground.codec.hypergraph import HyperGraph, HypergraphTree, replace_nonterminal, to_mol, MolToSmiles, MolFromSmiles
@@ -11,17 +11,25 @@ import zipfile
 import os, copy
 import numpy as np
 from pathlib import Path
+import math
+
+grammar_data_location = molecules_root_location + 'data/grammar/'
+
+
+def full_location(filename):
+    return grammar_data_location + filename
 
 
 class HypergraphGrammar(GenericCodec):
     def __init__(self, cache_file=None, max_len=None):
         self.id_by_parent = {'DONE': [0]} # from str(parent_node) to rule index
         self.parent_by_id = {0: 'DONE'} # from rule index to str(parent_node)
-        self.rules = [None] # list of HyperGraphFragments
+        self.rules = [None]# list of HyperGraphFragments
+        self.rule_frequency_dict = {}
         self.node_data_index = OrderedDict()
         self.rate_tracker = []
         self.candidate_counter = 0
-        self.cache_file = cache_file
+        self.cache_file = full_location(cache_file)
         self.terminal_distance_by_parent = {}
         self.rule_term_dist_deltas = []
         self.shortest_rule_by_parent = {}
@@ -30,6 +38,7 @@ class HypergraphGrammar(GenericCodec):
 
     def __len__(self):
         return len(self.rules)
+
 
     def feature_len(self):
         return len(self)
@@ -40,9 +49,15 @@ class HypergraphGrammar(GenericCodec):
 
     @classmethod
     def load(Class, filename):
-        with open(filename, 'rb') as f:
+        with open(full_location(filename), 'rb') as f:
             self = pickle.load(f)
         return self
+
+    def get_log_frequencies(self):
+        out = -10 * np.ones(len(self.rules))
+        for ind, value in self.rule_frequency_dict.items():
+            out[ind] = math.log(value)
+        return out
 
     def decode_from_actions(self, actions):
         '''
@@ -410,20 +425,31 @@ def evaluate_rules(rules):
     return start_graph
 
 class GrammarInitializer:
+
+
     def __init__(self, filename):
-        self.grammar_filename = filename
-        self.own_filename = 'init_'+ filename
+        self.grammar_filename = self.full_grammar_filename(filename)
+        self.own_filename = self.full_own_filename(filename)
         self.max_len = 0 # maximum observed number of rules so far
         self.last_processed = -1
         self.new_rules = []
-        if os.path.isfile(filename):
+        self.frequency_dict = {}
+        if os.path.isfile(self.grammar_filename):
             self.grammar = HypergraphGrammar.load(filename)
         else:
             self.grammar = HypergraphGrammar(cache_file=filename)
 
+    def full_grammar_filename(self, filename):
+        return grammar_data_location + filename
+
+    def full_own_filename(self, filename):
+        return grammar_data_location + 'init_' + filename
+
     def save(self):
         with open(self.own_filename, 'wb') as f:
             pickle.dump(self, f)
+        with open(self.grammar_filename, 'wb') as f:
+            pickle.dump(self.grammar, f)
 
     @classmethod
     def load(Class, filename):
@@ -432,16 +458,9 @@ class GrammarInitializer:
         assert type(out) == Class
         return out
 
+
+
     def init_grammar(self, max_num_mols):
-        # L = []
-        # settings = get_data_location(molecules=True)
-        # # Read in the strings
-        # with open(settings['source_data'], 'r') as f:
-        #     for line in f:
-        #         line = line.strip()
-        #         L.append(line)
-        #
-        # print('loaded data!')
         L = get_zinc_smiles(max_num_mols)
         for ind, smiles in enumerate(L):
             if ind >= max_num_mols:
@@ -450,6 +469,13 @@ class GrammarInitializer:
                 try:
                     # this causes g to remember all the rules occurring in these molecules
                     these_actions = self.grammar.raw_strings_to_actions([smiles])
+                    # count the frequency of the occurring rules
+                    for aa in these_actions:
+                        for a in aa:
+                            if a not in self.grammar.rule_frequency_dict:
+                                self.grammar.rule_frequency_dict[a] = 0
+                            self.grammar.rule_frequency_dict[a] += 1
+
                     new_max_len = max([len(x) for x in these_actions])
                     if new_max_len > self.max_len:
                         self.max_len = new_max_len

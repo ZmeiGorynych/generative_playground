@@ -1,4 +1,4 @@
-from generative_playground.molecules.lean_settings import root_location, get_data_location
+from generative_playground.molecules.lean_settings import molecules_root_location, get_data_location
 
 
 # in the desired end state, this file will contain every single difference between the different codec
@@ -12,7 +12,7 @@ def get_settings(molecules=True, grammar=True):
     data_location = get_data_location(molecules)
     if molecules:
         settings = {'source_data': data_location['source_data'],
-                    'data_path': root_location + 'data/zinc_grammar_dataset.h5',
+                    'data_path': molecules_root_location + 'data/zinc_grammar_dataset.h5',
                     'filename_stub': 'grammar_zinc_' + str(grammar) + '_',
                     'decoder_hidden_n': 501,
                     'cnn_encoder_params': {'kernel_sizes': (9, 9, 11),
@@ -49,7 +49,7 @@ def get_settings(molecules=True, grammar=True):
 
     else: # equations encoding-decoding
         settings = {'source_data': data_location['source_data'],
-                    'data_path': root_location + 'data/eq2_grammar_dataset.h5',
+                    'data_path': molecules_root_location + 'data/eq2_grammar_dataset.h5',
                     'z_size': 25,
                     'decoder_hidden_n': 100,
                     'cnn_encoder_params': {'kernel_sizes': (2, 3, 4),

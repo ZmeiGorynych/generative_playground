@@ -7,7 +7,7 @@ from generative_playground.codec.hypergraph_grammar import GrammarInitializer
 
 class TestGrammarInitializer(TestCase):
     def test_grammar_initializer(self):
-        tmp_file = 'tmp.pickle'
+        tmp_file = 'tmp1.pickle'
         gi = GrammarInitializer(tmp_file)
 
         # delete the cached files
@@ -20,3 +20,6 @@ class TestGrammarInitializer(TestCase):
         # load the resulting object
         gi2 = GrammarInitializer.load(gi.own_filename)
         gi2.init_grammar(20)
+
+        freqs = gi2.grammar.get_log_frequencies()
+        assert len(freqs) == len(gi2.grammar)
