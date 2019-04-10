@@ -67,7 +67,7 @@ if os.path.isfile(go):
     gi = GrammarInitializer.load(go)
     max_steps = gi.max_len + 1
 else:
-    max_steps = gi.init_grammar(500)
+    max_steps = gi.init_grammar(100)
     # TODO: remove this l
 max_steps = 30
 model, fitter1 = train_policy_gradient(molecules,

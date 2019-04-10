@@ -46,7 +46,6 @@ def get_settings(molecules=True, grammar=True):
                              })
 
 
-
     else: # equations encoding-decoding
         settings = {'source_data': data_location['source_data'],
                     'data_path': molecules_root_location + 'data/eq2_grammar_dataset.h5',

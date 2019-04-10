@@ -1,6 +1,8 @@
+import torch
 from torch import nn as nn
 from torch.nn import functional as F
-
+from generative_playground.models.transformer.SubLayers import MultiHeadAttention
+from generative_playground.utils.gpu_utils import device
 
 class AttentionAggregatingHead(nn.Module):
     def __init__(self, model, drop_rate=0.1):
@@ -31,3 +33,40 @@ class AttentionAggregatingHead(nn.Module):
         # and use them to aggregate
         out = (attn_wgt * self.dropout_2(model_out)).sum(1)
         return out
+
+
+class MultiheadAttentionAggregatingHead(nn.Module):
+    def __init__(self, model, drop_rate=0.1, n_head=6, d_k=64, d_v=64):
+        super().__init__()
+        self.model = model.to(device)
+        self.attention = MultiHeadAttention(n_head=n_head,
+                                            d_model=self.model.output_shape[-1],
+                                            d_k=d_k,
+                                            d_v=d_v,
+                                            dropout=drop_rate
+                                            ).to(device)
+        self.key = torch.zeros(1,
+                                  1,
+                                  self.model.output_shape[-1],
+                                  dtype=torch.float32,
+                                  device=device,
+                                  requires_grad=True)
+        nn.init.xavier_uniform_(self.key)
+        self.output_shape = [model.output_shape[0], model.output_shape[2]]
+
+    def forward(self, x):
+        # TODO: propagate masks too?
+        model_out = self.model(x)
+        keys = self.key.expand(model_out.size(0),1,-1)
+        out, _ = self.attention(keys, model_out, model_out, attn_mask=None)
+        return out[:,0,:]
+
+class FirstSequenceElementHead(nn.Module):
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+        self.output_shape = [model.output_shape[0], model.output_shape[2]]
+
+    def forward(self, *input):
+        out = self.model(*input)
+        return out[:,0,:]

@@ -48,7 +48,7 @@ def get_ring_mask(this_token, grammar, ring_num_map=None, this_S=None, this_inde
         ring_mask = np.ones([len(grammar.GCFG.productions())])
     return ring_mask
 
-def apply_rule(S, this_index, this_rule, grammar, checks=True):
+def apply_rule(S, this_index, this_rule, grammar, checks=False):
     this_token = dict(S[this_index])
     this_inner_token = this_token['token']
     # do some safety checks
@@ -219,7 +219,7 @@ class TerminalDistanceCalculator:
 term_dist_calc = TerminalDistanceCalculator()
 
 class GrammarMaskGeneratorNew:
-    def __init__(self, MAX_LEN, grammar, sanity_checks=True):
+    def __init__(self, MAX_LEN, grammar, sanity_checks=False):
         self.MAX_LEN = MAX_LEN
         self.grammar = grammar
         self.do_terminal_mask = True

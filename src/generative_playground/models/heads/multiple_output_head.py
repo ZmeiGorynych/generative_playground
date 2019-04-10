@@ -12,7 +12,7 @@ class MultipleOutputHead(nn.Module):
         Takes a model that outputs an array of Floats and does a bunch of linear transforms on it
         # TODO: should we be including a relu here?
         :param model: The upstream model whose output we're processing
-        :param output_dims: a list or a dict, values are either ints or modules
+        :param output_spec: a list or a dict, values are either ints or modules
         :param drop_rate:
         :param labels:
         '''
@@ -24,7 +24,7 @@ class MultipleOutputHead(nn.Module):
             module_list =[to_gpu(self._get_module(s)) for s in self.output_spec]
             self.fcs = nn.ModuleList(module_list)
             self.fcs_dict = None
-            self.output_shape = [model.output_shape[:-1] + [s] for s in self.sizes]
+            self.output_shape = [model.output_shape[:-1] + [s] for s in self.output_spec]
         else: # assume output_spec is a dict
             module_dict = {key: self._get_module(val) for key,val in output_spec.items()}
             self.fcs_dict = nn.ModuleDict(module_dict)

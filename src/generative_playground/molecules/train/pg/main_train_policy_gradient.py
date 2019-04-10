@@ -67,12 +67,11 @@ def train_policy_gradient(molecules = True,
                            grammar,
                            z_size=settings['z_size'],
                            decoder_hidden_n=200,
-                           feature_len=settings['feature_len'],
+                           feature_len=None, # made redundant, need to factor it out
                            max_seq_length=max_steps,
                            drop_rate=drop_rate,
                            decoder_type=decoder_type,
-                           task=task,
-                           sanity_checks=sanity_checks)[0]
+                           task=task)[0]
     model = get_model()
 
     if preload_file is not None:
