@@ -44,7 +44,7 @@ def reward_aromatic_rings(smiles):
     return [-1 if num is None else num + 0.5 for num in atoms]
 
 
-batch_size = 2#20
+batch_size = 4#20
 drop_rate = 0.3
 molecules = True
 grammar_cache = 'hyper_grammar.pickle'
@@ -80,7 +80,7 @@ model, fitter1 = train_policy_gradient(molecules,
                                        drop_rate=drop_rate,
                                        decoder_type='attn_graph',#'attention',
                                        plot_prefix='rings ',
-                                       dashboard=None,#''hypergraph',  # 'policy gradient',
+                                       dashboard='hypergraph',  # 'policy gradient',
                                        save_file='policy_gradient_hg1.h5',
                                        smiles_save_file='pg_smiles_hg1.h5',
                                        on_policy_loss_type='best',

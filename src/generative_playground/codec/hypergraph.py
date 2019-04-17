@@ -215,6 +215,11 @@ class HyperGraph:
             new_node['edges'] = [edge_map[edge] if edge in edge_map else edge for edge in node_['edges']]
             self.node.append(new_node)
 
+    def to_mol(self):
+        return to_mol(self)
+
+    def to_smiles(self):
+        return MolToSmiles(self.to_mol())
 
     @classmethod
     def from_mol(Class, mol):
@@ -248,6 +253,8 @@ class HyperGraph:
 
 
         return self
+
+
 
     @classmethod
     def from_tree_node(Class, mol, tree_node):

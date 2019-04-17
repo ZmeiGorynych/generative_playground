@@ -1,7 +1,9 @@
 from generative_playground.molecules.lean_settings import get_data_location
 from rdkit.Chem import MolFromSmiles, AddHs, MolToSmiles, RemoveHs, Kekulize, BondType
 
-def get_zinc_smiles(num=10):
+def get_zinc_smiles(num=None):
+    if num is None:
+        num = float('inf') # get all molecules
     L = []
     settings = get_data_location(molecules=True)
     # Read in the strings

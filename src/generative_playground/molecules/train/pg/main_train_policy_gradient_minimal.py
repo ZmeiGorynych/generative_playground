@@ -1,7 +1,9 @@
 import os, inspect
+from collections import deque
 import torch.optim as optim
 from torch.optim import lr_scheduler
 import torch
+from torch.utils.data import DataLoader
 
 from generative_playground.utils.fit_rl import fit_rl
 from generative_playground.data_utils.data_sources import DatasetFromHDF5
@@ -16,7 +18,7 @@ from generative_playground.models.decoder.policy import SoftmaxRandomSamplePolic
 from generative_playground.data_utils.data_sources import train_valid_loaders
 from generative_playground.data_utils.data_sources import IncrementingHDF5Dataset
 from generative_playground.codec.codec import get_codec
-
+from generative_playground.molecules.data_utils.zinc_utils import get_zinc_smiles
 
 def train_policy_gradient(molecules=True,
                           grammar=True,
@@ -86,11 +88,12 @@ def train_policy_gradient(molecules=True,
     scorer = NormalizedScorer()
 
     def model_process_fun(model_out, visdom, n):
+        # TODO: rephrase this to return a dict, instead of calling visdom directly
         from rdkit import Chem
         from rdkit.Chem.Draw import MolToFile
-        actions, logits, rewards, terminals, info = model_out
-        smiles, valid = info
-        total_rewards = rewards.sum(1)
+        # actions, logits, rewards, terminals, info = model_out
+        smiles, valid = model_out['info']
+        total_rewards = model_out['rewards'].sum(1)
         best_ind = torch.argmax(total_rewards).data.item()
         this_smile = smiles[best_ind]
         mol = Chem.MolFromSmiles(this_smile)
@@ -118,6 +121,19 @@ def train_policy_gradient(molecules=True,
 
     if reward_fun_off is None:
         reward_fun_off = reward_fun_on
+
+    # need to have something there to begin with, else the DataLoader constructor barfs
+    history_size = 1000
+    history_data = deque(['O'], maxlen=history_size)
+    history_loader = DataLoader(history_data, shuffle=True, batch_size=max(1,int(BATCH_SIZE/2)))
+
+    def history_callback(inputs, model, outputs, loss_fn, loss):
+        graphs = outputs['graphs']
+        smiles = [g.to_smiles() for g in graphs]
+        history_data.extend(smiles)
+
+    zinc_data = get_zinc_smiles()
+    zinc_loader = DataLoader(zinc_data, shuffle=True, batch_size=max(1,BATCH_SIZE-int(BATCH_SIZE/2)))
 
     def get_fitter(model,
                    loss_obj,
@@ -158,7 +174,7 @@ def train_policy_gradient(molecules=True,
                         grad_clip=5,
                         anchor_model=anchor_model,
                         anchor_weight=anchor_weight,
-                        callbacks=[metric_monitor, checkpointer]
+                        callbacks=[metric_monitor, checkpointer, history_callback]
                         )
 
         return fitter
