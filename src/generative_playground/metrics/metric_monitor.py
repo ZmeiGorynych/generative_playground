@@ -47,12 +47,17 @@ class MetricPlotter:
             self.vis = None
 
     def __call__(self,
-                 train,
-                 loss,
-                 metrics=None,
-                 model_out=None,
-                 inputs=None,
-                 targets=None):
+                 inputs,
+                 model,
+                 outputs,
+                 loss_fn,
+                 loss):
+                 # train,
+                 # loss,
+                 # metrics=None,
+                 # model_out=None,
+                 # inputs=None,
+                 # targets=None):
         '''
         Plot the results of the latest batch
         :param train: bool: was this a traning batch?
@@ -60,6 +65,11 @@ class MetricPlotter:
         :param metrics: dict {str:float} with any additional metrics
         :return: None
         '''
+        print('calling metric monitor...')
+        train = model.training
+        loss = loss.data.item()
+        metrics = loss_fn.metrics if hasattr(loss_fn, 'metrics') else None
+        model_out = outputs
 
         if train:
             loss_name = self.plot_prefix + ' train_loss'

@@ -18,42 +18,40 @@ from generative_playground.data_utils.data_sources import IncrementingHDF5Datase
 from generative_playground.codec.codec import get_codec
 
 
-def train_policy_gradient(molecules = True,
-                          grammar = True,
-                          EPOCHS = None,
-                          BATCH_SIZE = None,
+def train_policy_gradient(molecules=True,
+                          grammar=True,
+                          EPOCHS=None,
+                          BATCH_SIZE=None,
                           reward_fun_on=None,
                           reward_fun_off=None,
                           max_steps=277,
                           lr_on=2e-4,
                           lr_off=1e-4,
-                          drop_rate = 0.0,
-                          plot_ignore_initial = 0,
-                          save_file = None,
-                          preload_file = None,
-                          anchor_file = None,
-                          anchor_weight = 0.0,
+                          drop_rate=0.0,
+                          plot_ignore_initial=0,
+                          save_file=None,
+                          preload_file=None,
+                          anchor_file=None,
+                          anchor_weight=0.0,
                           decoder_type='action',
-                          plot_prefix = '',
-                          dashboard = 'policy gradient',
+                          plot_prefix='',
+                          dashboard='policy gradient',
                           smiles_save_file=None,
                           on_policy_loss_type='best',
                           off_policy_loss_type='mean',
                           sanity_checks=True):
-
     root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     root_location = root_location + '/../'
     save_path = root_location + 'pretrained/' + save_file
     smiles_save_path = root_location + 'pretrained/' + smiles_save_file
 
-    settings = get_settings(molecules=molecules,grammar=grammar)
+    settings = get_settings(molecules=molecules, grammar=grammar)
     codec = get_codec(molecules, grammar, settings['max_seq_length'])
 
     if EPOCHS is not None:
         settings['EPOCHS'] = EPOCHS
     if BATCH_SIZE is not None:
         settings['BATCH_SIZE'] = BATCH_SIZE
-
 
     save_dataset = IncrementingHDF5Dataset(smiles_save_path)
 
@@ -65,14 +63,14 @@ def train_policy_gradient(molecules = True,
                                   save_dataset=save_dataset)
 
     model = get_decoder(molecules,
-                           grammar,
-                           z_size=settings['z_size'],
-                           decoder_hidden_n=200,
-                           feature_len=codec.feature_len(),
-                           max_seq_length=max_steps,
-                           drop_rate=drop_rate,
-                           decoder_type=decoder_type,
-                           task=task)[0]
+                        grammar,
+                        z_size=settings['z_size'],
+                        decoder_hidden_n=200,
+                        feature_len=codec.feature_len(),
+                        max_seq_length=max_steps,
+                        drop_rate=drop_rate,
+                        decoder_type=decoder_type,
+                        task=task)[0]
     # if preload_file is not None:
     #     try:
     #         preload_path = root_location + 'pretrained/' + preload_file
@@ -82,10 +80,11 @@ def train_policy_gradient(molecules = True,
 
     anchor_model = None
 
-    from generative_playground.molecules.rdkit_utils.rdkit_utils  import NormalizedScorer
+    from generative_playground.molecules.rdkit_utils.rdkit_utils import NormalizedScorer
     import rdkit.Chem.rdMolDescriptors as desc
     import numpy as np
     scorer = NormalizedScorer()
+
     def model_process_fun(model_out, visdom, n):
         from rdkit import Chem
         from rdkit.Chem.Draw import MolToFile
@@ -100,17 +99,18 @@ def train_policy_gradient(molecules = True,
             try:
                 MolToFile(mol, pic_save_path, imageType='svg')
                 with open(pic_save_path, 'r') as myfile:
-                    data=myfile.read()
+                    data = myfile.read()
                 data = data.replace('svg:', '')
                 visdom.append('best molecule of batch', 'svg', svgstr=data)
             except Exception as e:
                 print(e)
             scores, norm_scores = scorer.get_scores([this_smile])
             visdom.append('score component',
-                            'line',
-                            X=np.array([n]),
-                            Y=np.array([[x for x in norm_scores[0]] + [norm_scores[0].sum()] + [scores[0].sum()] + [desc.CalcNumAromaticRings(mol)]]),
-                            opts={'legend': ['logP','SA','cycle','norm_reward','reward','Aromatic rings']})
+                          'line',
+                          X=np.array([n]),
+                          Y=np.array([[x for x in norm_scores[0]] + [norm_scores[0].sum()] + [scores[0].sum()] + [
+                              desc.CalcNumAromaticRings(mol)]]),
+                          opts={'legend': ['logP', 'SA', 'cycle', 'norm_reward', 'reward', 'Aromatic rings']})
             visdom.append('fraction valid',
                           'line',
                           X=np.array([n]),
@@ -132,13 +132,12 @@ def train_policy_gradient(molecules = True,
         optimizer = optim.Adam(nice_params, lr=lr)
         scheduler = lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.99)
 
-
         if dashboard is not None:
             metric_monitor = MetricPlotter(plot_prefix=fit_plot_prefix,
-                                       loss_display_cap=loss_display_cap,
-                                       dashboard_name=dashboard,
-                                       plot_ignore_initial=plot_ignore_initial,
-                                       process_model_fun=model_process_fun)
+                                           loss_display_cap=loss_display_cap,
+                                           dashboard_name=dashboard,
+                                           plot_ignore_initial=plot_ignore_initial,
+                                           process_model_fun=model_process_fun)
         else:
             metric_monitor = None
 
@@ -151,16 +150,16 @@ def train_policy_gradient(molecules = True,
                 yield to_gpu(torch.zeros(BATCH_SIZE, settings['z_size']))
 
         fitter = fit_rl(train_gen=my_gen,
-                     model=model,
-                     optimizer=optimizer,
-                     scheduler=scheduler,
-                     epochs=EPOCHS,
-                     loss_fn=loss_obj,
-                     grad_clip=5,
-                     anchor_model=anchor_model,
-                     anchor_weight=anchor_weight,
-                     metric_monitor=metric_monitor,
-                     checkpointer=checkpointer)
+                        model=model,
+                        optimizer=optimizer,
+                        scheduler=scheduler,
+                        epochs=EPOCHS,
+                        loss_fn=loss_obj,
+                        grad_clip=5,
+                        anchor_model=anchor_model,
+                        anchor_weight=anchor_weight,
+                        callbacks=[metric_monitor, checkpointer]
+                        )
 
         return fitter
 
@@ -188,6 +187,7 @@ def train_policy_gradient(molecules = True,
     #                      model_process_fun=model_process_fun,
     #                      loss_display_cap=125)
     random_policy = SoftmaxRandomSamplePolicy(bias=codec.grammar.get_log_frequencies())
+
     def on_policy_gen(fitter, model):
         while True:
             model.policy = random_policy
@@ -203,6 +203,4 @@ def train_policy_gradient(molecules = True,
             except StopIteration:
                 data_iter = data_gen.__iter__()
 
-    return model, on_policy_gen(fitter1, model)#, off_policy_gen(fitter2, train_loader, model)
-
-
+    return model, on_policy_gen(fitter1, model)  # , off_policy_gen(fitter2, train_loader, model)

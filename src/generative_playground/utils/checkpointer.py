@@ -1,5 +1,6 @@
 import torch
 
+# TODO: add an option of triggering on best reward, rather than best loss
 class Checkpointer:
     def __init__(self,
                  valid_batches_to_checkpoint=1,
@@ -13,7 +14,9 @@ class Checkpointer:
         self.cum_val_loss = 0
         self.best_valid_loss = float('inf')
 
-    def __call__(self, val_loss, model):
+    def __call__(self, inputs, model, outputs, loss_fn, loss):#val_loss, model):
+        print('calling checkpointer...')
+        val_loss = loss.data.item()
         self.cum_val_loss += val_loss
         self.val_count += 1
         # after enough validation batches, see if we want to save the weights
