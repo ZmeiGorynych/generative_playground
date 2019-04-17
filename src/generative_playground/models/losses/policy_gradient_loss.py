@@ -18,15 +18,15 @@ class PolicyGradientLoss(nn.Module):
         :param terminals: batch x seq_len True if sequence has terminated at that step or earlier
         :return: float loss
         '''
-        actions, logits, rewards, terminals, info = model_out
-        smiles, valid = info
-        batch_size, seq_len, num_actions = logits.size()
-        log_p = F.log_softmax(logits, dim=2) * (1-terminals.unsqueeze(2))
-        total_rewards = rewards.sum(1)
+        # actions, logits, rewards, terminals, info = model_out
+        smiles, valid = model_out['info']
+        batch_size, seq_len, num_actions = model_out['logits'].size()
+        log_p = F.log_softmax(model_out['logits'], dim=2) * (1-model_out['terminals'].unsqueeze(2))
+        total_rewards = model_out['rewards'].sum(1)
         #total_rewards = total_rewards/total_rewards.mean() # normalize to avg weight 1
         total_logp = 0
         for i in range(seq_len):
-            dloss = torch.diag(-log_p[:, i, actions[:,i]]) # batch_size, hopefully
+            dloss = torch.diag(-log_p[:, i, model_out['actions'][:,i]]) # batch_size, hopefully
             total_logp += dloss
 
         #total_logp[total_logp > self.loss_cutoff] = 0

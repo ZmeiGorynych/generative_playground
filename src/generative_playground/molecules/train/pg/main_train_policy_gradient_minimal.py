@@ -64,8 +64,7 @@ def train_policy_gradient(molecules = True,
                                   max_steps=max_steps,
                                   save_dataset=save_dataset)
 
-    def get_model(sanity_checks=sanity_checks):
-        return get_decoder(molecules,
+    model = get_decoder(molecules,
                            grammar,
                            z_size=settings['z_size'],
                            decoder_hidden_n=200,
@@ -74,8 +73,6 @@ def train_policy_gradient(molecules = True,
                            drop_rate=drop_rate,
                            decoder_type=decoder_type,
                            task=task)[0]
-    model = get_model()
-
     # if preload_file is not None:
     #     try:
     #         preload_path = root_location + 'pretrained/' + preload_file
@@ -84,13 +81,6 @@ def train_policy_gradient(molecules = True,
     #         pass
 
     anchor_model = None
-    # if anchor_file is not None:
-    #     anchor_model = get_model()
-    #     try:
-    #         anchor_path = root_location + 'pretrained/' + anchor_file
-    #         anchor_model.load_state_dict(torch.load(anchor_path))
-    #     except:
-    #         anchor_model = None
 
     from generative_playground.molecules.rdkit_utils.rdkit_utils  import NormalizedScorer
     import rdkit.Chem.rdMolDescriptors as desc

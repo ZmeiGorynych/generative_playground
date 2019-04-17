@@ -10,7 +10,6 @@ class MultipleOutputHead(nn.Module):
     def __init__(self, model, output_spec, drop_rate=0.2):
         '''
         Takes a model that outputs an array of Floats and does a bunch of linear transforms on it
-        # TODO: should we be including a relu here?
         :param model: The upstream model whose output we're processing
         :param output_spec: a list or a dict, values are either ints or modules
         :param drop_rate:

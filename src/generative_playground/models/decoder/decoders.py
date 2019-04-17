@@ -117,13 +117,16 @@ class SimpleDiscreteDecoderWithEnv(nn.Module):
             out_actions_all = torch.cat([x.unsqueeze(1) for x in out_actions] , 1)
             out_logits_all = torch.cat([x.unsqueeze(1) for x in out_logits], 1)
 
+        out ={'actions': out_actions_all, 'logits': out_logits_all}
+        if hasattr(self.stepper,'mask_gen') and hasattr(self.stepper.mask_gen,'graphs'):
+            # TODO: this is very ad hoc, will be neater once mask_gen is moved into the environment
+            out['graphs'] = self.stepper.mask_gen.graphs
+        if self.task is not None:
+            out['rewards'] = torch.cat([x.unsqueeze(1) for x in out_rewards], 1)
+            out['terminals'] = torch.cat([x.unsqueeze(1) for x in out_terminals], 1)
+            out['info'] = (info[0], to_pytorch(info[1]))
 
-        if self.task is None:
-                    return out_actions_all, out_logits_all
-        else:
-            out_rewards_all = torch.cat([x.unsqueeze(1) for x in out_rewards], 1)
-            out_terminals_all = torch.cat([x.unsqueeze(1) for x in out_terminals], 1)
-            return out_actions_all, out_logits_all, out_rewards_all, out_terminals_all, (info[0], to_pytorch(info[1]))
+        return out# out_actions_all, out_logits_all, out_rewards_all, out_terminals_all, (info[0], to_pytorch(info[1]))
 
 
 

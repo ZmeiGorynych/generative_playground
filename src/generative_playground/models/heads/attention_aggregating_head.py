@@ -24,7 +24,7 @@ class AttentionAggregatingHead(nn.Module):
         model_out = self.model(x)
         model_out = self.model_out_transform(model_out)
 
-        assert(len(model_out.size())==3, 'AttentionAggregatingHead needs sequences as inputs')
+        assert len(model_out.size())==3, 'AttentionAggregatingHead needs sequences as inputs'
         model_out = self.dropout_1(model_out.contiguous())
         batch_size = model_out.size()[0]
         # calculate attention weights
