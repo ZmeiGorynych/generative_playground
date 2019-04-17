@@ -2,38 +2,42 @@ import torch
 from torch.autograd import Variable
 from generative_playground.utils.gpu_utils import to_gpu
 
+
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
+
 def to_variable(x):
-    if type(x)==tuple:
+    if type(x) == tuple:
         return tuple([to_variable(xi) for xi in x])
-    elif 'ndarray'in str(type(x)):
+    elif 'ndarray' in str(type(x)):
         return to_gpu(torch.from_numpy(x))
     elif 'Variable' not in str(type(x)):
         return Variable(x)
     else:
         return x
 
+
 # The fit function is a generator, so one can call several of these in
 # the sequence one desires
-def fit(train_gen = None,
-        valid_gen = None,
-        model = None,
-        optimizer = None,
-        scheduler = None,
-        epochs = None,
-        loss_fn = None,
+def fit(train_gen=None,
+        valid_gen=None,
+        model=None,
+        optimizer=None,
+        scheduler=None,
+        epochs=None,
+        loss_fn=None,
         batches_to_valid=9,
-        grad_clip = 5,
-        metric_monitor = None,
-        checkpointer = None
+        grad_clip=5,
+        metric_monitor=None,  # TODO: legacy, remove this in upstream code
+        checkpointer=None,
+        callbacks=[]
         ):
-
+    callbacks += [metric_monitor]
     print('setting up fit...')
     print('Number of model parameters:', count_parameters(model))
 
-    valid_batches = max(1,int(batches_to_valid*len(valid_gen)/len(train_gen)))
+    valid_batches = max(1, int(batches_to_valid * len(valid_gen) / len(train_gen)))
     if 'ReduceLROnPlateau' in str(type(scheduler)):
         step_scheduler_after_val = True
     else:
@@ -45,10 +49,10 @@ def fit(train_gen = None,
             scheduler.step()
         train_iter = train_gen.__iter__()
         valid_iter = valid_gen.__iter__()
-        done={True:False,False:False}
+        done = {True: False, False: False}
 
         for n in range(len(train_gen) + len(valid_gen)):
-            if n%(batches_to_valid + valid_batches) <batches_to_valid:
+            if n % (batches_to_valid + valid_batches) < batches_to_valid:
                 train = True
                 data_iter = train_iter
                 model.train()
@@ -71,8 +75,8 @@ def fit(train_gen = None,
                 else:
                     continue
 
-            inputs = inputs_;#to_variable(inputs_)
-            targets = targets_;#to_variable(targets_)
+            inputs = inputs_;  # to_variable(inputs_)
+            targets = targets_;  # to_variable(targets_)
             outputs = model(inputs)
             loss = loss_fn(outputs, targets)
             this_loss = loss.data.item()
@@ -84,18 +88,21 @@ def fit(train_gen = None,
                     torch.nn.utils.clip_grad_norm_(nice_params, grad_clip)
                 optimizer.step()
             else:
-                avg_loss = checkpointer(this_loss,model)
+                # TODO: refactor this so the scheduler is part of checkpointer, to fit the
+                # general callback pattern?
+                avg_loss = checkpointer(None, model, outputs, loss_fn, loss)
                 if step_scheduler_after_val and avg_loss is not None:
                     scheduler.step(avg_loss)
 
-            if metric_monitor is not None:
-                metric_monitor(train,
-                               this_loss,
-                               metrics=loss_fn.metrics if hasattr(loss_fn, 'metrics') else None,
-                               inputs=inputs,
-                               model_out=outputs,
-                               targets=targets)
+            for callback in callbacks:
+                if callback is not None:
+                    callback(inputs, model, outputs, loss_fn, loss)
+            # if metric_monitor is not None:
+            #     metric_monitor(train,
+            #                    this_loss,
+            #                    metrics=loss_fn.metrics if hasattr(loss_fn, 'metrics') else None,
+            #                    inputs=inputs,
+            #                    model_out=outputs,
+            #                    targets=targets)
             if train:
                 yield this_loss
-
-
