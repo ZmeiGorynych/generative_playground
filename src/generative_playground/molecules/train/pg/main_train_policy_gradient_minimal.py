@@ -135,6 +135,8 @@ def train_policy_gradient(molecules=True,
     zinc_data = get_zinc_smiles()
     zinc_loader = DataLoader(zinc_data, shuffle=True, batch_size=max(1,BATCH_SIZE-int(BATCH_SIZE/2)))
 
+
+
     def get_fitter(model,
                    loss_obj,
                    fit_plot_prefix='',
