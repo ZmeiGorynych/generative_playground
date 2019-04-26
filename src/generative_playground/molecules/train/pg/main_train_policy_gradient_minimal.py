@@ -20,6 +20,7 @@ from generative_playground.data_utils.data_sources import IncrementingHDF5Datase
 from generative_playground.codec.codec import get_codec
 from generative_playground.molecules.data_utils.zinc_utils import get_zinc_smiles
 from generative_playground.data_utils.data_sources import IterableTransform
+from generative_playground.molecules.models.graph_discriminator import GraphDiscriminator
 
 def train_policy_gradient(molecules=True,
                           grammar=True,
@@ -184,11 +185,11 @@ def train_policy_gradient(molecules=True,
             yield to_gpu(torch.zeros(BATCH_SIZE, settings['z_size']))
 
     # the on-policy fitter
-    # discrim_model =
+
     #
     fitter1 = get_rl_fitter(model,
                             PolicyGradientLoss(on_policy_loss_type),
-                            my_gen(),
+                            my_gen,
                             plot_prefix + 'on-policy',
                             model_process_fun=model_process_fun,
                             lr=lr_on,
@@ -197,6 +198,7 @@ def train_policy_gradient(molecules=True,
                             anchor_weight=anchor_weight)
     #
     # # get existing molecule data to add training
+    discrim_model = GraphDiscriminator(model.stepper.mask_gen.grammar, drop_rate=drop_rate)
     # fitter2 = get_rl_fitter(discrim_model,
     #                         EntropyLoss,
     #                         IterableTransform(discrim_loader, lambda x: (x['X'], x['dataset_index'])),

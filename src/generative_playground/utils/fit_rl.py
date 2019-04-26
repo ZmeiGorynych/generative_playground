@@ -42,10 +42,10 @@ def fit_rl(train_gen=None,
         print('epoch ', epoch)
         if scheduler is not None:
             scheduler.step()
-        # for inputs_ in train_gen():
-        while True:
-            # inputs = to_variable(inputs_)
-            outputs = model()  # inputs)
+        for inputs_ in train_gen():
+        # while True:
+            inputs = to_variable(inputs_)
+            outputs = model(inputs)
             loss = loss_fn(outputs)
             nice_params = filter(lambda p: p.requires_grad, model.parameters())
             if anchor_model is not None:

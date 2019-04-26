@@ -70,9 +70,20 @@ class TestGraphDiscriminator(TestCase):
     def test_discriminator_class(self):
         d = GraphDiscriminator(gi.grammar, drop_rate=0.1)
         smiles = get_zinc_smiles(5)
-        out = d(smiles)['p_zinc']
-        assert out.size(0) == len(smiles)
-        assert out.size(1) == 1
-        assert len(out.size()) == 2
+        out = d(smiles)
+        assert out['p_zinc'].size(0) == len(smiles)
+        assert out['p_zinc'].size(1) == 1
+        assert len(out['p_zinc'].size()) == 2
+        assert out['smiles'] == smiles
+
+    def test_discriminator_class_dict_input(self):
+        d = GraphDiscriminator(gi.grammar, drop_rate=0.1)
+        smiles = get_zinc_smiles(5)
+        out = d({'smiles':smiles, 'test': 'test'})
+        assert out['p_zinc'].size(0) == len(smiles)
+        assert out['p_zinc'].size(1) == 1
+        assert len(out['p_zinc'].size()) == 2
+        assert out['smiles'] == smiles
+        assert out['test'] == 'test'
 
 

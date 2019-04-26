@@ -1,4 +1,5 @@
 import torch.nn as nn
+from collections import OrderedDict
 from generative_playground.codec.hypergraph import HyperGraph
 from generative_playground.codec.hypergraph_grammar import GrammarInitializer
 from generative_playground.models.embedder.graph_embedder import GraphEmbedder
@@ -17,7 +18,19 @@ class GraphDiscriminator(nn.Module):
         encoder_aggregated = FirstSequenceElementHead(encoder)
         self.discriminator = MultipleOutputHead(encoder_aggregated, {'p_zinc': 1}).to(device)
 
-    def forward(self, smiles):
+    def forward(self, x):
+        if type(x) in (list, tuple):
+            smiles = x
+        elif type(x) in (dict, OrderedDict):
+            smiles = x['smiles']
+        else:
+            raise ValueError("Unknown input type: " + str(x))
+
         mol_graphs = [HyperGraph.from_smiles(s) for s in smiles]
         out = self.discriminator(mol_graphs)
+        if type(x) in (list, tuple):
+            out['smiles'] = smiles
+        elif type(x) in (dict, OrderedDict):
+            out.update(x)
+
         return out
