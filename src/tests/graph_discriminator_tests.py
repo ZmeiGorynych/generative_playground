@@ -6,11 +6,12 @@ from unittest import TestCase
 from generative_playground.codec.hypergraph import HyperGraph
 from generative_playground.codec.hypergraph_grammar import GrammarInitializer
 from generative_playground.models.embedder.graph_embedder import GraphEmbedder
-from generative_playground.molecules.data_utils.zinc_utils import get_zinc_molecules
+from generative_playground.molecules.data_utils.zinc_utils import get_zinc_molecules, get_zinc_smiles
 from generative_playground.models.decoder.graph_decoder import GraphEncoder
 from generative_playground.codec.codec import get_codec
 from generative_playground.models.heads.attention_aggregating_head import *
 from generative_playground.models.heads.multiple_output_head import MultipleOutputHead
+from generative_playground.molecules.models.graph_discriminator import GraphDiscriminator
 
 # create a grammar from scratch # TODO: later, want to load a cached grammar instead
 tmp_file = 'tmp.pickle'
@@ -53,7 +54,7 @@ class TestGraphDiscriminator(TestCase):
         assert out.size(1) == d_model
         assert len(out.size()) == 2
 
-    def test_full_discriminator(self):
+    def test_full_discriminator_parts(self):
         encoder = GraphEncoder(grammar=gi.grammar,
                                d_model=512,
                                drop_rate=0.0)
@@ -65,4 +66,13 @@ class TestGraphDiscriminator(TestCase):
         assert out[0].size(0) == len(mol_graphs)
         assert out[0].size(1) == 1
         assert len(out[0].size()) == 2
+
+    def test_discriminator_class(self):
+        d = GraphDiscriminator(gi.grammar, drop_rate=0.1)
+        smiles = get_zinc_smiles(5)
+        out = d(smiles)['p_zinc']
+        assert out.size(0) == len(smiles)
+        assert out.size(1) == 1
+        assert len(out.size()) == 2
+
 

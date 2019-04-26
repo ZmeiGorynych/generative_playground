@@ -222,6 +222,11 @@ class HyperGraph:
         return MolToSmiles(self.to_mol())
 
     @classmethod
+    def from_smiles(cls, smiles):
+        mol = MolFromSmiles(smiles)
+        return cls.from_mol(mol)
+
+    @classmethod
     def from_mol(Class, mol):
         # make the Hs explicit, kekulize, so the graph is easier to work with
         Kekulize(mol, clearAromaticFlags=True)

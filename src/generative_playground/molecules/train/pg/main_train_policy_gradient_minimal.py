@@ -15,10 +15,11 @@ from generative_playground.models.problem.rl.task import SequenceGenerationTask
 from generative_playground.models.decoder.decoder import get_decoder
 from generative_playground.models.losses.policy_gradient_loss import PolicyGradientLoss
 from generative_playground.models.decoder.policy import SoftmaxRandomSamplePolicy, PolicyFromTarget
-from generative_playground.data_utils.data_sources import train_valid_loaders
+from generative_playground.data_utils.blended_dataset import EvenlyBlendedDataset
 from generative_playground.data_utils.data_sources import IncrementingHDF5Dataset
 from generative_playground.codec.codec import get_codec
 from generative_playground.molecules.data_utils.zinc_utils import get_zinc_smiles
+from generative_playground.data_utils.data_sources import IterableTransform
 
 def train_policy_gradient(molecules=True,
                           grammar=True,
@@ -122,30 +123,31 @@ def train_policy_gradient(molecules=True,
     if reward_fun_off is None:
         reward_fun_off = reward_fun_on
 
-    # need to have something there to begin with, else the DataLoader constructor barfs
-    history_size = 1000
-    history_data = deque(['O'], maxlen=history_size)
-    history_loader = DataLoader(history_data, shuffle=True, batch_size=max(1,int(BATCH_SIZE/2)))
+        # construct the loader to feed the discriminator
+        history_size = 1000
+        history_data = deque(['O'],
+                             maxlen=history_size)  # need to have something there to begin with, else the DataLoader constructor barfs
 
-    def history_callback(inputs, model, outputs, loss_fn, loss):
-        graphs = outputs['graphs']
-        smiles = [g.to_smiles() for g in graphs]
-        history_data.extend(smiles)
+        def history_callback(inputs, model, outputs, loss_fn, loss):
+            graphs = outputs['graphs']
+            smiles = [g.to_smiles() for g in graphs]
+            history_data.extend(smiles)
 
-    zinc_data = get_zinc_smiles()
-    zinc_loader = DataLoader(zinc_data, shuffle=True, batch_size=max(1,BATCH_SIZE-int(BATCH_SIZE/2)))
+        zinc_data = get_zinc_smiles()
+        dataset = EvenlyBlendedDataset([history_data, zinc_data], labels=True)
+        discrim_loader = DataLoader(dataset, shuffle=True, batch_size=10)
 
-
-
-    def get_fitter(model,
-                   loss_obj,
-                   fit_plot_prefix='',
-                   model_process_fun=None,
-                   lr=None,
-                   loss_display_cap=float('inf'),
-                   anchor_model=None,
-                   anchor_weight=0
-                   ):
+    def get_rl_fitter(model,
+                      loss_obj,
+                      train_gen,
+                      fit_plot_prefix='',
+                      model_process_fun=None,
+                      lr=None,
+                      extra_callbacks=[],
+                      loss_display_cap=float('inf'),
+                      anchor_model=None,
+                      anchor_weight=0
+                      ):
         nice_params = filter(lambda p: p.requires_grad, model.parameters())
         optimizer = optim.Adam(nice_params, lr=lr)
         scheduler = lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.99)
@@ -163,11 +165,7 @@ def train_policy_gradient(molecules=True,
                                     save_path=save_path,
                                     save_always=True)
 
-        def my_gen():
-            for _ in range(1000):
-                yield to_gpu(torch.zeros(BATCH_SIZE, settings['z_size']))
-
-        fitter = fit_rl(train_gen=my_gen,
+        fitter = fit_rl(train_gen=train_gen,
                         model=model,
                         optimizer=optimizer,
                         scheduler=scheduler,
@@ -176,42 +174,43 @@ def train_policy_gradient(molecules=True,
                         grad_clip=5,
                         anchor_model=anchor_model,
                         anchor_weight=anchor_weight,
-                        callbacks=[metric_monitor, checkpointer, history_callback]
+                        callbacks=[metric_monitor, checkpointer] + extra_callbacks
                         )
 
         return fitter
 
+    def my_gen():
+        for _ in range(1000):
+            yield to_gpu(torch.zeros(BATCH_SIZE, settings['z_size']))
+
     # the on-policy fitter
-    fitter1 = get_fitter(model,
-                         PolicyGradientLoss(on_policy_loss_type),
-                         plot_prefix + 'on-policy',
-                         model_process_fun=model_process_fun,
-                         lr=lr_on,
-                         anchor_model=anchor_model,
-                         anchor_weight=anchor_weight)
+    # discrim_model =
+    #
+    fitter1 = get_rl_fitter(model,
+                            PolicyGradientLoss(on_policy_loss_type),
+                            my_gen(),
+                            plot_prefix + 'on-policy',
+                            model_process_fun=model_process_fun,
+                            lr=lr_on,
+                            extra_callbacks=[history_callback],
+                            anchor_model=anchor_model,
+                            anchor_weight=anchor_weight)
+    #
     # # get existing molecule data to add training
-    # main_dataset = DatasetFromHDF5(settings['data_path'], 'actions')
-    #
-    # # TODO change call to a simple DataLoader, no validation
-    # train_loader, valid_loader = train_valid_loaders(main_dataset,
-    #                                                  valid_fraction=0.1,
-    #                                                  batch_size=BATCH_SIZE,
-    #                                                  pin_memory=use_gpu)
-    #
-    # fitter2 = get_fitter(model,
-    #                      PolicyGradientLoss(off_policy_loss_type),
-    #                      plot_prefix + ' off-policy',
-    #                      lr=lr_off,
-    #                      model_process_fun=model_process_fun,
-    #                      loss_display_cap=125)
-    random_policy = SoftmaxRandomSamplePolicy(bias=codec.grammar.get_log_frequencies())
+    # fitter2 = get_rl_fitter(discrim_model,
+    #                         EntropyLoss,
+    #                         IterableTransform(discrim_loader, lambda x: (x['X'], x['dataset_index'])),
+    #                         plot_prefix + ' off-policy',
+    #                         lr=lr_off,
+    #                         model_process_fun=model_process_fun,
+    #                         loss_display_cap=125)
 
     def on_policy_gen(fitter, model):
         while True:
-            model.policy = random_policy
+            model.policy = SoftmaxRandomSamplePolicy(bias=codec.grammar.get_log_frequencies())
             yield next(fitter)
 
-    def off_policy_gen(fitter, data_gen, model):
+    def discriminator_gen(fitter, data_gen, model):
         while True:
             data_iter = data_gen.__iter__()
             try:
