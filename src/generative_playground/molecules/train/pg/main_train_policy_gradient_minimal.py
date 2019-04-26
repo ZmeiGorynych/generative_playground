@@ -3,6 +3,7 @@ from collections import deque
 import torch.optim as optim
 from torch.optim import lr_scheduler
 import torch.nn as nn
+import torch.nn.functional as F
 import torch
 from torch.utils.data import DataLoader
 
@@ -49,21 +50,33 @@ def train_policy_gradient(molecules=True,
     root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     root_location = root_location + '/../'
     save_path = root_location + 'pretrained/' + save_file
-    smiles_save_path = root_location + 'pretrained/' + smiles_save_file
+    if smiles_save_file is not None:
+        smiles_save_path = root_location + 'pretrained/' + smiles_save_file
+        save_dataset = IncrementingHDF5Dataset(smiles_save_path)
+    else:
+        save_dataset = None
+
 
     settings = get_settings(molecules=molecules, grammar=grammar)
     codec = get_codec(molecules, grammar, settings['max_seq_length'])
+    discrim_model = GraphDiscriminator(codec.grammar, drop_rate=drop_rate)
+
+    def discriminator_reward_mult(smiles_list):
+        discrim_out_logits = discrim_model(smiles_list)['p_zinc']
+        discrim_probs = F.softmax(discrim_out_logits, dim=1)
+        prob_zinc = discrim_probs[:,1].detach().cpu().numpy()
+        return prob_zinc
 
     if EPOCHS is not None:
         settings['EPOCHS'] = EPOCHS
     if BATCH_SIZE is not None:
         settings['BATCH_SIZE'] = BATCH_SIZE
 
-    save_dataset = IncrementingHDF5Dataset(smiles_save_path)
+
 
     task = SequenceGenerationTask(molecules=molecules,
                                   grammar=grammar,
-                                  reward_fun=reward_fun_on,
+                                  reward_fun=lambda x: reward_fun_on(x)*discriminator_reward_mult(x),
                                   batch_size=BATCH_SIZE,
                                   max_steps=max_steps,
                                   save_dataset=save_dataset)
@@ -115,9 +128,9 @@ def train_policy_gradient(molecules=True,
             visdom.append('score component',
                           'line',
                           X=np.array([n]),
-                          Y=np.array([[x for x in norm_scores[0]] + [norm_scores[0].sum()] + [scores[0].sum()] + [
+                          Y=np.array([[total_rewards[best_ind].item()] + [x for x in norm_scores[0]] + [norm_scores[0].sum()] + [scores[0].sum()] + [
                               desc.CalcNumAromaticRings(mol)]]),
-                          opts={'legend': ['logP', 'SA', 'cycle', 'norm_reward', 'reward', 'Aromatic rings']})
+                          opts={'legend': ['eff_reward','logP', 'SA', 'cycle', 'norm_reward', 'reward', 'Aromatic rings']})
             visdom.append('fraction valid',
                           'line',
                           X=np.array([n]),
@@ -127,7 +140,7 @@ def train_policy_gradient(molecules=True,
         reward_fun_off = reward_fun_on
 
     # construct the loader to feed the discriminator
-    history_size = 1000
+    history_size = 100
     history_data = deque(['O'],
                          maxlen=history_size)  # need to have something there to begin with, else the DataLoader constructor barfs
 
@@ -216,11 +229,12 @@ def train_policy_gradient(molecules=True,
     zinc_data = get_zinc_smiles()
     dataset = EvenlyBlendedDataset([history_data, zinc_data], labels=True)
     discrim_loader = DataLoader(dataset, shuffle=True, batch_size=10)
-    discrim_model = GraphDiscriminator(model.stepper.mask_gen.grammar, drop_rate=drop_rate)
     celoss = nn.CrossEntropyLoss()
-    loss = lambda x: celoss(x['p_zinc'].to(device), x['dataset_index'].to(device))
+
+    def my_loss(x):
+        return celoss(x['p_zinc'].to(device), x['dataset_index'].to(device))
     fitter2 = get_rl_fitter(discrim_model,
-                            loss,
+                            my_loss,
                             IterableTransform(discrim_loader,
                                               lambda x: {'smiles': x['X'], 'dataset_index': x['dataset_index']}),
                             plot_prefix + ' discriminator',
