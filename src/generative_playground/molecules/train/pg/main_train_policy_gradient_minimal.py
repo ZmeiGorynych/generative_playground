@@ -2,6 +2,7 @@ import os, inspect
 from collections import deque
 import torch.optim as optim
 from torch.optim import lr_scheduler
+import torch.nn as nn
 import torch
 from torch.utils.data import DataLoader
 
@@ -21,6 +22,7 @@ from generative_playground.codec.codec import get_codec
 from generative_playground.molecules.data_utils.zinc_utils import get_zinc_smiles
 from generative_playground.data_utils.data_sources import IterableTransform
 from generative_playground.molecules.models.graph_discriminator import GraphDiscriminator
+from generative_playground.utils.gpu_utils import device
 
 def train_policy_gradient(molecules=True,
                           grammar=True,
@@ -124,19 +126,17 @@ def train_policy_gradient(molecules=True,
     if reward_fun_off is None:
         reward_fun_off = reward_fun_on
 
-        # construct the loader to feed the discriminator
-        history_size = 1000
-        history_data = deque(['O'],
-                             maxlen=history_size)  # need to have something there to begin with, else the DataLoader constructor barfs
+    # construct the loader to feed the discriminator
+    history_size = 1000
+    history_data = deque(['O'],
+                         maxlen=history_size)  # need to have something there to begin with, else the DataLoader constructor barfs
 
-        def history_callback(inputs, model, outputs, loss_fn, loss):
-            graphs = outputs['graphs']
-            smiles = [g.to_smiles() for g in graphs]
-            history_data.extend(smiles)
+    def history_callback(inputs, model, outputs, loss_fn, loss):
+        graphs = outputs['graphs']
+        smiles = [g.to_smiles() for g in graphs]
+        history_data.extend(smiles)
 
-        zinc_data = get_zinc_smiles()
-        dataset = EvenlyBlendedDataset([history_data, zinc_data], labels=True)
-        discrim_loader = DataLoader(dataset, shuffle=True, batch_size=10)
+
 
     def get_rl_fitter(model,
                       loss_obj,
@@ -180,6 +180,21 @@ def train_policy_gradient(molecules=True,
 
         return fitter
 
+    class GeneratorToIterable:
+        def __init__(self, gen):
+            self.gen = gen
+            # we assume the generator is finite
+            self.len = 0
+            for _ in gen():
+                self.len+=1
+
+        def __len__(self):
+            return self.len
+
+        def __iter__(self):
+            return self.gen()
+
+
     def my_gen():
         for _ in range(1000):
             yield to_gpu(torch.zeros(BATCH_SIZE, settings['z_size']))
@@ -189,7 +204,7 @@ def train_policy_gradient(molecules=True,
     #
     fitter1 = get_rl_fitter(model,
                             PolicyGradientLoss(on_policy_loss_type),
-                            my_gen,
+                            GeneratorToIterable(my_gen),
                             plot_prefix + 'on-policy',
                             model_process_fun=model_process_fun,
                             lr=lr_on,
@@ -198,28 +213,23 @@ def train_policy_gradient(molecules=True,
                             anchor_weight=anchor_weight)
     #
     # # get existing molecule data to add training
+    zinc_data = get_zinc_smiles()
+    dataset = EvenlyBlendedDataset([history_data, zinc_data], labels=True)
+    discrim_loader = DataLoader(dataset, shuffle=True, batch_size=10)
     discrim_model = GraphDiscriminator(model.stepper.mask_gen.grammar, drop_rate=drop_rate)
-    # fitter2 = get_rl_fitter(discrim_model,
-    #                         EntropyLoss,
-    #                         IterableTransform(discrim_loader, lambda x: (x['X'], x['dataset_index'])),
-    #                         plot_prefix + ' off-policy',
-    #                         lr=lr_off,
-    #                         model_process_fun=model_process_fun,
-    #                         loss_display_cap=125)
+    celoss = nn.CrossEntropyLoss()
+    loss = lambda x: celoss(x['p_zinc'].to(device), x['dataset_index'].to(device))
+    fitter2 = get_rl_fitter(discrim_model,
+                            loss,
+                            IterableTransform(discrim_loader,
+                                              lambda x: {'smiles': x['X'], 'dataset_index': x['dataset_index']}),
+                            plot_prefix + ' discriminator',
+                            lr=lr_off,
+                            model_process_fun=None)
 
     def on_policy_gen(fitter, model):
         while True:
             model.policy = SoftmaxRandomSamplePolicy(bias=codec.grammar.get_log_frequencies())
             yield next(fitter)
 
-    def discriminator_gen(fitter, data_gen, model):
-        while True:
-            data_iter = data_gen.__iter__()
-            try:
-                x_actions = next(data_iter).to(torch.int64)
-                model.policy = PolicyFromTarget(x_actions)
-                yield next(fitter)
-            except StopIteration:
-                data_iter = data_gen.__iter__()
-
-    return model, on_policy_gen(fitter1, model)  # , off_policy_gen(fitter2, train_loader, model)
+    return model, on_policy_gen(fitter1, model), fitter2

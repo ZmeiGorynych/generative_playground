@@ -16,7 +16,7 @@ class GraphDiscriminator(nn.Module):
                        d_model=512,
                        drop_rate=drop_rate)
         encoder_aggregated = FirstSequenceElementHead(encoder)
-        self.discriminator = MultipleOutputHead(encoder_aggregated, {'p_zinc': 1}).to(device)
+        self.discriminator = MultipleOutputHead(encoder_aggregated, {'p_zinc': 2}).to(device)
 
     def forward(self, x):
         if type(x) in (list, tuple):

@@ -44,7 +44,7 @@ def reward_aromatic_rings(smiles):
     return [-1 if num is None else num + 0.5 for num in atoms]
 
 
-batch_size = 4#20
+batch_size = 5#20
 drop_rate = 0.3
 molecules = True
 grammar_cache = 'hyper_grammar.pickle'
@@ -70,7 +70,7 @@ else:
     max_steps = gi.init_grammar(100)
     # TODO: remove this l
 max_steps = 30
-model, fitter1 = train_policy_gradient(molecules,
+model, fitter1, fitter2 = train_policy_gradient(molecules,
                                        grammar,
                                        EPOCHS=100,
                                        BATCH_SIZE=batch_size,
@@ -89,4 +89,4 @@ model, fitter1 = train_policy_gradient(molecules,
 
 while True:
     next(fitter1)
-    # next(fitter2)
+    next(fitter2)

@@ -72,7 +72,7 @@ class TestGraphDiscriminator(TestCase):
         smiles = get_zinc_smiles(5)
         out = d(smiles)
         assert out['p_zinc'].size(0) == len(smiles)
-        assert out['p_zinc'].size(1) == 1
+        assert out['p_zinc'].size(1) == 2
         assert len(out['p_zinc'].size()) == 2
         assert out['smiles'] == smiles
 
@@ -81,7 +81,7 @@ class TestGraphDiscriminator(TestCase):
         smiles = get_zinc_smiles(5)
         out = d({'smiles':smiles, 'test': 'test'})
         assert out['p_zinc'].size(0) == len(smiles)
-        assert out['p_zinc'].size(1) == 1
+        assert out['p_zinc'].size(1) == 2
         assert len(out['p_zinc'].size()) == 2
         assert out['smiles'] == smiles
         assert out['test'] == 'test'

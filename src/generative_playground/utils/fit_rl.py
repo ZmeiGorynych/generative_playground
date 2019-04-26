@@ -20,7 +20,7 @@ def to_variable(x):
 
 # The fit function is a generator, so one can call several of these in
 # the sequence one desires
-def fit_rl(train_gen=None,
+def fit_rl(train_gen=None, # an iterable providing training data
            model=None,
            optimizer=None,
            scheduler=None,
@@ -36,15 +36,13 @@ def fit_rl(train_gen=None,
     print('setting up fit...')
     print('Number of model parameters:', count_parameters(model))
     model.train()
-    loss_fn.train()
+    # loss_fn.train()
 
     for epoch in range(epochs):
         print('epoch ', epoch)
         if scheduler is not None:
             scheduler.step()
-        for inputs_ in train_gen():
-        # while True:
-            inputs = to_variable(inputs_)
+        for inputs in train_gen:
             outputs = model(inputs)
             loss = loss_fn(outputs)
             nice_params = filter(lambda p: p.requires_grad, model.parameters())
