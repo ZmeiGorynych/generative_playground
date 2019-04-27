@@ -56,7 +56,6 @@ class TransformerEncoder(nn.Module):
                  d_k=64,  #16,
                  d_v=64,  #16,#
                  d_model=512,  #128,#
-                 #d_inner_hid=1024,  #256,#
                  dropout=0.1,
                  use_self_attention=False,
                  transpose_self_attention=False,

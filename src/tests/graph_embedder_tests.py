@@ -41,13 +41,17 @@ class TestGraphEmbedder(TestCase):
         ge = GraphEmbedder(target_dim=512, grammar=gi.grammar)
         graphs = gi.grammar.rules[1:11] # the first rule is None, corresponding to the padding index
         out = ge(graphs)
+        out2 = ge(graphs)
+        assert (out - out2).abs().max() < 1e-6, "Embedder should be deterministic!"
 
 
-    def test_graph_encoder(self):
+    def test_graph_encoder_determinism(self):
         encoder = GraphEncoder(grammar=gi.grammar,
                                d_model=512,
                                drop_rate=0.0)
         mol_graphs = [HyperGraph.from_mol(mol) for mol in get_zinc_molecules(5)]
         out = encoder(mol_graphs)
-        print('success!')
+        out2 = encoder(mol_graphs)
+        assert (out - out2).abs().max() < 1e-6, "Encoder should be deterministic with zero dropout!"
+
 

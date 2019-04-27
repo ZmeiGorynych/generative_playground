@@ -86,4 +86,14 @@ class TestGraphDiscriminator(TestCase):
         assert out['smiles'] == smiles
         assert out['test'] == 'test'
 
+    def test_discriminator_class_determinism(self):
+        d = GraphDiscriminator(gi.grammar, drop_rate=0.0)
+        smiles = get_zinc_smiles(5)
+        out1 = d({'smiles': smiles})['p_zinc']
+        out2 = d({'smiles': smiles})['p_zinc']
+        diff = torch.max((out1-out2).abs())
+        assert diff < 1e-6, "Function is non-deterministic"
+
+
+
 
