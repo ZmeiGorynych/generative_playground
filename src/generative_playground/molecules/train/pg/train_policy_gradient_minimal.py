@@ -45,7 +45,7 @@ def reward_aromatic_rings(smiles):
 
 
 batch_size = 30#20
-drop_rate = 0.0#0.3
+drop_rate = 0.5
 molecules = True
 grammar_cache = 'hyper_grammar.pickle'
 grammar = 'hypergraph:' + grammar_cache
@@ -53,7 +53,7 @@ settings = get_settings(molecules, grammar)
 # max_steps = 277  # settings['max_seq_length']
 invalid_value = -3.5
 scorer = NormalizedScorer(invalid_value=invalid_value)
-reward_fun = lambda x: 2.5 + scorer(x)  # lambda x: reward_aromatic_rings(x)#
+reward_fun = lambda x: scorer(x)  # lambda x: reward_aromatic_rings(x)#
 # later will run this ahead of time
 gi = GrammarInitializer(grammar_cache)
 gf = gi.full_grammar_filename(grammar_cache)
@@ -77,6 +77,7 @@ model, fitter1, fitter2 = train_policy_gradient(molecules,
                                        reward_fun_on=reward_fun,
                                        max_steps=max_steps,
                                        lr_on=1e-4,
+                                        lr_discrim=0.5e-4,
                                        drop_rate=drop_rate,
                                        decoder_type='attn_graph',#'attention',
                                        plot_prefix='hg ',

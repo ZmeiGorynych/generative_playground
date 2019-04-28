@@ -33,7 +33,7 @@ def train_policy_gradient(molecules=True,
                           reward_fun_off=None,
                           max_steps=277,
                           lr_on=2e-4,
-                          lr_off=1e-4,
+                          lr_discrim=1e-4,
                           drop_rate=0.0,
                           plot_ignore_initial=0,
                           save_file=None,
@@ -148,7 +148,7 @@ def train_policy_gradient(molecules=True,
         reward_fun_off = reward_fun_on
 
     # construct the loader to feed the discriminator
-    history_size = 100
+    history_size = 1000
     history_data = deque(['O'],
                          maxlen=history_size)  # need to have something there to begin with, else the DataLoader constructor barfs
 
@@ -240,17 +240,17 @@ def train_policy_gradient(molecules=True,
     celoss = nn.CrossEntropyLoss()
 
     def my_loss(x):
-        tmp = discriminator_reward_mult(x['smiles'])
-        tmp2 = F.softmax(x['p_zinc'], dim=1)[:,1].detach().cpu().numpy()
-        import numpy as np
-        assert np.max(np.abs(tmp-tmp2)) < 1e-6
+        # tmp = discriminator_reward_mult(x['smiles'])
+        # tmp2 = F.softmax(x['p_zinc'], dim=1)[:,1].detach().cpu().numpy()
+        # import numpy as np
+        # assert np.max(np.abs(tmp-tmp2)) < 1e-6
         return celoss(x['p_zinc'].to(device), x['dataset_index'].to(device))
     fitter2 = get_rl_fitter(discrim_model,
                             my_loss,
                             IterableTransform(discrim_loader,
                                               lambda x: {'smiles': x['X'], 'dataset_index': x['dataset_index']}),
                             plot_prefix + ' discriminator',
-                            lr=lr_off,
+                            lr=lr_discrim,
                             model_process_fun=None)
 
     def on_policy_gen(fitter, model):
