@@ -95,4 +95,5 @@ class GraphEncoder(nn.Module):
         :param graphs: a list of HyperGraphs of length batch
         :return: batch x max_nodes x d_model float32s
         '''
-        return self.transformer(graphs)
+        pre_out = self.transformer(graphs)
+        return pre_out

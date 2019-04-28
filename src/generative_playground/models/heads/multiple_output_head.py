@@ -6,7 +6,7 @@ from generative_playground.utils.gpu_utils import device
 
 
 class MultipleOutputHead(nn.Module):
-    def __init__(self, model, output_spec, drop_rate=0.2):
+    def __init__(self, model, output_spec, drop_rate=0.0):
         '''
         Takes a model that outputs an array of Floats and does a bunch of linear transforms on it
         :param model: The upstream model whose output we're processing
@@ -43,7 +43,6 @@ class MultipleOutputHead(nn.Module):
         :return: len(self.sizes) vectors of size x.size()[:2] x self.sizes[i],
         as tuple if self.labels is None, as dict otherwise
         '''
-        x.to(device)
         out = F.relu(self.model(x))
         out = self.dropout(out)
 

@@ -21,7 +21,7 @@ def full_location(filename):
 
 
 class HypergraphGrammar(GenericCodec):
-    def __init__(self, cache_file=None, max_len=None):
+    def __init__(self, cache_file='tmp.pickle', max_len=None):
         self.id_by_parent = {'DONE': [0]} # from str(parent_node) to rule index
         self.parent_by_id = {0: 'DONE'} # from rule index to str(parent_node)
         self.rules = [None]# list of HyperGraphFragments

@@ -38,7 +38,7 @@ class TestDecoders(TestCase):
                                            batch_size=batch_size)
         out = decoder()
         # it returns all sorts of things: out_actions_all, out_logits_all, out_rewards_all, out_terminals_all, (info[0], to_pytorch(info[1]))
-        all_sum = torch.sum(out[1])
+        all_sum = torch.sum(out['logits'])
         all_sum.backward()
         return all_sum
 

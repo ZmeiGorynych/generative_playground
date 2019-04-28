@@ -69,4 +69,4 @@ class FirstSequenceElementHead(nn.Module):
 
     def forward(self, *input):
         out = self.model(*input)
-        return out[:,0,:]
+        return out[:, 0, :]

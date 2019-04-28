@@ -84,8 +84,11 @@ class GraphEmbedder(nn.Module):
                                 out[i, n, offset + len(this_dict)] = 1 # 'other'
                         offset += len(this_dict) + 1
 
-            out2 = self.embed(out)#.view(-1, self.pre_output_shape[-1]))
-            # out3 = out2.view(*this_output_shape)
+        out2 = self.embed(out)
+        # now nuke all the values not associated with nodes
+        for i, g in enumerate(graphs):
+            out2[i,len(g):,:] = 0
+
         return out2
 
 
