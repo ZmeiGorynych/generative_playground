@@ -54,18 +54,50 @@ class TestGraphDiscriminator(TestCase):
         assert out.size(1) == d_model
         assert len(out.size()) == 2
 
+    def test_encoder_batch_independence(self):
+        d_model = 512
+        encoder = GraphEncoder(grammar=gi.grammar,
+                               d_model=d_model,
+                               drop_rate=0.0)
+
+        encoder_aggregated = FirstSequenceElementHead(encoder)
+        mol_graphs = [HyperGraph.from_mol(mol) for mol in get_zinc_molecules(5)]
+        out = encoder_aggregated(mol_graphs)
+        out2 = encoder_aggregated(mol_graphs[:1])
+        assert out.size(0) == len(mol_graphs)
+        assert out.size(1) == d_model
+        assert len(out.size()) == 2
+        assert torch.max((out[0,:] - out2[0,:]).abs()) < 1e6
+
     def test_full_discriminator_parts(self):
         encoder = GraphEncoder(grammar=gi.grammar,
                                d_model=512,
                                drop_rate=0.0)
 
         encoder_aggregated = FirstSequenceElementHead(encoder)
-        discriminator = MultipleOutputHead(encoder_aggregated, [1])
+        discriminator = MultipleOutputHead(encoder_aggregated, {'p_zinc': 2}).to(device)
         mol_graphs = [HyperGraph.from_mol(mol) for mol in get_zinc_molecules(5)]
-        out = discriminator(mol_graphs)
-        assert out[0].size(0) == len(mol_graphs)
-        assert out[0].size(1) == 1
-        assert len(out[0].size()) == 2
+        out = discriminator(mol_graphs)['p_zinc']
+        out2 = discriminator(mol_graphs[:1])['p_zinc']
+        assert out.size(0) == len(mol_graphs)
+        assert out.size(1) == 2
+        assert len(out.size()) == 2
+        assert torch.max((out[0, :] - out2[0, :]).abs()) < 1e-6
+
+    def test_full_discriminator_parts_tuple_head(self):
+        encoder = GraphEncoder(grammar=gi.grammar,
+                               d_model=512,
+                               drop_rate=0.0)
+
+        encoder_aggregated = FirstSequenceElementHead(encoder)
+        discriminator = MultipleOutputHead(encoder_aggregated, [2]).to(device)
+        mol_graphs = [HyperGraph.from_mol(mol) for mol in get_zinc_molecules(5)]
+        out = discriminator(mol_graphs)[0]
+        out2 = discriminator(mol_graphs[:1])[0]
+        assert out.size(0) == len(mol_graphs)
+        assert out.size(1) == 2
+        assert len(out.size()) == 2
+        assert torch.max((out[0, :] - out2[0, :]).abs()) < 1e-6
 
     def test_discriminator_class(self):
         d = GraphDiscriminator(gi.grammar, drop_rate=0.1)
@@ -93,6 +125,14 @@ class TestGraphDiscriminator(TestCase):
         out2 = d({'smiles': smiles})['p_zinc']
         diff = torch.max((out1-out2).abs())
         assert diff < 1e-6, "Function is non-deterministic"
+
+    def test_discriminator_class_batch_independence(self):
+        d = GraphDiscriminator(gi.grammar, drop_rate=0.0)
+        smiles = get_zinc_smiles(5)
+        out1 = d({'smiles': smiles})['p_zinc']
+        out2 = d({'smiles': smiles[:1]})['p_zinc']
+        diff = torch.max((out1[0,:] - out2[0,:]).abs())
+        assert diff < 1e-6, "There is cross-talk between batches"
 
 
 

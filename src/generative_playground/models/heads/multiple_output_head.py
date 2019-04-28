@@ -2,8 +2,7 @@ from collections import OrderedDict
 from torch import nn as nn
 from torch.nn import functional as F
 
-from generative_playground.utils.gpu_utils import to_gpu
-
+from generative_playground.utils.gpu_utils import device
 
 
 class MultipleOutputHead(nn.Module):
@@ -20,7 +19,7 @@ class MultipleOutputHead(nn.Module):
         self.dropout = nn.Dropout(drop_rate)
         self.output_spec = output_spec
         if isinstance(output_spec, list) or isinstance(output_spec, tuple):
-            module_list =[to_gpu(self._get_module(s)) for s in self.output_spec]
+            module_list =[self._get_module(s) for s in self.output_spec]
             self.fcs = nn.ModuleList(module_list)
             self.fcs_dict = None
             self.output_shape = [model.output_shape[:-1] + [s] for s in self.output_spec]
@@ -29,6 +28,7 @@ class MultipleOutputHead(nn.Module):
             self.fcs_dict = nn.ModuleDict(module_dict)
             self.fcs = None
             self.output_shape = {label: model.output_shape[:-1] + [s] for label, s in self.output_spec.items()}
+        self.to(device)
 
     def _get_module(self, spec):
         if isinstance(spec, nn.Module):
@@ -43,7 +43,8 @@ class MultipleOutputHead(nn.Module):
         :return: len(self.sizes) vectors of size x.size()[:2] x self.sizes[i],
         as tuple if self.labels is None, as dict otherwise
         '''
-        out = F.relu(self.model.forward(x))
+        x.to(device)
+        out = F.relu(self.model(x))
         out = self.dropout(out)
 
         if self.fcs is None:

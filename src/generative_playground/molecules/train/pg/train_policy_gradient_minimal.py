@@ -45,7 +45,7 @@ def reward_aromatic_rings(smiles):
 
 
 batch_size = 30#20
-drop_rate = 0.3
+drop_rate = 0.0#0.3
 molecules = True
 grammar_cache = 'hyper_grammar.pickle'
 grammar = 'hypergraph:' + grammar_cache
@@ -89,5 +89,5 @@ model, fitter1, fitter2 = train_policy_gradient(molecules,
 
 while True:
     next(fitter1)
-    for _ in range(3):
+    for _ in range(1):
         next(fitter2)

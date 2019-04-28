@@ -62,10 +62,18 @@ def train_policy_gradient(molecules=True,
     discrim_model = GraphDiscriminator(codec.grammar, drop_rate=drop_rate)
 
     def discriminator_reward_mult(smiles_list):
+        orig_state = discrim_model.training
+        discrim_model.eval()
         discrim_out_logits = discrim_model(smiles_list)['p_zinc']
         discrim_probs = F.softmax(discrim_out_logits, dim=1)
         prob_zinc = discrim_probs[:,1].detach().cpu().numpy()
+        if orig_state:
+            discrim_model.train()
         return prob_zinc
+
+    def adj_reward(x):
+        out = reward_fun_on(x) * discriminator_reward_mult(x)
+        return out
 
     if EPOCHS is not None:
         settings['EPOCHS'] = EPOCHS
@@ -76,7 +84,7 @@ def train_policy_gradient(molecules=True,
 
     task = SequenceGenerationTask(molecules=molecules,
                                   grammar=grammar,
-                                  reward_fun=lambda x: reward_fun_on(x)*discriminator_reward_mult(x),
+                                  reward_fun=adj_reward,
                                   batch_size=BATCH_SIZE,
                                   max_steps=max_steps,
                                   save_dataset=save_dataset)
@@ -232,6 +240,10 @@ def train_policy_gradient(molecules=True,
     celoss = nn.CrossEntropyLoss()
 
     def my_loss(x):
+        tmp = discriminator_reward_mult(x['smiles'])
+        tmp2 = F.softmax(x['p_zinc'], dim=1)[:,1].detach().cpu().numpy()
+        import numpy as np
+        assert np.max(np.abs(tmp-tmp2)) < 1e-6
         return celoss(x['p_zinc'].to(device), x['dataset_index'].to(device))
     fitter2 = get_rl_fitter(discrim_model,
                             my_loss,
