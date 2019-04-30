@@ -44,7 +44,7 @@ class PolicyGradientLoss(nn.Module):
             my_loss += mean_loss
         if 'best' in self.loss_type:
             best_ind = torch.argmax(total_rewards)
-            best_loss = total_logp[best_ind]# # normalize to weight 1 rewardloss[best_ind]
+            best_loss = total_logp[best_ind]*total_rewards[best_ind]# # normalize to weight 1 rewardloss[best_ind]
             if valid[best_ind] == 0:
                 best_loss *= 0.0
             my_loss += best_loss

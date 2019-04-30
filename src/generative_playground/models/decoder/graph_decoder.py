@@ -63,9 +63,9 @@ class GraphDecoder(Stepper):
         next_logits = model_out['action']
         next_logits_compact = torch.cat([next_logits[b, node, :].unsqueeze(0) for b, node in enumerate(next_node)], dim=0)
         # now that we know which nodes we're going to expand, can generate action masks
-        action_mask = self.mask_gen.valid_action_mask()
-        action_mask_pytorch = torch.from_numpy(action_mask).to(device=device, dtype=torch.float32)
-        masked_logits = next_logits_compact - 1e6 * (1 - action_mask_pytorch)
+        logit_priors = self.mask_gen.action_prior_logits()# that includes any priors
+        logit_priors_pytorch = torch.from_numpy(logit_priors).to(device=device, dtype=torch.float32)
+        masked_logits = next_logits_compact + logit_priors_pytorch
 
         return masked_logits # will also want to return which node we picked, once we enable that
 

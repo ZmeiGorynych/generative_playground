@@ -1,6 +1,7 @@
 import logging
 import random
 import numpy as np
+import os
 from unittest import TestCase
 from generative_playground.codec.hypergraph import to_mol, HyperGraph
 from generative_playground.codec.hypergraph_parser import hypergraph_parser, graph_from_graph_tree
@@ -51,7 +52,7 @@ class TestStart(TestCase):
         parsed_eqs = codec.strings_to_actions(all_eqs)
 
     def test_classic_mask_gen_molecules(self):
-        molecules = False
+        molecules = True
         grammar = 'classic'
         codec = get_codec(molecules, grammar, max_seq_length)
         actions = run_random_gen(codec.mask_gen)
@@ -61,17 +62,19 @@ class TestStart(TestCase):
         parsed_smiles = codec.strings_to_actions(new_smiles)
 
     def test_custom_grammar_mask_gen(self):
-        molecules = False
+        molecules = True
         grammar = 'new'
         codec = get_codec(molecules, grammar, max_seq_length)
         self.generate_and_validate(codec)
 
     def test_hypergraph_mask_gen(self):
-        molecules = False
+        molecules = True
         grammar_cache = 'tmp.pickle'
         grammar = 'hypergraph:' + grammar_cache
         # create a grammar cache inferred from our sample molecules
         g = HypergraphGrammar(cache_file=grammar_cache)
+        if os.path.isfile(g.cache_file):
+            os.remove(g.cache_file)
         g.strings_to_actions(smiles)
         codec = get_codec(molecules, grammar, max_seq_length)
         self.generate_and_validate(codec)

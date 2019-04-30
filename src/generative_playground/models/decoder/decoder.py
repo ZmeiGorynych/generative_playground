@@ -96,7 +96,7 @@ def get_decoder(molecules=True,
         mask_gen = get_codec(molecules, grammar, max_seq_length).mask_gen
         stepper = MaskingHead(stepper, mask_gen)
 
-    policy = SoftmaxRandomSamplePolicy()
+    policy = SoftmaxRandomSamplePolicy()#bias=codec.grammar.get_log_frequencies())
 
     decoder = to_gpu(SimpleDiscreteDecoderWithEnv(stepper,
                                                   policy,

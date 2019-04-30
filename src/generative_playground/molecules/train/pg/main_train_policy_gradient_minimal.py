@@ -34,6 +34,7 @@ def train_policy_gradient(molecules=True,
                           max_steps=277,
                           lr_on=2e-4,
                           lr_discrim=1e-4,
+                          discrim_memory=100,
                           drop_rate=0.0,
                           plot_ignore_initial=0,
                           save_file=None,
@@ -148,16 +149,17 @@ def train_policy_gradient(molecules=True,
         reward_fun_off = reward_fun_on
 
     # construct the loader to feed the discriminator
-    history_size = 1000
-    history_data = deque(['O'],
-                         maxlen=history_size)  # need to have something there to begin with, else the DataLoader constructor barfs
+    history_data = deque(['O'], maxlen=discrim_memory)  # need to have something there to begin with, else the DataLoader constructor barfs
+    def make_callback(data):
+        def hc(inputs, model, outputs, loss_fn, loss):
+            graphs = outputs['graphs']
+            smiles = [g.to_smiles() for g in graphs]
+            for s in smiles: # only store unique instances of molecules so discriminator can't guess on frequency
+                if s not in data:
+                    data.append(s)
+        return hc
 
-    def history_callback(inputs, model, outputs, loss_fn, loss):
-        graphs = outputs['graphs']
-        smiles = [g.to_smiles() for g in graphs]
-        history_data.extend(smiles)
-
-
+    history_callback = make_callback(history_data)
 
     def get_rl_fitter(model,
                       loss_obj,

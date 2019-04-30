@@ -201,9 +201,10 @@ class HypergraphGrammar(GenericCodec):
 
 
 class HypergraphMaskGenerator:
-    def __init__(self, max_len, grammar):
+    def __init__(self, max_len, grammar, priors=False):
         self.grammar = grammar
         self.MAX_LEN = max_len
+        self.priors = priors
         self.graphs = None
         self.t = 0
 
@@ -299,8 +300,16 @@ class HypergraphMaskGenerator:
         for graph, expand_loc in zip(self.graphs, self.next_expand_location):
             this_mask = self.get_one_mask(graph, expand_loc)
             masks.append(this_mask)
-        return np.array(masks)
+        # TODO: the log frequencies injected here should be conditional on which nonterminal we're expanding
+        out = np.array(masks)#
+        return out
 
+    def action_prior_logits(self):
+        masks = self.valid_action_mask()
+        out = -1e6*(1-np.array(masks))
+        if self.priors:
+            out += self.grammar.get_log_frequencies()
+        return out
 
     def valid_node_mask(self):
         max_nodes = max([1 if g is None else len(g) for g in self.graphs])

@@ -44,7 +44,7 @@ def reward_aromatic_rings(smiles):
     return [-1 if num is None else num + 0.5 for num in atoms]
 
 
-batch_size = 30#20
+batch_size = 5 # 20
 drop_rate = 0.5
 molecules = True
 grammar_cache = 'hyper_grammar.pickle'
@@ -71,21 +71,22 @@ else:
     # TODO: remove this l
 max_steps = 30
 model, fitter1, fitter2 = train_policy_gradient(molecules,
-                                       grammar,
-                                       EPOCHS=100,
-                                       BATCH_SIZE=batch_size,
-                                       reward_fun_on=reward_fun,
-                                       max_steps=max_steps,
-                                       lr_on=1e-4,
-                                        lr_discrim=0.5e-4,
-                                       drop_rate=drop_rate,
-                                       decoder_type='attn_graph',#'attention',
-                                       plot_prefix='hg ',
-                                       dashboard='hypergraph',  # 'policy gradient',
-                                       save_file='policy_gradient_hg1.h5',
-                                       smiles_save_file=None,#'pg_smiles_hg1.h5',
-                                       on_policy_loss_type='best',
-                                       off_policy_loss_type='mean')
+                                                grammar,
+                                                EPOCHS=100,
+                                                BATCH_SIZE=batch_size,
+                                                reward_fun_on=reward_fun,
+                                                max_steps=max_steps,
+                                                lr_on=1e-5,
+                                                lr_discrim=1e-4,
+                                                discrim_memory=1000,
+                                                drop_rate=drop_rate,
+                                                decoder_type='attn_graph',  # 'attention',
+                                                plot_prefix='hg ',
+                                                dashboard=None,#'hypergraph_2',  # 'policy gradient',
+                                                save_file='policy_gradient_hg1.h5',
+                                                smiles_save_file=None,  # 'pg_smiles_hg1.h5',
+                                                on_policy_loss_type='best',
+                                                off_policy_loss_type='mean')
 # preload_file='policy_gradient_run.h5')
 
 while True:
