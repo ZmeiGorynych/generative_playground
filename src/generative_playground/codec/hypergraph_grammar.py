@@ -3,7 +3,7 @@ from generative_playground.molecules.lean_settings import get_data_location, mol
 import frozendict
 from generative_playground.codec.parent_codec import GenericCodec
 from generative_playground.codec.hypergraph import HyperGraph, HypergraphTree, replace_nonterminal, to_mol, MolToSmiles, MolFromSmiles
-from generative_playground.codec.hypergraph_parser import hypergraph_parser
+from generative_playground.codec.hypergraph_parser import hypergraph_parser, tree_with_rule_inds_to_list_of_tuples
 from generative_playground.molecules.data_utils.zinc_utils import get_zinc_smiles
 import networkx as nx
 import pickle
@@ -33,8 +33,10 @@ class HypergraphGrammar(GenericCodec):
         self.terminal_distance_by_parent = {}
         self.rule_term_dist_deltas = []
         self.shortest_rule_by_parent = {}
+        self.last_tree_processed = None
         self.MAX_LEN = max_len # only used to pad string_to_actions output, factor out?
         self.PAD_INDEX = 0
+        self.conditional_frequencies = {}
 
     def __len__(self):
         return len(self.rules)
@@ -42,6 +44,10 @@ class HypergraphGrammar(GenericCodec):
 
     def feature_len(self):
         return len(self)
+
+    def delete_cache(self):
+        if os.path.isfile(self.cache_file):
+            os.remove(self.cache_file)
 
     @property
     def grammar(self):
@@ -54,7 +60,7 @@ class HypergraphGrammar(GenericCodec):
         return self
 
     def get_log_frequencies(self):
-        out = -10 * np.ones(len(self.rules))
+        out = np.zeros(len(self.rules))
         for ind, value in self.rule_frequency_dict.items():
             out[ind] = math.log(value)
         return out
@@ -107,6 +113,7 @@ class HypergraphGrammar(GenericCodec):
         reordered_subtrees = [child_id_to_subtree[node_id_map[child_id]] for child_id in self.rules[rule_id].child_ids()]
         new_tree = HypergraphTree(node=self.rules[rule_id], children=reordered_subtrees)
         new_tree.node.rule_id = rule_id
+        self.last_tree_processed = new_tree
         return new_tree
 
     def calc_terminal_distance(self):
@@ -443,6 +450,12 @@ class GrammarInitializer:
         assert type(out) == Class
         return out
 
+    def delete_cache(self):
+        if os.path.isfile(self.own_filename):
+            os.remove(self.own_filename)
+        if os.path.isfile(self.grammar_filename):
+            os.remove(self.grammar_filename)
+        self.grammar.delete_cache()
 
 
     def init_grammar(self, max_num_mols):
@@ -454,6 +467,15 @@ class GrammarInitializer:
                 try:
                     # this causes g to remember all the rules occurring in these molecules
                     these_actions = self.grammar.raw_strings_to_actions([smiles])
+                    this_tree = self.grammar.last_tree_processed
+                    these_tuples = tree_with_rule_inds_to_list_of_tuples(this_tree)
+                    for p, nt, c in these_tuples:
+                        if (p,nt) not in self.grammar.conditional_frequencies:
+                            self.grammar.conditional_frequencies[(p, nt)] = {}
+                        if c not in self.grammar.conditional_frequencies[(p, nt)]:
+                            self.grammar.conditional_frequencies[(p, nt)][c] = 1
+                        else:
+                            self.grammar.conditional_frequencies[(p, nt)][c] += 1
                     # count the frequency of the occurring rules
                     for aa in these_actions:
                         for a in aa:

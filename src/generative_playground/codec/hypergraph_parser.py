@@ -277,3 +277,12 @@ def graph_from_graph_tree(tree):
     check_validity(this_node)
     this_node.validate()
     return this_node
+
+def tree_with_rule_inds_to_list_of_tuples(tree):
+    tuples_list = []
+    if tree.node.parent_node_id is None: # root of the tree
+        tuples_list.append((None, None, tree.node.rule_id))
+    for child, child_id in zip(tree, tree.node.child_indices()):
+        tuples_list.append((tree.node.rule_id, child_id, child.node.rule_id))
+        tuples_list+=(tree_with_rule_inds_to_list_of_tuples(child))
+    return tuples_list

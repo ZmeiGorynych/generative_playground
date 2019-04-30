@@ -62,7 +62,7 @@ class HypergraphTree(list):
 def graph_tree_to_rules_list(tree):
     assert isinstance(tree, HypergraphTree)
     rules_list = [tree.node]
-    for child in reversed(tree):
+    for child in reversed(tree): # need to reverse to get correct expansion order
         rules_list += graph_tree_to_rules_list(child)
     return rules_list
 
@@ -140,6 +140,14 @@ class HyperGraph:
 
     def child_ids(self):
         return [key for key in self.nonterminal_ids() if key != self.parent_node_id]
+
+    def child_indices(self):
+        return [i for i, id in enumerate(self.node.keys()) if id in self.child_ids()]
+
+    def id_to_index(self, id):
+        out = [i for i, id_candidate in enumerate(self.node.keys()) if id_candidate==id]
+        assert len(out) == 1, "This id does not exist"
+        return out[0]
 
     def children(self):
         return [self.node[child_id] for child_id in self.child_ids()]
