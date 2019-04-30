@@ -93,6 +93,10 @@ class HyperGraph:
                             graph=clone,
                             is_terminal=node.is_terminal,
                             data=node.data)
+            if hasattr(node, 'rule_id'):
+                new_node.rule_id = node.rule_id
+            if hasattr(node, 'node_index'):
+                new_node.node_index = node.node_index
             if node_id == self.parent_node_id:
                 clone.add_parent_node(new_node)
             else:

@@ -10,6 +10,7 @@ except:
     # sys.path.append('../../../../../transformer_pytorch')
 
 import os
+import numpy as np
 # from deep_rl import *
 # from generative_playground.models.problem.rl.network_heads import CategoricalActorCriticNet
 # from generative_playground.train.rl.run_iterations import run_iterations
@@ -44,7 +45,7 @@ def reward_aromatic_rings(smiles):
     return [-1 if num is None else num + 0.5 for num in atoms]
 
 
-batch_size = 5 # 20
+batch_size = 20 # 20
 drop_rate = 0.5
 molecules = True
 grammar_cache = 'hyper_grammar.pickle'
@@ -53,22 +54,15 @@ settings = get_settings(molecules, grammar)
 # max_steps = 277  # settings['max_seq_length']
 invalid_value = -3.5
 scorer = NormalizedScorer(invalid_value=invalid_value)
-reward_fun = lambda x: scorer(x)  # lambda x: reward_aromatic_rings(x)#
+reward_fun = lambda x: np.ones(len(x)) #scorer(x)  # lambda x: reward_aromatic_rings(x)#
 # later will run this ahead of time
 gi = GrammarInitializer(grammar_cache)
-gf = gi.full_grammar_filename(grammar_cache)
-go = gi.full_own_filename(grammar_cache)
-# if os.path.isfile(gf):
-#     os.remove(gf)
-# if os.path.isfile(go):
-#     os.remove(go)
+if True:
+    gi.delete_cache()
+    gi = GrammarInitializer(grammar_cache)
 
-if os.path.isfile(go):
-    gi = GrammarInitializer.load(go)
-    max_steps = gi.max_len + 1
-else:
-    max_steps = gi.init_grammar(100)
-    # TODO: remove this l
+max_steps_smiles = gi.init_grammar(100)
+
 max_steps = 30
 model, fitter1, fitter2 = train_policy_gradient(molecules,
                                                 grammar,
@@ -76,16 +70,16 @@ model, fitter1, fitter2 = train_policy_gradient(molecules,
                                                 BATCH_SIZE=batch_size,
                                                 reward_fun_on=reward_fun,
                                                 max_steps=max_steps,
-                                                lr_on=1e-5,
+                                                lr_on=1e-4,
                                                 lr_discrim=1e-4,
                                                 discrim_memory=1000,
                                                 drop_rate=drop_rate,
                                                 decoder_type='attn_graph',  # 'attention',
                                                 plot_prefix='hg ',
-                                                dashboard=None,#'hypergraph_2',  # 'policy gradient',
+                                                dashboard='hypergraph',  # 'policy gradient',
                                                 save_file='policy_gradient_hg1.h5',
                                                 smiles_save_file=None,  # 'pg_smiles_hg1.h5',
-                                                on_policy_loss_type='best',
+                                                on_policy_loss_type='mean',#''best',
                                                 off_policy_loss_type='mean')
 # preload_file='policy_gradient_run.h5')
 

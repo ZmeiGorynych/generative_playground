@@ -100,7 +100,8 @@ def train_policy_gradient(molecules=True,
                         decoder_type=decoder_type,
                         task=task)[0]
 
-    model.stepper.mask_gen.priors = True # use empirical priors for the mask gen
+    # TODO: really ugly, refactor! In fact this model doesn't need a MaskingHead at all!
+    model.stepper.model.mask_gen.priors = True#'conditional' # use empirical priors for the mask gen
     # if preload_file is not None:
     #     try:
     #         preload_path = root_location + 'pretrained/' + preload_file
@@ -139,9 +140,9 @@ def train_policy_gradient(molecules=True,
             visdom.append('score component',
                           'line',
                           X=np.array([n]),
-                          Y=np.array([[total_rewards[best_ind].item()] + [x for x in norm_scores[0]] + [norm_scores[0].sum()] + [scores[0].sum()] + [
-                              desc.CalcNumAromaticRings(mol)]]),
-                          opts={'legend': ['eff_reward','logP', 'SA', 'cycle', 'norm_reward', 'reward', 'Aromatic rings']})
+                          Y=np.array([ [x for x in norm_scores[0]] + [norm_scores[0].sum()] + [scores[0].sum()] + [
+                              desc.CalcNumAromaticRings(mol)] + [total_rewards[best_ind].item()]]),
+                          opts={'legend': ['logP', 'SA', 'cycle', 'norm_reward', 'reward', 'Aromatic rings','eff_reward']})
             visdom.append('fraction valid',
                           'line',
                           X=np.array([n]),

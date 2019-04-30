@@ -27,3 +27,5 @@ class TestGrammarInitializer(TestCase):
             cond_count += sum(cf.values())
         count = sum(gi2.grammar.rule_frequency_dict.values())
         assert cond_count == count, "Something went wrong when counting the frequencies..."
+        gi2.grammar.check_attributes()
+

@@ -41,6 +41,12 @@ class HypergraphGrammar(GenericCodec):
     def __len__(self):
         return len(self.rules)
 
+    def check_attributes(self):
+        for rule in self.rules:
+            if rule is not None:
+                for this_node in rule.node.values():
+                    assert hasattr(this_node, 'rule_id')
+                    assert hasattr(this_node, 'node_index')
 
     def feature_len(self):
         return len(self)
@@ -63,6 +69,13 @@ class HypergraphGrammar(GenericCodec):
         out = np.zeros(len(self.rules))
         for ind, value in self.rule_frequency_dict.items():
             out[ind] = math.log(value)
+        return out
+
+    def get_conditional_log_frequencies(self, x):
+        out = np.zeros(len(self.rules))
+        if x in self.conditional_frequencies:
+            for ind, value in self.conditional_frequencies[x].items():
+                out[ind] = math.log(value)
         return out
 
     def decode_from_actions(self, actions):
@@ -180,7 +193,15 @@ class HypergraphGrammar(GenericCodec):
         # if got this far, no match so this is a new rule
         if no_new_rules:
             raise ValueError("Unknown rule hypergraph " + str(rule))
-        # rule.is_rule = True
+        self.add_rule(rule)
+        return (len(self.rules)-1), {i: i for i in rule.node.keys()}
+
+    def add_rule(self, rule):
+        parent_node = rule.parent_node()
+        # add more information to the rule nodes, to be used later
+        for n, node in enumerate(rule.node.values()):
+            node.rule_id = len(self.rules)
+            node.node_index = n
         self.rules.append(rule)
         for node in rule.node.values():
             self.index_node_data(node)
@@ -193,7 +214,6 @@ class HypergraphGrammar(GenericCodec):
             with open(self.cache_file, 'wb') as f:
                 pickle.dump(self, f)
 
-        return new_rule_index, {i: i for i in rule.node.keys()}
 
     def index_node_data(self, node):
         for fn in node.data.keys():
@@ -214,10 +234,12 @@ class HypergraphMaskGenerator:
         self.priors = priors
         self.graphs = None
         self.t = 0
+        self.last_action = None
 
     def reset(self):
         self.graphs = None
         self.t = 0
+        self.last_action = None
 
     def apply_one_action(self, graph, last_action, expand_id):
         # TODO: allow None action
@@ -258,6 +280,7 @@ class HypergraphMaskGenerator:
         return self.valid_action_mask()
 
     def apply_action(self, last_action):
+        self.last_action = last_action # to be used for next step's conditional frequencies
         if self.t >= self.MAX_LEN:
             raise StopIteration("maximum sequence length exceeded for decoder")
 
@@ -283,15 +306,34 @@ class HypergraphMaskGenerator:
         for graph, expand_loc in zip(self.graphs, self.next_expand_location):
             this_mask = self.get_one_mask(graph, expand_loc)
             masks.append(this_mask)
-        # TODO: the log frequencies injected here should be conditional on which nonterminal we're expanding
         out = np.array(masks)#
+        return out
+
+    def get_log_conditional_frequencies(self):
+        freqs = []
+        for graph, expand_loc in zip(self.graphs, self.next_expand_location):
+            if graph is None: # first step
+                query = (None, None)
+            elif expand_loc is None: # graph is finished, we're just doing padding
+                assert len(graph.child_ids()) == 0
+                return np.zeros((len(self.graphs), len(self.grammar.rules)))
+            else:
+                this_node = graph.node[expand_loc]
+                parent_rule = this_node.rule_id
+                nt_index = this_node.node_index # nonterminal index in teh original rule
+                query = (parent_rule, nt_index)
+            this_freqs = self.grammar.get_conditional_log_frequencies(query)
+            freqs.append(this_freqs)
+        out = np.array(freqs)
         return out
 
     def action_prior_logits(self):
         masks = self.valid_action_mask()
         out = -1e6*(1-np.array(masks))
-        if self.priors:
+        if self.priors is True:
             out += self.grammar.get_log_frequencies()
+        elif self.priors == 'conditional':
+            out += self.get_log_conditional_frequencies()
         return out
 
     def valid_node_mask(self):
@@ -417,8 +459,6 @@ def evaluate_rules(rules):
     return start_graph
 
 class GrammarInitializer:
-
-
     def __init__(self, filename):
         self.grammar_filename = self.full_grammar_filename(filename)
         self.own_filename = self.full_own_filename(filename)
@@ -496,5 +536,5 @@ class GrammarInitializer:
                     print(self.new_rules[-1])
             if ind % 10 == 9:
                 self.save()
-
+        self.grammar.calc_terminal_distance()
         return self.max_len # maximum observed molecule length

@@ -12,6 +12,10 @@ from generative_playground.codec.grammar_mask_gen import GrammarMaskGenerator
 from generative_playground.codec.mask_gen_new_2 import GrammarMaskGeneratorNew
 from generative_playground.codec.grammar_codec import CFGrammarCodec, zinc_tokenizer, zinc_tokenizer_new, eq_tokenizer
 from generative_playground.codec.codec import get_codec
+from generative_playground.codec.hypergraph_grammar import GrammarInitializer
+from generative_playground.models.decoder.policy import SoftmaxRandomSamplePolicy
+from generative_playground.utils.gpu_utils import device
+import torch
 
 smiles = ['CC(C)(C)c1ccc2occ(CC(=O)Nc3ccccc3F)c2c1',
           'C[C@@H]1CC(Nc2cncc(-c3nncn3C)c2)C[C@@H](C)C1',
@@ -41,7 +45,6 @@ def run_random_gen(mask_gen):
 
 
 class TestStart(TestCase):
-
     def test_classic_mask_gen_equations(self):
         molecules = False
         grammar = 'classic'
@@ -83,5 +86,92 @@ class TestStart(TestCase):
         actions = run_random_gen(codec.mask_gen)
         # the test is that we get that far, producing valid molecules
         all_smiles = codec.actions_to_strings(actions)
+        for smile in all_smiles:
+            self.assertIsNot(MolFromSmiles(smile), None)
+
+    def test_hypergraph_mask_gen_conditional_priors(self):
+        tmp_file = 'tmp2.pickle'
+        gi = GrammarInitializer(tmp_file)
+        gi.delete_cache()
+        # now create a clean new one
+        gi = GrammarInitializer(tmp_file)
+        # run a first run for 10 molecules
+        gi.init_grammar(20)
+        gi.grammar.check_attributes()
+
+        mask_gen = HypergraphMaskGenerator(30, gi.grammar, priors='conditional')
+
+        all_actions = []
+        next_action = [None for _ in range(2)]
+        policy = SoftmaxRandomSamplePolicy()
+        while True:
+            try:
+                mask_gen.apply_action(next_action)
+                cond_priors = mask_gen.action_prior_logits()
+                cond_priors_pytorch = torch.from_numpy(cond_priors).to(device=device, dtype=torch.float32)
+                next_action = policy(cond_priors_pytorch).cpu().detach().numpy()
+                all_actions.append(next_action)
+            except StopIteration:
+                break
+        all_actions = np.array(all_actions).T
+        all_smiles = gi.grammar.actions_to_strings(all_actions)
+        for smile in all_smiles:
+            self.assertIsNot(MolFromSmiles(smile), None)
+
+    def test_hypergraph_mask_gen_unconditional_priors(self):
+        tmp_file = 'tmp2.pickle'
+        gi = GrammarInitializer(tmp_file)
+        gi.delete_cache()
+        # now create a clean new one
+        gi = GrammarInitializer(tmp_file)
+        # run a first run for 10 molecules
+        gi.init_grammar(20)
+        gi.grammar.check_attributes()
+
+        mask_gen = HypergraphMaskGenerator(30, gi.grammar, priors=True)
+
+        all_actions = []
+        next_action = [None for _ in range(2)]
+        policy = SoftmaxRandomSamplePolicy()
+        while True:
+            try:
+                mask_gen.apply_action(next_action)
+                cond_priors = mask_gen.action_prior_logits()
+                cond_priors_pytorch = torch.from_numpy(cond_priors).to(device=device, dtype=torch.float32)
+                next_action = policy(cond_priors_pytorch).cpu().detach().numpy()
+                all_actions.append(next_action)
+            except StopIteration:
+                break
+        all_actions = np.array(all_actions).T
+        all_smiles = gi.grammar.actions_to_strings(all_actions)
+        for smile in all_smiles:
+            self.assertIsNot(MolFromSmiles(smile), None)
+
+    def test_hypergraph_mask_gen_no_priors(self):
+        tmp_file = 'tmp2.pickle'
+        gi = GrammarInitializer(tmp_file)
+        gi.delete_cache()
+        # now create a clean new one
+        gi = GrammarInitializer(tmp_file)
+        # run a first run for 10 molecules
+        gi.init_grammar(20)
+        gi.grammar.check_attributes()
+
+        mask_gen = HypergraphMaskGenerator(30, gi.grammar, priors=False)
+
+        all_actions = []
+        next_action = [None for _ in range(2)]
+        policy = SoftmaxRandomSamplePolicy()
+        while True:
+            try:
+                mask_gen.apply_action(next_action)
+                cond_priors = mask_gen.action_prior_logits()
+                cond_priors_pytorch = torch.from_numpy(cond_priors).to(device=device, dtype=torch.float32)
+                next_action = policy(cond_priors_pytorch).cpu().detach().numpy()
+                all_actions.append(next_action)
+            except StopIteration:
+                break
+        all_actions = np.array(all_actions).T
+        all_smiles = gi.grammar.actions_to_strings(all_actions)
         for smile in all_smiles:
             self.assertIsNot(MolFromSmiles(smile), None)
