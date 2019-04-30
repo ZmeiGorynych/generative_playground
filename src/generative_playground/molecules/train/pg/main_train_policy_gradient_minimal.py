@@ -99,6 +99,8 @@ def train_policy_gradient(molecules=True,
                         drop_rate=drop_rate,
                         decoder_type=decoder_type,
                         task=task)[0]
+
+    model.stepper.mask_gen.priors = True # use empirical priors for the mask gen
     # if preload_file is not None:
     #     try:
     #         preload_path = root_location + 'pretrained/' + preload_file
@@ -257,7 +259,7 @@ def train_policy_gradient(molecules=True,
 
     def on_policy_gen(fitter, model):
         while True:
-            model.policy = SoftmaxRandomSamplePolicy(bias=codec.grammar.get_log_frequencies())
+            model.policy = SoftmaxRandomSamplePolicy()#bias=codec.grammar.get_log_frequencies())
             yield next(fitter)
 
     return model, on_policy_gen(fitter1, model), fitter2

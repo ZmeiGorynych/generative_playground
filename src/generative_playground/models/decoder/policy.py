@@ -56,11 +56,15 @@ class SoftmaxRandomSamplePolicy(SimplePolicy):
         :param logits: Logits to generate probabilities from, batch_size x out_dim float32
         :return:
         '''
-        x = self.gumbel.sample(logits.shape).to(device) + logits
-        if self.bias is not None:
-            x += self.bias
+        eff_logits = self.effective_logits(logits)
+        x = self.gumbel.sample(logits.shape).to(device) + eff_logits
         _, out = torch.max(x, -1)
         return out
+
+    def effective_logits(self, logits):
+        if self.bias is not None:
+            logits += self.bias
+        return logits
 
 
 

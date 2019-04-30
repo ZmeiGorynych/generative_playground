@@ -247,30 +247,6 @@ class HypergraphMaskGenerator:
         return this_mask
 
     def __call__(self, last_action):
-
-        # '''
-        # Consumes one action at a time, responds with the mask for next action, always expands last available node
-        # : param last_action: previous action, array of ints of len = batch_size; None for the very first step
-        # '''
-        # if self.t >= self.MAX_LEN:
-        #     raise StopIteration("maximum sequence length exceeded for decoder")
-        #
-        # # apply the last action
-        # if last_action[0] is None:
-        #     assert self.t == 0 and self.graphs is None, "Trying to apply a None action to initialized graphs"
-        #     # first call: get the batch size from the input
-        #     self.graphs = [None for _ in range(len(last_action))]
-        #     self.next_expand_location = copy.deepcopy(self.graphs)
-        # else:
-        #     # evaluate the rule; assume the rule is valid
-        #     for ind, graph, last_act in zip(range(len(self.graphs)),self.graphs, last_action):
-        #         new_graph = self.apply_one_action(graph, last_act)
-        #         self.graphs[ind] = new_graph
-        #
-        # # now go over the graphs and determine the next mask
-        #
-        #
-        # self.t += 1
         self.apply_action(last_action)
         return self.valid_action_mask()
 
