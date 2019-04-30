@@ -40,15 +40,17 @@ class Edge:
         self.type = type
         self.data = data
 
+
 class HypergraphTree(list):
-    def __init__(self, node=None, children=[]):
-        self.node = node # hypergraph
+    def __init__(self, node=None, children=None):
+        children = children or []
+        self.node = node  # hypergraph
         super().__init__(children)
         self.validate()
 
     def validate(self):
-        assert len(self) == len(self.node.child_ids())
-        for (child_id, subtree) in zip(self.node.child_ids(),self):
+        assert len(self) == len(self.node.child_ids()), "Mismatched self length ({}) with child_ids ({})".format(len(self), len(self.node.child_ids()))
+        for (child_id, subtree) in zip(self.node.child_ids(), self):
             assert str(self.node.node[child_id]) == str(subtree.node.parent_node()), "Mismatch between node nonterminals and subtree parent nodes"
 
     def size(self):
@@ -281,7 +283,7 @@ class HyperGraph:
         :return:
         '''
         '''
-        
+
         Add a 'parent' node, store its index
         Add child nodes from ['children'].keys()
         add all edges just as they are
@@ -471,14 +473,12 @@ def to_mol(graph):
 
 
 def replace_nonterminal(orig_node, loc, new_node):
+    orig_node = copy.deepcopy(orig_node)
     new_node = new_node.clone()
     orig_node.validate()
     new_node.validate()
-    # orig_node_copy = copy.deepcopy(orig_node)
-    # new_node_copy = copy.deepcopy(new_node)
     node_to_replace = orig_node.node[loc]
     new_root_node = new_node.parent_node()
-    # new_node = copy.deepcopy(new_node)
     assert len(node_to_replace.edge_ids) == len(new_root_node.edge_ids)
     for edge1_id, edge2_id in zip(node_to_replace.edge_ids, new_root_node.edge_ids):
         edge1 = orig_node.edges[edge1_id]
