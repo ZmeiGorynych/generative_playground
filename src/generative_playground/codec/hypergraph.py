@@ -164,19 +164,38 @@ class HyperGraph:
     def __len__(self):
         return len(self.node)
 
+    def node_ids_by_edge_id(self):
+        data = OrderedDict()
+        for node_id, node in self.node.items():
+            for edge_id in node.edge_ids:
+                if edge_id not in data:
+                    data[edge_id] = []
+                data[edge_id].append(node_id)
+
+        return data
+    # TODO: merge these with the above?
+    def node_ids_from_edge_id(self, edge_id):
+        my_nodes=[]
+        for node_id, node in self.node.items():
+            if edge_id in node.edge_ids:
+                my_nodes.append(node_id)
+        return my_nodes
 
     def validate(self):
-        edge_count = {}
-        edge_lists = [node.edge_ids for node in self.node.values()]
-        for node in edge_lists:
-            for edge_id in node:
-                if edge_id not in edge_count:
-                    edge_count[edge_id] = 1
-                else:
-                    edge_count[edge_id] += 1
-
-        for count in edge_count.values():
-            assert count == 2
+        edge_count = self.node_ids_by_edge_id()
+        # edge_count = {}
+        # edge_lists = [node.edge_ids for node in self.node.values()]
+        # for node in edge_lists:
+        #     for edge_id in node:
+        #         if edge_id not in edge_count:
+        #             edge_count[edge_id] = 1
+        #         else:
+        #             edge_count[edge_id] += 1
+        #
+        # for count in edge_count.values():
+        #     assert count == 2
+        for nodes in edge_count.values():
+            assert len(nodes) == 2
 
         assert set(edge_count.keys()) == set(self.edges.keys())
 
@@ -186,20 +205,15 @@ class HyperGraph:
         # self.check_validity()
         # assert len(self.open_edges) == 0
         G = nx.Graph()
-        for node_id, node in self.node.items():
-            G.add_node(node_id, node = node)
+        for n, (node_id, node) in enumerate(self.node.items()):
+            G.add_node(node_id, node = node, index=n)
 
         for edge_id, edge in self.edges.items():
             first, second = self.node_ids_from_edge_id(edge_id)
             G.add_edge(first, second, id=edge_id, data=edge)
         return G
 
-    def node_ids_from_edge_id(self, edge_id):
-        my_nodes=[]
-        for node_id, node in self.node.items():
-            if edge_id in node.edge_ids:
-                my_nodes.append(node_id)
-        return my_nodes
+
 
     def other_end_of_edge(self, node_id, edge_id):
         assert edge_id in self.node[node_id].edge_ids

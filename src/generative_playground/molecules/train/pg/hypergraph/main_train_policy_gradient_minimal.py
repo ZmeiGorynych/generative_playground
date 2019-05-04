@@ -5,6 +5,7 @@ from torch.optim import lr_scheduler
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
+import numpy as np
 from torch.utils.data import DataLoader
 
 from generative_playground.utils.fit_rl import fit_rl
@@ -34,7 +35,7 @@ def train_policy_gradient(molecules=True,
                           max_steps=277,
                           lr_on=2e-4,
                           lr_discrim=1e-4,
-                          discrim_memory=100,
+                          p_thresh=0.5,
                           drop_rate=0.0,
                           plot_ignore_initial=0,
                           save_file=None,
@@ -49,8 +50,10 @@ def train_policy_gradient(molecules=True,
                           off_policy_loss_type='mean',
                           sanity_checks=True):
     root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-    root_location = root_location + '/../'
-    save_path = root_location + 'pretrained/' + save_file
+    root_location = root_location + '/../../'
+    gen_save_path = root_location + 'pretrained/gen_' + save_file
+    disc_save_path = root_location + 'pretrained/disc_' + save_file
+
     if smiles_save_file is not None:
         smiles_save_path = root_location + 'pretrained/' + smiles_save_file
         save_dataset = IncrementingHDF5Dataset(smiles_save_path)
@@ -61,6 +64,31 @@ def train_policy_gradient(molecules=True,
     settings = get_settings(molecules=molecules, grammar=grammar)
     codec = get_codec(molecules, grammar, settings['max_seq_length'])
     discrim_model = GraphDiscriminator(codec.grammar, drop_rate=drop_rate)
+
+    zinc_data = get_zinc_smiles()
+    zinc_set = set(zinc_data)
+    lookbacks = [BATCH_SIZE, 10*BATCH_SIZE, 100*BATCH_SIZE]
+    history_data = [deque(['O'], maxlen=lb) for lb in lookbacks]
+
+    def originality_mult(smiles_list):
+        out = []
+        for s in smiles_list:
+            if s in zinc_set:
+                out.append(0.5)
+            elif s in history_data[0]:
+                out.append(0.5)
+            elif s in history_data[1]:
+                out.append(0.70)
+            elif s in history_data[2]:
+                out.append(0.85)
+            else:
+                out.append(1.0)
+        return np.array(out)
+
+
+    def discrim_thresh_mult(x):
+        tmp = -(x-p_thresh)/0.01
+        return 1/(1+np.exp(tmp))
 
     def discriminator_reward_mult(smiles_list):
         orig_state = discrim_model.training
@@ -73,7 +101,10 @@ def train_policy_gradient(molecules=True,
         return prob_zinc
 
     def adj_reward(x):
-        out = reward_fun_on(x) * discriminator_reward_mult(x)
+        p = discriminator_reward_mult(x)
+        w = discrim_thresh_mult(p)
+        weighted_reward = w * np.maximum(reward_fun_on(x), p_thresh) + (1-w) * discriminator_reward_mult(x)
+        out = weighted_reward * originality_mult(x) #
         return out
 
     if EPOCHS is not None:
@@ -152,7 +183,6 @@ def train_policy_gradient(molecules=True,
         reward_fun_off = reward_fun_on
 
     # construct the loader to feed the discriminator
-    history_data = deque(['O'], maxlen=discrim_memory)  # need to have something there to begin with, else the DataLoader constructor barfs
     def make_callback(data):
         def hc(inputs, model, outputs, loss_fn, loss):
             graphs = outputs['graphs']
@@ -162,11 +192,13 @@ def train_policy_gradient(molecules=True,
                     data.append(s)
         return hc
 
-    history_callback = make_callback(history_data)
+
+    # need to have something there to begin with, else the DataLoader constructor barfs
 
     def get_rl_fitter(model,
                       loss_obj,
                       train_gen,
+                      save_path,
                       fit_plot_prefix='',
                       model_process_fun=None,
                       lr=None,
@@ -184,7 +216,8 @@ def train_policy_gradient(molecules=True,
                                            loss_display_cap=loss_display_cap,
                                            dashboard_name=dashboard,
                                            plot_ignore_initial=plot_ignore_initial,
-                                           process_model_fun=model_process_fun)
+                                           process_model_fun=model_process_fun,
+                                           smooth_weight=0.9)
         else:
             metric_monitor = None
 
@@ -227,21 +260,22 @@ def train_policy_gradient(molecules=True,
 
     # the on-policy fitter
 
-    #
+    history_callbacks = [make_callback(d) for d in history_data]
     fitter1 = get_rl_fitter(model,
                             PolicyGradientLoss(on_policy_loss_type),
                             GeneratorToIterable(my_gen),
+                            gen_save_path,
                             plot_prefix + 'on-policy',
                             model_process_fun=model_process_fun,
                             lr=lr_on,
-                            extra_callbacks=[history_callback],
+                            extra_callbacks=history_callbacks,
                             anchor_model=anchor_model,
                             anchor_weight=anchor_weight)
     #
     # # get existing molecule data to add training
-    zinc_data = get_zinc_smiles()
-    dataset = EvenlyBlendedDataset([history_data, zinc_data], labels=True)
-    discrim_loader = DataLoader(dataset, shuffle=True, batch_size=10)
+    pre_dataset = EvenlyBlendedDataset(2 * [history_data[0]] + history_data[1:] , labels=False)  # a blend of 3 time horizons
+    dataset = EvenlyBlendedDataset([pre_dataset,zinc_data], labels=True)
+    discrim_loader = DataLoader(dataset, shuffle=True, batch_size=50)
     celoss = nn.CrossEntropyLoss()
 
     def my_loss(x):
@@ -254,6 +288,7 @@ def train_policy_gradient(molecules=True,
                             my_loss,
                             IterableTransform(discrim_loader,
                                               lambda x: {'smiles': x['X'], 'dataset_index': x['dataset_index']}),
+                            disc_save_path,
                             plot_prefix + ' discriminator',
                             lr=lr_discrim,
                             model_process_fun=None)

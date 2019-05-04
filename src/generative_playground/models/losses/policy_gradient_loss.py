@@ -29,18 +29,31 @@ class PolicyGradientLoss(nn.Module):
             dloss = torch.diag(-log_p[:, i, model_out['actions'][:,i]]) # batch_size, hopefully
             total_logp += dloss
 
-        #total_logp[total_logp > self.loss_cutoff] = 0
+
 
         if sum(valid) > 0:
             self.metrics = {'avg reward': total_rewards.mean().data.item(),
-                        'max reward': total_rewards.max().data.item()}
+                        'max reward': total_rewards.max().data.item(),
+                            # 'avg_loss': total_logp.mean().data.item()
+                            }
         else:
             self.metrics = {}
+
+        try:
+            smiles = model_out['info'][0]
+            self.metrics.update({'unique': len(set(smiles))/len(smiles)})
+        except:
+            pass
         my_loss = 0
         # loss_cutoff causes us to ignore off-policy examples that are grammatically possible but masked away
-        rewardloss = (total_logp * total_rewards)[total_logp < self.loss_cutoff]
         if 'mean' in self.loss_type:
+            rewardloss = (total_logp * total_rewards)[total_logp < self.loss_cutoff]
             mean_loss = rewardloss.mean()/(total_rewards.abs().mean()+1e-8)
+            my_loss += mean_loss
+        if 'advantage' in self.loss_type:
+            adv = total_rewards - total_rewards.mean()
+            rewardloss = (total_logp * adv)[total_logp < self.loss_cutoff]
+            mean_loss = rewardloss.mean() / (adv.abs().mean() + 1e-8)
             my_loss += mean_loss
         if 'best' in self.loss_type:
             best_ind = torch.argmax(total_rewards)
