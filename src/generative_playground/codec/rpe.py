@@ -1,5 +1,11 @@
+import copy
+from collections import defaultdict
 from nltk.tree import *
 from generative_playground.codec.cyk import *
+from rdkit.Chem import MolFromSmiles
+from .hypergraph_grammar import HypergraphGrammar, HypergraphTree, apply_rule
+from .hypergraph_parser import hypergraph_parser
+from .hypergraph import replace_nonterminal
 
 
 
@@ -87,6 +93,66 @@ def extract_popular_pairs(parse_trees, num_rules):
 
     return new_rules
 
+
+def extract_popular_hypergraph_pairs(grammar, hypergraph_trees, num_rules):
+    new_rules = []
+    for i in range(num_rules):
+        print('iteration', i)
+        rule_pair_frequencies = defaultdict(int)
+        for tree in hypergraph_trees:
+            count_rule_pair_frequencies(tree, rule_pair_frequencies)
+
+        best_pair = max(rule_pair_frequencies, key=rule_pair_frequencies.get)
+        new_rules.append(best_pair)
+
+        hypergraph_trees = [
+            apply_hypergraph_substitution(grammar, tree, best_pair)
+            for tree in hypergraph_trees
+        ]
+
+    return new_rules
+
+
+def count_rule_pair_frequencies(tree, rule_pair_frequencies):
+    for nt_loc, child in enumerate(tree):
+        rule_pair_frequencies[
+            (tree.node.rule_id, child.node.rule_id, nt_loc)
+        ] += 1
+        count_rule_pair_frequencies(child, rule_pair_frequencies)
+
+
+def apply_hypergraph_substitution(grammar, tree, rule_pair):
+    root_rule_id, child_rule_id, nt_loc = rule_pair
+    if (
+        nt_loc < len(tree.node.child_ids())
+        and tree.node.rule_id == root_rule_id
+        and tree[nt_loc].node.rule_id == child_rule_id
+    ):
+        child = tree[nt_loc]
+        new_node = apply_rule(
+            tree.node,
+            child.node,
+            loc=tree.node.child_ids()[nt_loc]
+        )
+
+        # This merged node is now a new rule. Remove the rule_id so that
+        # normalize_tree below will pick this rule up and assign a new id
+        new_node.rule_id = None
+        children = tree[:nt_loc] + tree[(nt_loc+1):] + child[:]
+
+    else:
+        new_node = tree.node
+        children = tree[:]
+
+    transformed_children = [
+        apply_hypergraph_substitution(grammar, child, rule_pair)
+        for child in children
+    ]
+    return grammar.normalize_tree(
+        HypergraphTree(new_node, transformed_children)
+    )
+
+
 class RPEParser:
     def __init__(self, parser, rule_pairs):
         '''
@@ -117,6 +183,31 @@ class RPEParser:
 
         return out_gen()
 
+
+class HypergraphRPEParser:
+    def __init__(self, grammar: HypergraphGrammar, rule_pairs):
+        '''
+        Adds rpe post-processing to a hypergraph parse tree
+        :param grammar: HypergraphGrammar containing the current rule_pairs
+        :param rule_pairs: rpe rule pairs to collapse
+        :return: another iterable
+        '''
+        self.grammar = grammar
+        self._rule_pairs = rule_pairs
+
+    def parse(self, smiles):
+        '''
+        :param smiles: A valid smiles string
+        :return: a hypergraph tree after applying RPE
+        '''
+        molecule = MolFromSmiles(smiles)
+        tree = hypergraph_parser(molecule)
+        norm_tree = self.grammar.normalize_tree(tree)
+        for rule_pair in self._rule_pairs:
+            tree = apply_hypergraph_substitution(
+                self.grammar, norm_tree, rule_pair
+            )
+        return tree
 
 if __name__ == '__main__':
     from generative_playground.molecules.model_settings import get_settings

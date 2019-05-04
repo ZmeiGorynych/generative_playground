@@ -2,10 +2,11 @@ import logging
 import random
 import numpy as np
 from unittest import TestCase
-from generative_playground.codec.hypergraph import to_mol, HyperGraph
+from generative_playground.codec.hypergraph import to_mol, HyperGraph, HypergraphTree
 from generative_playground.codec.hypergraph_parser import hypergraph_parser, graph_from_graph_tree
-from generative_playground.codec.hypergraph_grammar import evaluate_rules, HypergraphGrammar, HypergraphMaskGenerator
 from generative_playground.molecules.data_utils.zinc_utils import get_zinc_smiles
+from generative_playground.codec.hypergraph_grammar import evaluate_rules, HypergraphGrammar, HypergraphMaskGenerator, apply_rule
+from generative_playground.codec.rpe import extract_popular_hypergraph_pairs, apply_hypergraph_substitution, HypergraphRPEParser
 from rdkit.Chem import MolFromSmiles, AddHs, MolToSmiles, RemoveHs, Kekulize, BondType
 
 smiles = get_zinc_smiles(20)
@@ -84,3 +85,76 @@ class TestStart(TestCase):
         all_smiles = g.decode_from_actions(all_actions)
         for smile in all_smiles:
             print(smile)
+
+    def test_graph_from_graph_tree_idempotent(self):
+        g = HypergraphGrammar()
+        g.strings_to_actions(smiles)
+        g.calc_terminal_distance()
+
+        tree = g.normalize_tree(
+            hypergraph_parser(MolFromSmiles(smiles1))
+        )
+
+        # The second call here would fail before
+        # This was solved by copying in remove_nonterminals where the issue
+        # was with mutating the parent tree.node state
+        graph1 = graph_from_graph_tree(tree)
+        graph2 = graph_from_graph_tree(tree)
+
+        mol1 = to_mol(graph1)
+        mol2 = to_mol(graph2)
+        recovered_smiles1 = MolToSmiles(mol1)
+        recovered_smiles2 = MolToSmiles(mol2)
+
+        self.assertEqual(smiles1, recovered_smiles1)
+        self.assertEqual(recovered_smiles1, recovered_smiles2)
+
+    def test_hypergraph_rpe(self):
+        g = HypergraphGrammar()
+        g.strings_to_actions(smiles)
+
+        tree = g.normalize_tree(
+            hypergraph_parser(MolFromSmiles(smiles1))
+        )
+
+        num_rules_before = len(g.rules)
+        rule_pairs = extract_popular_hypergraph_pairs(g, [tree], 10)
+        num_rules_after = len(g.rules)
+
+        tree_rules_before = len(tree.rules())
+        collapsed_tree = apply_hypergraph_substitution(g, tree, rule_pairs[0])
+        tree_rules_after = len(collapsed_tree.rules())
+
+        graph = graph_from_graph_tree(collapsed_tree)
+        mol = to_mol(graph)
+        recovered_smiles = MolToSmiles(mol)
+
+        self.assertEqual(smiles1, recovered_smiles)
+        self.assertGreater(num_rules_after, num_rules_before)
+        self.assertLess(tree_rules_after, tree_rules_before)
+
+    def test_hypergraph_rpe_parser(self):
+        g = HypergraphGrammar()
+        g.strings_to_actions(smiles)
+
+        trees = [
+            g.normalize_tree(
+                hypergraph_parser(MolFromSmiles(smile))
+            )
+            for smile in smiles
+        ]
+
+        rule_pairs = extract_popular_hypergraph_pairs(g, trees, 10)
+
+        parser = HypergraphRPEParser(g, rule_pairs)
+        collapsed_trees = [
+            parser.parse(smile) for smile in smiles
+        ]
+
+        recovered_smiles = []
+        for tree in collapsed_trees:
+            graph = graph_from_graph_tree(tree)
+            mol = to_mol(graph)
+            recovered_smiles.append(MolToSmiles(mol))
+
+        self.assertEqual(smiles, recovered_smiles)
