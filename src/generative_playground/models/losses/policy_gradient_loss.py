@@ -4,10 +4,12 @@ import torch.nn.functional as F
 
 
 class PolicyGradientLoss(nn.Module):
-    def __init__(self, loss_type='mean', loss_cutoff=1e5):
+    def __init__(self, loss_type='mean', loss_cutoff=1e5, last_reward_wgt=0.0):
         super().__init__()
         self.loss_type = loss_type
         self.loss_cutoff = loss_cutoff
+        self.last_reward_wgt = last_reward_wgt
+        self.sm_reward = None
 
     def forward(self, model_out):
         '''
@@ -31,19 +33,7 @@ class PolicyGradientLoss(nn.Module):
 
 
 
-        if sum(valid) > 0:
-            self.metrics = {'avg reward': total_rewards.mean().data.item(),
-                        'max reward': total_rewards.max().data.item(),
-                            # 'avg_loss': total_logp.mean().data.item()
-                            }
-        else:
-            self.metrics = {}
 
-        try:
-            smiles = model_out['info'][0]
-            self.metrics.update({'unique': len(set(smiles))/len(smiles)})
-        except:
-            pass
         my_loss = 0
         # loss_cutoff causes us to ignore off-policy examples that are grammatically possible but masked away
         if 'mean' in self.loss_type:
@@ -51,7 +41,11 @@ class PolicyGradientLoss(nn.Module):
             mean_loss = rewardloss.mean()/(total_rewards.abs().mean()+1e-8)
             my_loss += mean_loss
         if 'advantage' in self.loss_type:
-            adv = total_rewards - total_rewards.mean()
+            if self.sm_reward is None:
+                self.sm_reward = total_rewards.mean()
+            else:
+                self.sm_reward = self.last_reward_wgt*self.sm_reward + (1-self.last_reward_wgt)*total_rewards.mean()
+            adv = total_rewards - self.sm_reward
             rewardloss = (total_logp * adv)[total_logp < self.loss_cutoff]
             mean_loss = rewardloss.mean() / (adv.abs().mean() + 1e-8)
             my_loss += mean_loss
@@ -67,5 +61,18 @@ class PolicyGradientLoss(nn.Module):
             my_loss += valid_loss
         # check for NaNs
         assert(my_loss == my_loss)
+        if sum(valid) > 0:
+            self.metrics = {'avg rwd': total_rewards.mean().data.item(),
+                            'max rwd': total_rewards.max().data.item(),
+                            'med rwd': total_rewards.median().data.item(),
+                            'avg adv': adv.mean().data.item()
+                            }
+        else:
+            self.metrics = {}
 
+        try:
+            smiles = model_out['info'][0]
+            self.metrics.update({'unique': len(set(smiles)) / len(smiles)})
+        except:
+            pass
         return my_loss

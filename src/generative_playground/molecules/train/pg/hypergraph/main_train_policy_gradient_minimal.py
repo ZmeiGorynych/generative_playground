@@ -38,7 +38,9 @@ def train_policy_gradient(molecules=True,
                           p_thresh=0.5,
                           drop_rate=0.0,
                           plot_ignore_initial=0,
+                          randomize_reward=False,
                           save_file=None,
+                          reward_sm = 0.0,
                           preload_file=None,
                           anchor_file=None,
                           anchor_weight=0.0,
@@ -86,9 +88,9 @@ def train_policy_gradient(molecules=True,
         return np.array(out)
 
 
-    def discrim_thresh_mult(x):
-        tmp = -(x-p_thresh)/0.01
-        return 1/(1+np.exp(tmp))
+    def sigmoid(x):
+        tmp = -x#(
+        return 1/(1+np.exp(-x))
 
     def discriminator_reward_mult(smiles_list):
         orig_state = discrim_model.training
@@ -102,8 +104,18 @@ def train_policy_gradient(molecules=True,
 
     def adj_reward(x):
         p = discriminator_reward_mult(x)
-        w = discrim_thresh_mult(p)
-        weighted_reward = w * np.maximum(reward_fun_on(x), p_thresh) + (1-w) * discriminator_reward_mult(x)
+        reward = np.maximum(reward_fun_on(x), 0)
+        out = reward * originality_mult(x) + 2*p
+        return out
+
+    def adj_reward_old(x):
+        p = discriminator_reward_mult(x)
+        w = sigmoid(-(p-p_thresh)/0.01)
+        if randomize_reward:
+            rand = np.random.uniform(size=p.shape)
+            w *= rand
+        reward = np.maximum(reward_fun_on(x), p_thresh)
+        weighted_reward = w * p + (1 - w) * reward
         out = weighted_reward * originality_mult(x) #
         return out
 
@@ -262,7 +274,7 @@ def train_policy_gradient(molecules=True,
 
     history_callbacks = [make_callback(d) for d in history_data]
     fitter1 = get_rl_fitter(model,
-                            PolicyGradientLoss(on_policy_loss_type),
+                            PolicyGradientLoss(on_policy_loss_type, last_reward_wgt=reward_sm),
                             GeneratorToIterable(my_gen),
                             gen_save_path,
                             plot_prefix + 'on-policy',
