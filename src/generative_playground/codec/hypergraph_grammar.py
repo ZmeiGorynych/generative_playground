@@ -329,7 +329,7 @@ class HypergraphMaskGenerator:
 
     def action_prior_logits(self):
         masks = self.valid_action_mask()
-        out = -1e6*(1-np.array(masks))
+        out = -1e4*(1-np.array(masks))
         if self.priors is True:
             out += self.grammar.get_log_frequencies()
         elif self.priors == 'conditional':

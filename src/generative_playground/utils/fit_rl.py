@@ -29,9 +29,13 @@ def fit_rl(train_gen=None, # an iterable providing training data
            grad_clip=5,
            anchor_model=None,
            anchor_weight=0.0,
-           callbacks=[]):
+           callbacks=[],
+           half_float=False):
     print('setting up fit...')
     print('Number of model parameters:', count_parameters(model))
+    if half_float:
+        model.half()
+        loss_fn.half()
     model.train()
     # loss_fn.train()
 

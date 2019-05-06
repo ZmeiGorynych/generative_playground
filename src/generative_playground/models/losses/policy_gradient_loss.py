@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 
 class PolicyGradientLoss(nn.Module):
-    def __init__(self, loss_type='mean', loss_cutoff=1e5, last_reward_wgt=0.0):
+    def __init__(self, loss_type='mean', loss_cutoff=1e4, last_reward_wgt=0.0):
         super().__init__()
         self.loss_type = loss_type
         self.loss_cutoff = loss_cutoff
@@ -23,16 +23,15 @@ class PolicyGradientLoss(nn.Module):
         # actions, logits, rewards, terminals, info = model_out
         smiles, valid = model_out['info']
         batch_size, seq_len, num_actions = model_out['logits'].size()
-        log_p = F.log_softmax(model_out['logits'], dim=2) * (1-model_out['terminals'].unsqueeze(2))
-        total_rewards = model_out['rewards'].sum(1)
+        float_type = model_out['logits'].dtype
+        log_p = F.log_softmax(model_out['logits'], dim=2) * (1-model_out['terminals'].unsqueeze(2).to(float_type))
+        total_rewards = model_out['rewards'].sum(1).to(dtype=log_p.dtype)
+        valid = valid.to(dtype=log_p.dtype)
         #total_rewards = total_rewards/total_rewards.mean() # normalize to avg weight 1
         total_logp = 0
         for i in range(seq_len):
             dloss = torch.diag(-log_p[:, i, model_out['actions'][:,i]]) # batch_size, hopefully
             total_logp += dloss
-
-
-
 
         my_loss = 0
         # loss_cutoff causes us to ignore off-policy examples that are grammatically possible but masked away

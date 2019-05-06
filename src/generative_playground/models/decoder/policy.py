@@ -57,7 +57,7 @@ class SoftmaxRandomSamplePolicy(SimplePolicy):
         :return:
         '''
         eff_logits = self.effective_logits(logits)
-        x = self.gumbel.sample(logits.shape).to(device) + eff_logits
+        x = self.gumbel.sample(logits.shape).to(device=device, dtype=eff_logits.dtype) + eff_logits
         _, out = torch.max(x, -1)
         return out
 

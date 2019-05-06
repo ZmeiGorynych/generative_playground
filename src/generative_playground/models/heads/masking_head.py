@@ -34,8 +34,8 @@ class MaskingHead(Stepper):
         else:
             last_action = args[0]
 
-        mask = torch.from_numpy(self.mask_gen(last_action)).to(device=device, dtype=torch.float32)
-        masked_logits = next_logits - 1e6 * (1 - mask)
+        mask = torch.from_numpy(self.mask_gen(last_action)).to(device=device, dtype=next_logits.dtype)
+        masked_logits = next_logits - 1e4 * (1 - mask)
         return masked_logits
 
 

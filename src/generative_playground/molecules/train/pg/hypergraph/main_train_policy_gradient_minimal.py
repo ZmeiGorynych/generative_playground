@@ -244,6 +244,7 @@ def train_policy_gradient(molecules=True,
                         epochs=EPOCHS,
                         loss_fn=loss_obj,
                         grad_clip=5,
+                        half_float=False,
                         anchor_model=anchor_model,
                         anchor_weight=anchor_weight,
                         callbacks=[metric_monitor, checkpointer] + extra_callbacks
@@ -288,16 +289,21 @@ def train_policy_gradient(molecules=True,
     pre_dataset = EvenlyBlendedDataset(2 * [history_data[0]] + history_data[1:] , labels=False)  # a blend of 3 time horizons
     dataset = EvenlyBlendedDataset([pre_dataset,zinc_data], labels=True)
     discrim_loader = DataLoader(dataset, shuffle=True, batch_size=50)
-    celoss = nn.CrossEntropyLoss()
 
-    def my_loss(x):
-        # tmp = discriminator_reward_mult(x['smiles'])
-        # tmp2 = F.softmax(x['p_zinc'], dim=1)[:,1].detach().cpu().numpy()
-        # import numpy as np
-        # assert np.max(np.abs(tmp-tmp2)) < 1e-6
-        return celoss(x['p_zinc'].to(device), x['dataset_index'].to(device))
+    class MyLoss(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.celoss = nn.CrossEntropyLoss()
+
+        def forward(self, x):
+            # tmp = discriminator_reward_mult(x['smiles'])
+            # tmp2 = F.softmax(x['p_zinc'], dim=1)[:,1].detach().cpu().numpy()
+            # import numpy as np
+            # assert np.max(np.abs(tmp-tmp2)) < 1e-6
+            return self.celoss(x['p_zinc'].to(device), x['dataset_index'].to(device))
+
     fitter2 = get_rl_fitter(discrim_model,
-                            my_loss,
+                            MyLoss(),
                             IterableTransform(discrim_loader,
                                               lambda x: {'smiles': x['X'], 'dataset_index': x['dataset_index']}),
                             disc_save_path,

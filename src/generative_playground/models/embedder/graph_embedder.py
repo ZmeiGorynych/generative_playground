@@ -21,6 +21,9 @@ class GraphEmbedder(nn.Module):
         self.embed = Linear(self.pre_output_shape[-1], target_dim).to(device)
         self.max_nodes = max_nodes
 
+    def float_type(self):
+        return self.embed.weight.dtype
+
 
     def forward(self, graphs):
         """
@@ -34,7 +37,7 @@ class GraphEmbedder(nn.Module):
         # the very first time, we need to pick the starting node, so all the graphs passed in will be None
         batch_size = len(graphs)
         if all([graph is None for graph in graphs]):
-            return 0.1*torch.ones(batch_size, 1, self.output_shape[-1], device=device)
+            return 0.1*torch.ones(batch_size, 1, self.output_shape[-1], device=device, dtype=self.float_type())
 
         # if we got this far, it's not the first step anymore
         for graph in graphs:
@@ -46,7 +49,7 @@ class GraphEmbedder(nn.Module):
         this_pre_output_shape = (batch_size, this_max_nodes, self.pre_output_shape[-1])
         this_output_shape = (batch_size,  this_max_nodes, self.output_shape[-1])
 
-        out = torch.zeros(*this_pre_output_shape, device=device)
+        out = torch.zeros(*this_pre_output_shape, device=device, dtype=self.float_type())
 
         for i, graph in enumerate(graphs):
             # first encode the connectivity, including bond type (single/double/etc) if available
