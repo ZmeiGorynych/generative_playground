@@ -42,7 +42,7 @@ def reward_aromatic_rings(smiles):
     return [-1 if num is None else num + 0.5 for num in atoms]
 
 
-batch_size = 2 # 20
+batch_size = 20 # 20
 drop_rate = 0.5
 molecules = True
 grammar_cache = 'hyper_grammar.pickle'
@@ -59,7 +59,7 @@ gi = GrammarInitializer(grammar_cache)
 #     gi = GrammarInitializer(grammar_cache)
 #     max_steps_smiles = gi.init_grammar(100)
 
-max_steps = 30
+max_steps = 50
 model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                 grammar,
                                                 EPOCHS=100,
@@ -68,13 +68,14 @@ model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                 max_steps=max_steps,
                                                 lr_on=3e-5,
                                                 lr_discrim=5e-4,
-                                                       p_thresh=0.2,
+                                                       discrim_wt=0.25,
+                                                       p_thresh=-10,
                                                 drop_rate=drop_rate,
                                                        reward_sm=0.5,
                                                 decoder_type='attn_graph',  # 'attention',
                                                 plot_prefix='hg ',
-                                                dashboard='true_reward_linear_faster',  # 'policy gradient',
-                                                save_file='adv_true_reward_linear_faster.h5',
+                                                dashboard='reward_linear_faster_half_2',  # 'policy gradient',
+                                                save_file='true_reward_linear_faster_half_2.h5',
                                                 smiles_save_file=None,  # 'pg_smiles_hg1.h5',
                                                 on_policy_loss_type='advantage',#''best',
                                                 off_policy_loss_type='mean')

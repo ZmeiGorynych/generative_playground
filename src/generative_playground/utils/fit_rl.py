@@ -66,12 +66,6 @@ def fit_rl(train_gen=None, # an iterable providing training data
 
             # push the metrics out
             this_loss = loss.data.item()
-            # do the checkpoint
-            # if checkpointer is not None:
-            #     avg_loss = checkpointer(None, model, outputs, loss_fn, loss)
-            #
-            # if metric_monitor is not None:
-            #     metric_monitor(None, model, outputs, loss_fn, loss)
 
             for callback in callbacks:
                 if callback is not None:

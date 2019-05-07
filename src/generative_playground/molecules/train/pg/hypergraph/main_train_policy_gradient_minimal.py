@@ -35,6 +35,7 @@ def train_policy_gradient(molecules=True,
                           max_steps=277,
                           lr_on=2e-4,
                           lr_discrim=1e-4,
+                          discrim_wt=2,
                           p_thresh=0.5,
                           drop_rate=0.0,
                           plot_ignore_initial=0,
@@ -89,7 +90,6 @@ def train_policy_gradient(molecules=True,
 
 
     def sigmoid(x):
-        tmp = -x#(
         return 1/(1+np.exp(-x))
 
     def discriminator_reward_mult(smiles_list):
@@ -104,8 +104,9 @@ def train_policy_gradient(molecules=True,
 
     def adj_reward(x):
         p = discriminator_reward_mult(x)
-        reward = np.maximum(reward_fun_on(x), 0)
-        out = reward * originality_mult(x) + 2*p
+        rwd = reward_fun_on(x)
+        reward = np.minimum(rwd, rwd * originality_mult(x))
+        out = reward + discrim_wt*p
         return out
 
     def adj_reward_old(x):
@@ -220,7 +221,7 @@ def train_policy_gradient(molecules=True,
                       anchor_weight=0
                       ):
         nice_params = filter(lambda p: p.requires_grad, model.parameters())
-        optimizer = optim.Adam(nice_params, lr=lr)
+        optimizer = optim.Adam(nice_params, lr=lr, eps=1e-4)
         scheduler = lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.99)
 
         if dashboard is not None:
@@ -244,7 +245,7 @@ def train_policy_gradient(molecules=True,
                         epochs=EPOCHS,
                         loss_fn=loss_obj,
                         grad_clip=5,
-                        half_float=False,
+                        half_float=True,
                         anchor_model=anchor_model,
                         anchor_weight=anchor_weight,
                         callbacks=[metric_monitor, checkpointer] + extra_callbacks

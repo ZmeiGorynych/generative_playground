@@ -37,7 +37,7 @@ class PolicyGradientLoss(nn.Module):
         # loss_cutoff causes us to ignore off-policy examples that are grammatically possible but masked away
         if 'mean' in self.loss_type:
             rewardloss = (total_logp * total_rewards)[total_logp < self.loss_cutoff]
-            mean_loss = rewardloss.mean()/(total_rewards.abs().mean()+1e-8)
+            mean_loss = rewardloss.mean()/(total_rewards.abs().mean()+1e-6)
             my_loss += mean_loss
         if 'advantage' in self.loss_type:
             if self.sm_reward is None:
@@ -45,8 +45,11 @@ class PolicyGradientLoss(nn.Module):
             else:
                 self.sm_reward = self.last_reward_wgt*self.sm_reward + (1-self.last_reward_wgt)*total_rewards.mean()
             adv = total_rewards - self.sm_reward
+            # if adv.abs().mean() == 0.0:
+            #     adv += 1.0 # if there's no difference, just average
+
             rewardloss = (total_logp * adv)[total_logp < self.loss_cutoff]
-            mean_loss = rewardloss.mean() / (adv.abs().mean() + 1e-8)
+            mean_loss = rewardloss.mean() / (adv.abs().mean()+1e-6)
             my_loss += mean_loss
         if 'best' in self.loss_type:
             best_ind = torch.argmax(total_rewards)
