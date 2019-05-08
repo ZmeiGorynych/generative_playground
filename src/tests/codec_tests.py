@@ -6,6 +6,8 @@ from rdkit.Chem import MolFromSmiles, AddHs, MolToSmiles, RemoveHs, Kekulize, Bo
 from generative_playground.molecules.model_settings import get_settings
 from generative_playground.codec.codec import get_codec
 from generative_playground.codec.hypergraph_grammar import HypergraphGrammar
+from generative_playground.codec.hypergraph_rpe_grammar import HypergraphRPEGrammar
+
 
 smiles = ['CC(C)(C)c1ccc2occ(CC(=O)Nc3ccccc3F)c2c1',
           'C[C@@H]1CC(Nc2cncc(-c3nncn3C)c2)C[C@@H](C)C1',
@@ -36,7 +38,7 @@ def run_random_gen(mask_gen):
 
 
 class TestStart(TestCase):
-    def codec_test(self,
+    def check_codec(self,
                    input,
                    molecules,
                    grammar):
@@ -52,32 +54,32 @@ class TestStart(TestCase):
         molecules = False
         grammar = False
         input = 'exp(1+sin(1*(x+2)))'
-        self.codec_test(input, molecules, grammar)
+        self.check_codec(input, molecules, grammar)
 
     def test_grammar_eq_codec(self):
         molecules = False
         grammar = 'classic'
         input = 'exp(1+sin(1*(x+2)))'
-        self.codec_test(input, molecules, grammar)
+        self.check_codec(input, molecules, grammar)
 
     def test_classic_char_codec(self):
         molecules = True
         grammar = False
         input = smiles1
-        self.codec_test(input, molecules, grammar)
+        self.check_codec(input, molecules, grammar)
 
     def test_classic_grammar_codec(self):
         molecules = True
         grammar = 'classic'
         input = smiles1
-        self.codec_test(input, molecules, grammar)
+        self.check_codec(input, molecules, grammar)
 
     def test_new_grammar_codec(self):
         molecules = True
         grammar = 'new'
         # not all valid SMILES can be represented by the new grammar, here is one string produced by it
         input = 'c1c(C([C@](=[C@](C[C@@]#[NH+])S[C@H]=[C@@H]2)N2N=[C@@H]2)=C2)ncc2c1cncn2'
-        self.codec_test(input, molecules, grammar)
+        self.check_codec(input, molecules, grammar)
 
     def test_hypergraph_grammar_codec(self):
         molecules = True
@@ -87,5 +89,14 @@ class TestStart(TestCase):
         # create a grammar cache inferred from our sample molecules
         g = HypergraphGrammar(cache_file=grammar_cache)
         g.strings_to_actions(smiles)
-        self.codec_test(input, molecules, grammar)
+        self.check_codec(input, molecules, grammar)
 
+    def test_hypergraph_rpe_grammar_codec(self):
+        molecules = True
+        input = smiles1
+        grammar_cache = 'tmp.pickle'
+        grammar = 'hypergraph_rpe:' + grammar_cache
+        # create a grammar cache inferred from our sample molecules
+        g = HypergraphRPEGrammar(cache_file=grammar_cache)
+        g.extract_rpe_pairs(smiles, 6)
+        self.check_codec(input, molecules, grammar)
