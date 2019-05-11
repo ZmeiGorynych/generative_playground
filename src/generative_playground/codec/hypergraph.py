@@ -541,12 +541,15 @@ def hypergraphs_are_equivalent(graph1, graph2):
     # node type must match as well as node ordering, nx is just needed to check that the edges also align
     edge2nodes1 = graph1.node_ids_by_edge_id()
     edge2nodes2 = graph2.node_ids_by_edge_id()
-    def other_node(node_id, edge_id):
-        if edge_id in edge2nodes1:
-            nodes = edge2nodes1[edge_id]
-        elif edge_id in edge2nodes2:
-            nodes = edge2nodes2[edge_id]
 
+    def other_node1(node_id, edge_id):
+        nodes = edge2nodes1[edge_id]
+        tmp = [n for n in nodes if n!=node_id]
+        assert len(tmp) == 1, "This node is not connected to this edge!"
+        return tmp[0]
+
+    def other_node2(node_id, edge_id):
+        nodes = edge2nodes2[edge_id]
         tmp = [n for n in nodes if n!=node_id]
         assert len(tmp) == 1, "This node is not connected to this edge!"
         return tmp[0]
@@ -568,8 +571,8 @@ def hypergraphs_are_equivalent(graph1, graph2):
                     print('here3')
                     return None
                 # now test that matching edges lead to matching nodes
-                candidate_node_id1 = other_node(node1_id, edge1_id)
-                candidate_node_id2 = other_node(node2_id, edge2_id)
+                candidate_node_id1 = other_node1(node1_id, edge1_id)
+                candidate_node_id2 = other_node2(node2_id, edge2_id)
                 if mapping[candidate_node_id1] != candidate_node_id2:
                     print('here4')
                     return None
