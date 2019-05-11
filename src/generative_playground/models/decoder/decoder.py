@@ -34,11 +34,18 @@ def get_decoder(molecules=True,
                                           steps=max_seq_length,
                                           drop_rate=drop_rate)
         stepper = OneStepDecoderContinuous(stepper)
-    elif decoder_type == 'attn_graph':
+    elif decoder_type in ['attn_graph','rnn_graph']:
         assert 'hypergraph' in grammar, "Only the hypergraph grammar can be used with attn_graph decoder type"
-        encoder = GraphEncoder(grammar=codec.grammar,
+        if decoder_type == 'attn_graph':
+            encoder = GraphEncoder(grammar=codec.grammar,
                                d_model=512,
-                               drop_rate=drop_rate)
+                               drop_rate=drop_rate,
+                                   model_type='transformer')
+        elif decoder_type == 'rnn_graph':
+            encoder = GraphEncoder(grammar=codec.grammar,
+                                   d_model=512,
+                                   drop_rate=drop_rate,
+                                   model_type='rnn')
 
         model = MultipleOutputHead(model=encoder,
                                    output_spec={'node': 1,  # to be used to select next node to expand

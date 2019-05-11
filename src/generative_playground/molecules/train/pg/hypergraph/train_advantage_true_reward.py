@@ -71,21 +71,21 @@ if False:
 
 max_steps = 30
 model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
-                                                grammar,
-                                                EPOCHS=100,
-                                                BATCH_SIZE=batch_size,
-                                                reward_fun_on=reward_fun,
-                                                max_steps=max_steps,
-                                                lr_on=0.5e-5,
-                                                lr_discrim=5e-4,
-                                                drop_rate=drop_rate,
-                                                decoder_type='attn_graph',  # 'attention',
-                                                plot_prefix='hg ',
-                                                dashboard='true_reward_original_2',  # 'policy gradient',
-                                                save_file='adv_orig_reward.h5',
-                                                smiles_save_file=None,  # 'pg_smiles_hg1.h5',
-                                                on_policy_loss_type='advantage',#''best',
-                                                off_policy_loss_type='mean')
+                                                       grammar,
+                                                       EPOCHS=100,
+                                                       BATCH_SIZE=batch_size,
+                                                       reward_fun_on=reward_fun,
+                                                       max_steps=max_steps,
+                                                       lr_on=0.5e-5,
+                                                       lr_discrim=5e-4,
+                                                       drop_rate=drop_rate,
+                                                       decoder_type='attn_graph',  # 'attention',
+                                                       plot_prefix='hg ',
+                                                       dashboard='true_reward_original_2',  # 'policy gradient',
+                                                       save_file_root_name='adv_orig_reward.h5',
+                                                       smiles_save_file=None,  # 'pg_smiles_hg1.h5',
+                                                       on_policy_loss_type='advantage',  #''best',
+                                                       off_policy_loss_type='mean')
 # preload_file='policy_gradient_run.h5')
 
 while True:

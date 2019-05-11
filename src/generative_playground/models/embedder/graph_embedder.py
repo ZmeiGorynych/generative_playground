@@ -5,6 +5,7 @@ from torch import nn
 from torch.nn import Linear
 import networkx as nx
 
+
 class GraphEmbedder(nn.Module):
     def __init__(self, target_dim, max_nodes=512, grammar=None):
         '''

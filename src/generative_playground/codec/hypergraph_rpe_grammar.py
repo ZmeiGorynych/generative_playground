@@ -45,6 +45,16 @@ class HypergraphRPEGrammar(HypergraphGrammar):
                 child.node,
                 loc=tree.node.child_ids()[nt_loc]
             )
+
+            rule_parent = self.rules[root_rule_id].clone()
+            rule_child = self.rules[child_rule_id].clone()
+            new_node_2 = apply_rule(
+                rule_parent,
+                rule_child,
+                loc=rule_parent.child_ids()[nt_loc]
+            )
+            assert new_node == new_node_2
+
             children = tree[:nt_loc] + tree[(nt_loc+1):] + child[:]
 
             new_node.rule_id, _ = self.rule_to_index(
