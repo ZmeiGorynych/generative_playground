@@ -47,20 +47,42 @@ class TestGraphEmbedder(TestCase):
         out2 = ge(graphs)
         assert (out - out2).abs().max() < 1e-6, "Embedder should be deterministic!"
 
-
-    def test_graph_encoder_determinism(self):
+    def test_graph_encoder_determinism_transformer(self):
         encoder = GraphEncoder(grammar=gi.grammar,
                                d_model=512,
-                               drop_rate=0.0)
+                               drop_rate=0.0,
+                               model_type='transformer')
         mol_graphs = [HyperGraph.from_mol(mol) for mol in get_zinc_molecules(5)]
         out = encoder(mol_graphs)
         out2 = encoder(mol_graphs)
         assert (out - out2).abs().max() < 1e-6, "Encoder should be deterministic with zero dropout!"
 
-    def test_graph_encoder_batch_independence(self):
+    def test_graph_encoder_batch_independence_transformer(self):
         encoder = GraphEncoder(grammar=gi.grammar,
                                d_model=512,
-                               drop_rate=0.0)
+                               drop_rate=0.0,
+                               model_type='transformer')
+        mol_graphs = [HyperGraph.from_mol(mol) for mol in get_zinc_molecules(5)]
+        out = encoder(mol_graphs)
+        out2 = encoder(mol_graphs[:1])
+
+        assert (out[:1, :out2.size(1)] - out2).abs().max() < 1e-5, "Encoder should have no crosstalk between batches"
+
+    def test_graph_encoder_determinism_rnn(self):
+        encoder = GraphEncoder(grammar=gi.grammar,
+                               d_model=512,
+                               drop_rate=0.0,
+                               model_type='rnn')
+        mol_graphs = [HyperGraph.from_mol(mol) for mol in get_zinc_molecules(5)]
+        out = encoder(mol_graphs)
+        out2 = encoder(mol_graphs)
+        assert (out - out2).abs().max() < 1e-6, "Encoder should be deterministic with zero dropout!"
+
+    def test_graph_encoder_batch_independence_rnn(self):
+        encoder = GraphEncoder(grammar=gi.grammar,
+                               d_model=512,
+                               drop_rate=0.0,
+                               model_type='rnn')
         mol_graphs = [HyperGraph.from_mol(mol) for mol in get_zinc_molecules(5)]
         out = encoder(mol_graphs)
         out2 = encoder(mol_graphs[:1])

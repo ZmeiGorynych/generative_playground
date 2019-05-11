@@ -40,9 +40,9 @@ def train_policy_gradient(molecules=True,
                           drop_rate=0.0,
                           plot_ignore_initial=0,
                           randomize_reward=False,
-                          save_file=None,
+                          save_file_root_name=None,
                           reward_sm = 0.0,
-                          preload_file=None,
+                          preload_file_root_name=None,
                           anchor_file=None,
                           anchor_weight=0.0,
                           decoder_type='action',
@@ -54,8 +54,9 @@ def train_policy_gradient(molecules=True,
                           sanity_checks=True):
     root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     root_location = root_location + '/../../'
-    gen_save_path = root_location + 'pretrained/gen_' + save_file
-    disc_save_path = root_location + 'pretrained/disc_' + save_file
+
+    def full_path(x):
+        return os.path.realpath(root_location + 'pretrained/' + x)
 
     if smiles_save_file is not None:
         smiles_save_path = root_location + 'pretrained/' + smiles_save_file
@@ -63,10 +64,24 @@ def train_policy_gradient(molecules=True,
     else:
         save_dataset = None
 
+    if save_file_root_name is not None:
+        gen_save_file = save_file_root_name + '_gen.h5'
+        disc_save_file = save_file_root_name + '_disc.h5'
+    if preload_file_root_name is not None:
+        gen_preload_file = preload_file_root_name + '_gen.h5'
+        disc_preload_file = preload_file_root_name + '_disc.h5'
 
     settings = get_settings(molecules=molecules, grammar=grammar)
     codec = get_codec(molecules, grammar, settings['max_seq_length'])
     discrim_model = GraphDiscriminator(codec.grammar, drop_rate=drop_rate)
+    if preload_file_root_name is not None:
+        try:
+            preload_path = full_path(disc_preload_file)
+            discrim_model.load_state_dict(torch.load(preload_path))
+            print('Discriminator weights loaded successfully!')
+        except Exception as e:
+            print('failed to load discriminator weights ' + str(e))
+
 
     zinc_data = get_zinc_smiles()
     zinc_set = set(zinc_data)
@@ -128,8 +143,6 @@ def train_policy_gradient(molecules=True,
     if BATCH_SIZE is not None:
         settings['BATCH_SIZE'] = BATCH_SIZE
 
-
-
     task = SequenceGenerationTask(molecules=molecules,
                                   grammar=grammar,
                                   reward_fun=adj_reward,
@@ -149,12 +162,13 @@ def train_policy_gradient(molecules=True,
 
     # TODO: really ugly, refactor! In fact this model doesn't need a MaskingHead at all!
     model.stepper.model.mask_gen.priors = True#'conditional' # use empirical priors for the mask gen
-    # if preload_file is not None:
-    #     try:
-    #         preload_path = root_location + 'pretrained/' + preload_file
-    #         model.load_state_dict(torch.load(preload_path))
-    #     except:
-    #         pass
+    if preload_file_root_name is not None:
+        try:
+            preload_path = full_path(gen_preload_file)
+            model.load_state_dict(torch.load(preload_path))
+            print('Generator weights loaded successfully!')
+        except:
+            print('failed to load generator weights ' + str(e))
 
     anchor_model = None
 
@@ -281,7 +295,7 @@ def train_policy_gradient(molecules=True,
     fitter1 = get_rl_fitter(model,
                             PolicyGradientLoss(on_policy_loss_type),# last_reward_wgt=reward_sm),
                             GeneratorToIterable(my_gen),
-                            gen_save_path,
+                            full_path(gen_save_file),
                             plot_prefix + 'on-policy',
                             model_process_fun=model_process_fun,
                             lr=lr_on,
@@ -310,7 +324,7 @@ def train_policy_gradient(molecules=True,
                             MyLoss(),
                             IterableTransform(discrim_loader,
                                               lambda x: {'smiles': x['X'], 'dataset_index': x['dataset_index']}),
-                            disc_save_path,
+                            full_path(disc_save_file),
                             plot_prefix + ' discriminator',
                             lr=lr_discrim,
                             model_process_fun=None)

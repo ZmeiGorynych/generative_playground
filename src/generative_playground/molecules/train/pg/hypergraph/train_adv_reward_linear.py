@@ -61,24 +61,24 @@ gi = GrammarInitializer(grammar_cache)
 
 max_steps = 50
 model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
-                                                grammar,
-                                                EPOCHS=100,
-                                                BATCH_SIZE=batch_size,
-                                                reward_fun_on=reward_fun,
-                                                max_steps=max_steps,
-                                                lr_on=3e-5,
-                                                lr_discrim=5e-4,
+                                                       grammar,
+                                                       EPOCHS=100,
+                                                       BATCH_SIZE=batch_size,
+                                                       reward_fun_on=reward_fun,
+                                                       max_steps=max_steps,
+                                                       lr_on=3e-5,
+                                                       lr_discrim=5e-4,
                                                        discrim_wt=0.25,
                                                        p_thresh=-10,
-                                                drop_rate=drop_rate,
+                                                       drop_rate=drop_rate,
                                                        reward_sm=0.5,
-                                                decoder_type='attn_graph',  # 'attention',
-                                                plot_prefix='hg ',
-                                                dashboard='reward_linear_faster_half_2',  # 'policy gradient',
-                                                save_file='true_reward_linear_faster_half_2.h5',
-                                                smiles_save_file=None,  # 'pg_smiles_hg1.h5',
-                                                on_policy_loss_type='advantage',#''best',
-                                                off_policy_loss_type='mean')
+                                                       decoder_type='attn_graph',  # 'attention',
+                                                       plot_prefix='hg ',
+                                                       dashboard='reward_linear_faster_half_2',  # 'policy gradient',
+                                                       save_file_root_name='true_reward_linear_faster_half_2.h5',
+                                                       smiles_save_file=None,  # 'pg_smiles_hg1.h5',
+                                                       on_policy_loss_type='advantage',  #''best',
+                                                       off_policy_loss_type='mean')
 # preload_file='policy_gradient_run.h5')
 
 while True:

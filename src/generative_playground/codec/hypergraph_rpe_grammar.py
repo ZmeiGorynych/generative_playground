@@ -56,7 +56,8 @@ class HypergraphRPEGrammar(HypergraphGrammar):
                 rule_child,
                 loc=rule_parent.child_ids()[nt_loc]
             )
-            assert new_node == new_node_2
+            if new_node != new_node_2:
+                new_node == new_node_2
 
             children = tree[:nt_loc] + tree[(nt_loc+1):] + child[:]
 

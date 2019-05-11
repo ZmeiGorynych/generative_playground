@@ -8,6 +8,7 @@ from generative_playground.models.decoder.stepper import Stepper
 from generative_playground.utils.gpu_utils import device
 from generative_playground.models.embedder.graph_embedder import GraphEmbedder
 from generative_playground.models.transformer.Models import TransformerEncoder
+from generative_playground.models.encoder.basic_rnn import SimpleRNN
 from torch import nn
 
 
@@ -20,7 +21,7 @@ class GraphDecoder(Stepper):
         super().__init__()
         self.mask_gen = mask_gen
         self.model = model
-        self.output_shape = [None, self.model.output_shape['action'][-1]] # a batch of logits to select next action
+        self.output_shape = [None, self.model.output_shape['action'][-1]]  # a batch of logits to select next action
         # self.node_selection_policy = node_selection_policy
 
     def init_encoder_output(self, z):
@@ -61,13 +62,14 @@ class GraphDecoder(Stepper):
 
         # and now choose the next logits for the appropriate nodes
         next_logits = model_out['action']
-        next_logits_compact = torch.cat([next_logits[b, node, :].unsqueeze(0) for b, node in enumerate(next_node)], dim=0)
+        next_logits_compact = torch.cat([next_logits[b, node, :].unsqueeze(0) for b, node in enumerate(next_node)],
+                                        dim=0)
         # now that we know which nodes we're going to expand, can generate action masks
-        logit_priors = self.mask_gen.action_prior_logits()# that includes any priors
+        logit_priors = self.mask_gen.action_prior_logits()  # that includes any priors
         logit_priors_pytorch = torch.from_numpy(logit_priors).to(device=device, dtype=next_logits_compact.dtype)
         masked_logits = next_logits_compact + logit_priors_pytorch
 
-        return masked_logits # will also want to return which node we picked, once we enable that
+        return masked_logits  # will also want to return which node we picked, once we enable that
 
 
 class GraphEncoder(nn.Module):
@@ -78,16 +80,30 @@ class GraphEncoder(nn.Module):
                  transformer_params={'n_layers': 6,
                                      'n_head': 8,
                                      'd_k': 64,
-                                     'd_v': 64}):
+                                     'd_v': 64},
+                 rnn_params={'num_layers': 3,
+                             'bidirectional': False},
+                 model_type='transformer'):
         super().__init__()
         self.embedder = GraphEmbedder(target_dim=d_model, grammar=grammar)
-        # TODO: get the transformer parameters from model_settings, also d_model
-        self.transformer = TransformerEncoder(n_src_vocab=None,
+        if model_type == 'transformer':
+            # TODO: get the transformer parameters from model_settings, also d_model
+            self.encoder = TransformerEncoder(n_src_vocab=None,
                                               d_model=d_model,
                                               dropout=drop_rate,
                                               embedder=self.embedder,
                                               **transformer_params)
-        self.output_shape = self.transformer.output_shape
+        elif model_type == 'rnn':
+            self.rnn = SimpleRNN(hidden_n=d_model,
+                                     feature_len=d_model,
+                                     drop_rate=drop_rate,
+                                     **rnn_params)
+            self.encoder = nn.Sequential(self.embedder, self.rnn)
+            self.encoder.output_shape = self.rnn.output_shape
+        else:
+            raise ValueError("Unknown model_type " + model_type + ", must be transformer or rnn")
+        self.output_shape = self.encoder.output_shape
+        self.to(device=device)
 
     def forward(self, graphs):
         '''
@@ -95,5 +111,5 @@ class GraphEncoder(nn.Module):
         :param graphs: a list of HyperGraphs of length batch
         :return: batch x max_nodes x d_model float32s
         '''
-        pre_out = self.transformer(graphs)
+        pre_out = self.encoder(graphs)
         return pre_out
