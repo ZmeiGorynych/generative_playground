@@ -98,5 +98,6 @@ class TestStart(TestCase):
         grammar = 'hypergraph_rpe:' + grammar_cache
         # create a grammar cache inferred from our sample molecules
         g = HypergraphRPEGrammar(cache_file=grammar_cache)
+        g.strings_to_actions(smiles)
         g.extract_rpe_pairs(smiles, 6)
         self.check_codec(input, molecules, grammar)

@@ -1,3 +1,4 @@
+import copy
 from collections import defaultdict
 
 from rdkit.Chem import MolFromSmiles
@@ -36,14 +37,33 @@ class HypergraphRPEGrammar(HypergraphGrammar):
             and tree.node.rule_id == root_rule_id
             and tree[nt_loc].node.rule_id == child_rule_id
         ):
-            child = tree[nt_loc]
+            assert self.rules[root_rule_id] == tree.node
+            assert self.rules[child_rule_id] == tree[nt_loc].node
+
+            child = copy.deepcopy(tree[nt_loc])
+            parent_node = copy.deepcopy(tree.node)
+            child_node = copy.deepcopy(child.node)
             new_node = apply_rule(
-                tree.node,
-                child.node,
-                loc=tree.node.child_ids()[nt_loc]
+                parent_node,
+                child_node,
+                loc=parent_node.child_ids()[nt_loc]
             )
+
+            rule_parent = copy.deepcopy(self.rules[root_rule_id])
+            rule_child = copy.deepcopy(self.rules[child_rule_id])
+            new_node_2 = apply_rule(
+                rule_parent,
+                rule_child,
+                loc=rule_parent.child_ids()[nt_loc]
+            )
+            assert new_node == new_node_2
+
             children = tree[:nt_loc] + tree[(nt_loc+1):] + child[:]
+
+
             new_node.rule_id, _ = self.rule_to_index(new_node)
+            if len(self.rules) - 1 == new_node.rule_id:
+                print('Added rule! - {}, {}'.format(new_node.rule_id, str(new_node)))
 
         else:
             new_node = tree.node
