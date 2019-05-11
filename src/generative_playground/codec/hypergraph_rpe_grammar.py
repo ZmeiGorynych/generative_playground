@@ -1,4 +1,3 @@
-import copy
 from collections import defaultdict
 
 from rdkit.Chem import MolFromSmiles
@@ -10,7 +9,7 @@ from .hypergraph_parser import hypergraph_parser
 class HypergraphRPEGrammar(HypergraphGrammar):
     def __init__(self, cache_file='tmp.pickle', max_len=None):
         super().__init__(cache_file, max_len)
-        self.rule_pairs = []
+        self.rule_pairs = {}
 
     def rpe_compress_tree(self, x):
         '''
@@ -25,12 +24,12 @@ class HypergraphRPEGrammar(HypergraphGrammar):
         else:
             tree = x
 
-        for rule_pair in self.rule_pairs:
-            tree = self.apply_hypergraph_substitution(tree, rule_pair)
+        for rule_id, rule_pair in self.rule_pairs.items():
+            tree = self.apply_hypergraph_substitution(tree, rule_pair, rule_id)
 
         return tree
 
-    def apply_hypergraph_substitution(self, tree, rule_pair):
+    def apply_hypergraph_substitution(self, tree, rule_pair, rule_id):
         root_rule_id, child_rule_id, nt_loc = rule_pair
         if (
             nt_loc < len(tree.node.child_ids())
@@ -40,44 +39,41 @@ class HypergraphRPEGrammar(HypergraphGrammar):
             assert self.rules[root_rule_id] == tree.node
             assert self.rules[child_rule_id] == tree[nt_loc].node
 
-            child = copy.deepcopy(tree[nt_loc])
-            parent_node = copy.deepcopy(tree.node)
-            child_node = copy.deepcopy(child.node)
+            child = tree[nt_loc]
             new_node = apply_rule(
-                parent_node,
-                child_node,
-                loc=parent_node.child_ids()[nt_loc]
+                tree.node,
+                child.node,
+                loc=tree.node.child_ids()[nt_loc]
             )
 
-            rule_parent = copy.deepcopy(self.rules[root_rule_id])
-            rule_child = copy.deepcopy(self.rules[child_rule_id])
+            rule_parent = self.rules[root_rule_id].clone()
+            rule_child = self.rules[child_rule_id].clone()
             new_node_2 = apply_rule(
                 rule_parent,
                 rule_child,
                 loc=rule_parent.child_ids()[nt_loc]
             )
-            if new_node != new_node_2:
-                new_node == new_node_2
+            assert new_node == new_node_2
 
             children = tree[:nt_loc] + tree[(nt_loc+1):] + child[:]
 
-
-            new_node.rule_id, _ = self.rule_to_index(new_node)
-            if len(self.rules) - 1 == new_node.rule_id:
-                print('Added rule! - {}, {}'.format(new_node.rule_id, str(new_node)))
+            new_node.rule_id, _ = self.rule_to_index(
+                new_node, no_new_rules=True
+            )
+            assert new_node == self.rules[rule_id]
 
         else:
             new_node = tree.node
             children = tree[:]
 
         transformed_children = [
-            self.apply_hypergraph_substitution(child, rule_pair)
+            self.apply_hypergraph_substitution(child, rule_pair, rule_id)
             for child in children
         ]
         return HypergraphTree(new_node, transformed_children)
 
     def extract_popular_hypergraph_pairs(self, hypergraph_trees, num_rules):
-        new_rules = []
+        new_rules = {}
         for i in range(num_rules):
             print('iteration', i)
             rule_pair_frequencies = defaultdict(int)
@@ -87,10 +83,26 @@ class HypergraphRPEGrammar(HypergraphGrammar):
             best_pair = max(
                 rule_pair_frequencies, key=rule_pair_frequencies.get
             )
-            new_rules.append(best_pair)
+            parent_rule_id, child_rule_id, nt_loc = best_pair
+            parent = self.rules[parent_rule_id]
+            child = self.rules[child_rule_id]
+            new_node = apply_rule(
+                parent,
+                child,
+                loc=parent.child_ids()[nt_loc]
+            )
+            new_node.rule_id, _ = self.rule_to_index(new_node)
+            if len(self.rules) - 1 == new_node.rule_id:
+                print(
+                    'Added rule! - {}, {}'.format(
+                        new_node.rule_id, str(new_node))
+                )
+                new_rules[new_node.rule_id] = best_pair
 
             hypergraph_trees = [
-                self.apply_hypergraph_substitution(tree, best_pair)
+                self.apply_hypergraph_substitution(
+                    tree, best_pair, new_node.rule_id
+                )
                 for tree in hypergraph_trees
             ]
 
@@ -108,7 +120,7 @@ class HypergraphRPEGrammar(HypergraphGrammar):
         new_rule_pairs = self.extract_popular_hypergraph_pairs(
             trees, num_iterations
         )
-        self.rule_pairs.extend(new_rule_pairs)
+        self.rule_pairs.update(new_rule_pairs)
         self.reset_rule_frequencies()
         self._count_rpe_rule_frequencies(smiles)
 
