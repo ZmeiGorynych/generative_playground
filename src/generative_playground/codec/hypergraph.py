@@ -529,7 +529,7 @@ def replace_nonterminal(orig_node, loc, new_node):
     del orig_node.node[loc]
     orig_node.node.update(new_node.node)
     orig_node.validate()
-    return orig_node
+    return orig_node.clone()
 
 
 def hypergraphs_are_equivalent(graph1, graph2):
@@ -558,23 +558,19 @@ def hypergraphs_are_equivalent(graph1, graph2):
 
     for i, (node1_id, node1), (node2_id, node2) in zip(range(len(graph1)), graph1.node.items(), graph2.node.items()):
         if not (graph1.is_parent_node(node1) == graph2.is_parent_node(node2)):
-            print('here1')
             return None
         elif str(node1) != str(node2) or len(node1.edges) != len(node2.edges):
-            print('here2')
             return None
         else:
             for edge1_id, edge2_id in zip(node1.edge_ids, node2.edge_ids):
                 edge1 = graph1.edges[edge1_id]
                 edge2 = graph2.edges[edge2_id]
                 if edge1.type != edge2.type or edge1.data != edge2.data:
-                    print('here3')
                     return None
                 # now test that matching edges lead to matching nodes
                 candidate_node_id1 = other_node1(node1_id, edge1_id)
                 candidate_node_id2 = other_node2(node2_id, edge2_id)
                 if mapping[candidate_node_id1] != candidate_node_id2:
-                    print('here4')
                     return None
 
     return mapping
