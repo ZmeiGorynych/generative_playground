@@ -61,6 +61,7 @@ class HypergraphRPEGrammar(HypergraphGrammar):
                 new_node, no_new_rules=True
             )
             assert new_node == self.rules[rule_id]
+            new_node = self.rules[rule_id]
 
         else:
             new_node = tree.node

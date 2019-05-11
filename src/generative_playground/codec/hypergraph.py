@@ -529,7 +529,7 @@ def replace_nonterminal(orig_node, loc, new_node):
     del orig_node.node[loc]
     orig_node.node.update(new_node.node)
     orig_node.validate()
-    return orig_node.clone()
+    return orig_node
 
 
 def hypergraphs_are_equivalent(graph1, graph2):
