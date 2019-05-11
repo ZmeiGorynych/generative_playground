@@ -6,7 +6,7 @@ from generative_playground.codec.hypergraph import to_mol, HyperGraph, Hypergrap
 from generative_playground.codec.hypergraph_parser import hypergraph_parser, graph_from_graph_tree
 from generative_playground.molecules.data_utils.zinc_utils import get_zinc_smiles
 from generative_playground.codec.hypergraph_grammar import evaluate_rules, HypergraphGrammar, HypergraphMaskGenerator, apply_rule
-from generative_playground.codec.rpe import extract_popular_hypergraph_pairs, apply_hypergraph_substitution, HypergraphRPEParser
+from generative_playground.codec.hypergraph_rpe_grammar import HypergraphRPEGrammar
 from rdkit.Chem import MolFromSmiles, AddHs, MolToSmiles, RemoveHs, Kekulize, BondType
 
 smiles = get_zinc_smiles(20)
@@ -115,33 +115,9 @@ class TestStart(TestCase):
         self.assertEqual(smiles1, recovered_smiles1)
         self.assertEqual(recovered_smiles1, recovered_smiles2)
 
-    def test_hypergraph_rpe(self):
-        g = HypergraphGrammar()
-        g.strings_to_actions(smiles)
-
-        tree = g.normalize_tree(
-            hypergraph_parser(MolFromSmiles(smiles1))
-        )
-
-        num_rules_before = len(g.rules)
-        rule_pairs = extract_popular_hypergraph_pairs(g, [tree], 1)
-        num_rules_after = len(g.rules)
-
-        tree_rules_before = len(tree.rules())
-        collapsed_tree = apply_hypergraph_substitution(g, tree, rule_pairs[0])
-        tree_rules_after = len(collapsed_tree.rules())
-
-        graph = graph_from_graph_tree(collapsed_tree)
-        mol = to_mol(graph)
-        recovered_smiles = MolToSmiles(mol)
-
-        self.assertEqual(smiles1, recovered_smiles)
-        self.assertGreater(num_rules_after, num_rules_before)
-        self.assertLess(tree_rules_after, tree_rules_before)
-
-    def _parser_roundtrip(self, parser, smiles_strings):
+    def _parser_roundtrip(self, grammar, smiles_strings):
         collapsed_trees = [
-            parser.parse(smile) for smile in smiles_strings
+            grammar.raw_strings_to_trees([smile])[0] for smile in smiles_strings
         ]
 
         recovered_smiles = []
@@ -152,21 +128,13 @@ class TestStart(TestCase):
         return recovered_smiles
 
     def test_hypergraph_rpe_parser(self):
-        g = HypergraphGrammar()
+        g = HypergraphRPEGrammar()
         g.strings_to_actions(smiles)
 
-        trees = [
-            g.normalize_tree(
-                hypergraph_parser(MolFromSmiles(smile))
-            )
-            for smile in smiles
-        ]
+        g.extract_rpe_pairs(smiles, 1)
 
-        rule_pairs = extract_popular_hypergraph_pairs(g, trees, 1)
-
-        parser = HypergraphRPEParser(g, rule_pairs)
-        recovered_smiles = self._parser_roundtrip(parser, smiles)
-        recovered_smiles = self._parser_roundtrip(parser, recovered_smiles)
+        recovered_smiles = self._parser_roundtrip(g, smiles)
+        recovered_smiles = self._parser_roundtrip(g, recovered_smiles)
 
         self.assertEqual(smiles, recovered_smiles)
 
