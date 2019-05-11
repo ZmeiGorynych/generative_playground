@@ -1,7 +1,7 @@
 import logging
 import random
 import numpy as np
-from unittest import TestCase
+from unittest import TestCase, skip
 from generative_playground.codec.hypergraph import to_mol, HyperGraph, HypergraphTree
 from generative_playground.codec.hypergraph_parser import hypergraph_parser, graph_from_graph_tree
 from generative_playground.molecules.data_utils.zinc_utils import get_zinc_smiles
@@ -11,6 +11,12 @@ from rdkit.Chem import MolFromSmiles, AddHs, MolToSmiles, RemoveHs, Kekulize, Bo
 
 smiles = get_zinc_smiles(20)
 smiles1 = smiles[0]
+bad_smiles = [
+    'C1(CCCCC1)(C)C(=O)N',
+    'C1(CCCCC1)(C)C',
+    'C12=CC=CC=C1C=C3[N]2CC(NC3)(C)C',
+    'CC(=O)Nc1c2n(c3ccccc13)C[C@](C)(C(=O)NC1CCCCC1)N(C1CCCCC1)C2=O'
+]
 
 
 class TestStart(TestCase):
@@ -118,7 +124,7 @@ class TestStart(TestCase):
         )
 
         num_rules_before = len(g.rules)
-        rule_pairs = extract_popular_hypergraph_pairs(g, [tree], 10)
+        rule_pairs = extract_popular_hypergraph_pairs(g, [tree], 1)
         num_rules_after = len(g.rules)
 
         tree_rules_before = len(tree.rules())
@@ -156,10 +162,26 @@ class TestStart(TestCase):
             for smile in smiles
         ]
 
-        rule_pairs = extract_popular_hypergraph_pairs(g, trees, 10)
+        rule_pairs = extract_popular_hypergraph_pairs(g, trees, 1)
 
         parser = HypergraphRPEParser(g, rule_pairs)
         recovered_smiles = self._parser_roundtrip(parser, smiles)
         recovered_smiles = self._parser_roundtrip(parser, recovered_smiles)
 
         self.assertEqual(smiles, recovered_smiles)
+
+    @skip('Need to fix these')
+    def test_hypergraph_rpe_parser_bad_smiles(self):
+        g = HypergraphGrammar()
+
+        trees = []
+        for smile in bad_smiles:
+            try:
+                trees.append(
+                    g.normalize_tree(
+                        hypergraph_parser(MolFromSmiles(smile))
+                    )
+                )
+            except (AssertionError, IndexError):
+                print('Failed for {}'.format(smile))
+                raise
