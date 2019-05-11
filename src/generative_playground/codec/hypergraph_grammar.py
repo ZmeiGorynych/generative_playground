@@ -101,7 +101,11 @@ class HypergraphGrammar(GenericCodec):
         for smile in smiles:
             mol = MolFromSmiles(smile)
             assert mol is not None, "SMILES String could not be parsed: " + smile
-            tree = hypergraph_parser(mol)
+            try:
+                tree = hypergraph_parser(mol)
+            except Exception as e:
+                print(str(e))
+                continue
             yield self.normalize_tree(tree)
 
     def raw_strings_to_actions(self, smiles):
