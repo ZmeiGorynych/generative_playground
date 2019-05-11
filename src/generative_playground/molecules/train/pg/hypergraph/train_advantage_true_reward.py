@@ -9,6 +9,9 @@ except:
     # sys.path.append('../../../../DeepRL')
     # sys.path.append('../../../../../transformer_pytorch')
 
+from rdkit.Chem import MolFromSmiles
+from generative_playground.codec.hypergraph_parser import hypergraph_parser
+from generative_playground.codec.rpe import HypergraphRPEParser, extract_popular_hypergraph_pairs
 # from deep_rl import *
 # from generative_playground.models.problem.rl.network_heads import CategoricalActorCriticNet
 # from generative_playground.train.rl.run_iterations import run_iterations
@@ -17,6 +20,7 @@ from generative_playground.molecules.rdkit_utils.rdkit_utils import num_atoms, n
 from generative_playground.molecules.model_settings import get_settings
 from generative_playground.molecules.train.pg.hypergraph.main_train_policy_gradient_minimal import train_policy_gradient
 from generative_playground.codec.hypergraph_grammar import GrammarInitializer
+from generative_playground.molecules.data_utils.zinc_utils import get_zinc_smiles
 
 
 def reward_length(smiles):
@@ -51,14 +55,19 @@ grammar = 'hypergraph:' + grammar_cache
 settings = get_settings(molecules, grammar)
 # max_steps = 277  # settings['max_seq_length']
 invalid_value = -3.5
-scorer = NormalizedScorer(invalid_value=invalid_value)
-reward_fun = scorer #lambda x: np.ones(len(x)) # lambda x: reward_aromatic_rings(x)#
+# scorer = NormalizedScorer(invalid_value=invalid_value)
+# reward_fun = scorer #lambda x: np.ones(len(x)) # lambda x: reward_aromatic_rings(x)#
 # later will run this ahead of time
-gi = GrammarInitializer(grammar_cache)
-# if True:
-#     gi.delete_cache()
-#     gi = GrammarInitializer(grammar_cache)
-#     max_steps_smiles = gi.init_grammar(1000)
+gi = GrammarInitializer(grammar_cache, grammar_class=HypergraphRPEGrammar)
+if False:
+    gi.delete_cache()
+    num_mols = 1000
+    max_steps_smiles = gi.init_grammar(num_mols)
+    gi.save()
+    smiles = get_zinc_smiles(num_mols)
+    gi.grammar.extract_rpe_pairs(smiles, 10)
+    gi.grammar.count_rule_frequencies(collapsed_trees)
+    gi.save()
 
 max_steps = 30
 model, gen_fitter, disc_fitter = train_policy_gradient(molecules,

@@ -1,4 +1,4 @@
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from generative_playground.molecules.lean_settings import get_data_location, molecules_root_location
 import frozendict
 from generative_playground.codec.parent_codec import GenericCodec
@@ -94,20 +94,22 @@ class HypergraphGrammar(GenericCodec):
             out.append(smiles)
         return out
 
+    def _smiles_to_tree_gen(self, smiles):
+        assert type(smiles) == list or type(smiles) == tuple, "Input must be a list or a tuple"
+        for smile in smiles:
+            mol = MolFromSmiles(smile)
+            assert mol is not None, "SMILES String could not be parsed: " + smile
+            tree = hypergraph_parser(mol)
+            yield self.normalize_tree(tree)
+
     def raw_strings_to_actions(self, smiles):
         '''
         Convert a list of valid SMILES string to actions
         :param smiles: a list of valid SMILES strings
         :return:
         '''
-        assert type(smiles) == list or type(smiles) == tuple, "Input must be a list or a tuple"
         actions = []
-        for smile in smiles:
-            these_actions = []
-            mol = MolFromSmiles(smile)
-            assert mol is not None, "SMILES String could not be parsed: " + smile
-            tree = hypergraph_parser(mol)
-            norm_tree = self.normalize_tree(tree)
+        for norm_tree in self._smiles_to_tree_gen(smiles):
             these_actions = [rule.rule_id for rule in norm_tree.rules()]
             actions.append(these_actions)
         return actions
@@ -225,6 +227,28 @@ class HypergraphGrammar(GenericCodec):
     def node_data_index_length(self):
         # an extra slot needed for 'other' for each fieldname
         return len(self.node_data_index) + sum([len(x) for x in self.node_data_index.values()])
+
+    def reset_rule_frequencies(self):
+        self.conditional_frequencies = {}
+        self.rule_frequency_dict = {}
+
+    def count_rule_frequencies(self, trees):
+        for tree in trees:
+            these_tuples = tree_with_rule_inds_to_list_of_tuples(tree)
+            for p, nt, c in these_tuples:
+                if (p, nt) not in self.conditional_frequencies:
+                    self.grammar.conditional_frequencies[(p, nt)] = {}
+                if c not in self.conditional_frequencies[(p, nt)]:
+                    self.conditional_frequencies[(p, nt)][c] = 1
+                else:
+                    self.conditional_frequencies[(p, nt)][c] += 1
+
+            these_actions = [rule.rule_id for rule in tree.rules()]
+            for aa in these_actions:
+                for a in aa:
+                    if a not in self.rule_frequency_dict:
+                        self.rule_frequency_dict[a] = 0
+                    self.rule_frequency_dict[a] += 1
 
 
 class HypergraphMaskGenerator:
@@ -366,7 +390,7 @@ class HypergraphMaskGenerator:
 
 def expand_index_to_id(graph, expand_index=None):
     '''
-    
+
     :param graph: HyperGraph or None for the first step
     :param expand_index: None or an index of the node in graph.node that we want to expand next
     :return: id of the next node to expand, or None if we have nothing left to expand
@@ -482,7 +506,7 @@ def evaluate_rules(rules):
     return start_graph
 
 class GrammarInitializer:
-    def __init__(self, filename):
+    def __init__(self, filename, grammar_class=HypergraphGrammar):
         self.grammar_filename = self.full_grammar_filename(filename)
         self.own_filename = self.full_own_filename(filename)
         self.max_len = 0 # maximum observed number of rules so far
@@ -490,9 +514,9 @@ class GrammarInitializer:
         self.new_rules = []
         self.frequency_dict = {}
         if os.path.isfile(self.grammar_filename):
-            self.grammar = HypergraphGrammar.load(filename)
+            self.grammar = grammar_class.load(filename)
         else:
-            self.grammar = HypergraphGrammar(cache_file=filename)
+            self.grammar = grammar_class(cache_file=filename)
 
     def full_grammar_filename(self, filename):
         return grammar_data_location + filename
@@ -519,7 +543,6 @@ class GrammarInitializer:
         if os.path.isfile(self.grammar_filename):
             os.remove(self.grammar_filename)
         self.grammar.delete_cache()
-
 
     def init_grammar(self, max_num_mols):
         L = get_zinc_smiles(max_num_mols)

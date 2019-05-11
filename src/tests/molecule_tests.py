@@ -133,6 +133,18 @@ class TestStart(TestCase):
         self.assertGreater(num_rules_after, num_rules_before)
         self.assertLess(tree_rules_after, tree_rules_before)
 
+    def _parser_roundtrip(self, parser, smiles_strings):
+        collapsed_trees = [
+            parser.parse(smile) for smile in smiles_strings
+        ]
+
+        recovered_smiles = []
+        for tree in collapsed_trees:
+            graph = graph_from_graph_tree(tree)
+            mol = to_mol(graph)
+            recovered_smiles.append(MolToSmiles(mol))
+        return recovered_smiles
+
     def test_hypergraph_rpe_parser(self):
         g = HypergraphGrammar()
         g.strings_to_actions(smiles)
@@ -147,14 +159,7 @@ class TestStart(TestCase):
         rule_pairs = extract_popular_hypergraph_pairs(g, trees, 10)
 
         parser = HypergraphRPEParser(g, rule_pairs)
-        collapsed_trees = [
-            parser.parse(smile) for smile in smiles
-        ]
-
-        recovered_smiles = []
-        for tree in collapsed_trees:
-            graph = graph_from_graph_tree(tree)
-            mol = to_mol(graph)
-            recovered_smiles.append(MolToSmiles(mol))
+        recovered_smiles = self._parser_roundtrip(parser, smiles)
+        recovered_smiles = self._parser_roundtrip(parser, recovered_smiles)
 
         self.assertEqual(smiles, recovered_smiles)
