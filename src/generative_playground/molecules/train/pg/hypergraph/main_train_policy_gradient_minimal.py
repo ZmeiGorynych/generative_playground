@@ -103,7 +103,10 @@ def train_policy_gradient(molecules=True,
         return prob_zinc
 
     def adj_reward(x):
-        p = discriminator_reward_mult(x)
+        if discrim_wt > 1e-5:
+            p = discriminator_reward_mult(x)
+        else:
+            p = 0
         rwd = reward_fun_on(x)
         reward = np.minimum(rwd, rwd * originality_mult(x))
         out = reward + discrim_wt*p
@@ -230,7 +233,7 @@ def train_policy_gradient(molecules=True,
                                            dashboard_name=dashboard,
                                            plot_ignore_initial=plot_ignore_initial,
                                            process_model_fun=model_process_fun,
-                                           smooth_weight=0.9)
+                                           smooth_weight=reward_sm)
         else:
             metric_monitor = None
 
@@ -276,7 +279,7 @@ def train_policy_gradient(molecules=True,
 
     history_callbacks = [make_callback(d) for d in history_data]
     fitter1 = get_rl_fitter(model,
-                            PolicyGradientLoss(on_policy_loss_type, last_reward_wgt=reward_sm),
+                            PolicyGradientLoss(on_policy_loss_type),# last_reward_wgt=reward_sm),
                             GeneratorToIterable(my_gen),
                             gen_save_path,
                             plot_prefix + 'on-policy',

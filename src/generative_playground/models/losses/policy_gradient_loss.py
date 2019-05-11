@@ -4,12 +4,21 @@ import torch.nn.functional as F
 
 
 class PolicyGradientLoss(nn.Module):
-    def __init__(self, loss_type='mean', loss_cutoff=1e4, last_reward_wgt=0.0):
+    def __init__(self, loss_type='mean', loss_cutoff=1e4, keep_records=10): #last_reward_wgt=0.0,
         super().__init__()
         self.loss_type = loss_type
         self.loss_cutoff = loss_cutoff
-        self.last_reward_wgt = last_reward_wgt
-        self.sm_reward = None
+        #self.last_reward_wgt = last_reward_wgt
+        # self.sm_reward = None
+        self.best_rewards = set([float('-inf')])
+        self.keep_records = keep_records
+
+    def update_record_list(self, new_value):
+        worst = min(self.best_rewards)
+        if new_value > worst:
+            self.best_rewards.add(new_value)
+        if len(self.best_rewards) > self.keep_records:
+            self.best_rewards.discard(worst)
 
     def forward(self, model_out):
         '''
@@ -35,25 +44,31 @@ class PolicyGradientLoss(nn.Module):
 
         my_loss = 0
         # loss_cutoff causes us to ignore off-policy examples that are grammatically possible but masked away
+        best_ind = torch.argmax(total_rewards)
+        best_loss = total_logp[best_ind]
         if 'mean' in self.loss_type:
             rewardloss = (total_logp * total_rewards)[total_logp < self.loss_cutoff]
             mean_loss = rewardloss.mean()/(total_rewards.abs().mean()+1e-6)
             my_loss += mean_loss
         if 'advantage' in self.loss_type:
-            if self.sm_reward is None:
-                self.sm_reward = total_rewards.mean()
-            else:
-                self.sm_reward = self.last_reward_wgt*self.sm_reward + (1-self.last_reward_wgt)*total_rewards.mean()
-            adv = total_rewards - self.sm_reward
-            # if adv.abs().mean() == 0.0:
-            #     adv += 1.0 # if there's no difference, just average
-
+            # if self.sm_reward is None: # unnecessary complication, the batch average reward is quite stable over time
+            #     self.sm_reward = total_rewards.mean()
+            # else:
+            #     self.sm_reward = self.last_reward_wgt*self.sm_reward + (1-self.last_reward_wgt)*total_rewards.mean()
+            adv = total_rewards - total_rewards.mean() # self.sm_reward
             rewardloss = (total_logp * adv)[total_logp < self.loss_cutoff]
-            mean_loss = rewardloss.mean() / (adv.abs().mean()+1e-6)
+            mean_loss = rewardloss.mean() / (adv.abs().mean()+1e-5)
             my_loss += mean_loss
+        if 'record' in self.loss_type: # all rewards that exceed the best 10 observed so far, get their own loss contrib
+            first_time = len(self.best_rewards) == 1
+            min_record = min(self.best_rewards)
+            for i, reward in enumerate(total_rewards):
+                if reward > min_record:
+                    if not first_time:
+                        my_loss += total_logp[i]
+                    self.update_record_list(reward.data.item())
+
         if 'best' in self.loss_type:
-            best_ind = torch.argmax(total_rewards)
-            best_loss = total_logp[best_ind]*total_rewards[best_ind]# # normalize to weight 1 rewardloss[best_ind]
             if valid[best_ind] == 0:
                 best_loss *= 0.0
             my_loss += best_loss
@@ -64,7 +79,8 @@ class PolicyGradientLoss(nn.Module):
         # check for NaNs
         assert(my_loss == my_loss)
         if sum(valid) > 0:
-            self.metrics = {'avg rwd': total_rewards.mean().data.item(),
+            self.metrics = {'rec rwd': max(self.best_rewards),
+                            'avg rwd': total_rewards.mean().data.item(),
                             'max rwd': total_rewards.max().data.item(),
                             'med rwd': total_rewards.median().data.item(),
                             'avg adv': adv.mean().data.item()
