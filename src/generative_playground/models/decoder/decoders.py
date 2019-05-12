@@ -41,6 +41,61 @@ class OneStepDecoderContinuous(nn.Module):
             raise StopIteration()
 
 # TODO: split that in two decoders, with and without task
+class DecoderWithEnvironmentNew(nn.Module):
+    def __init__(self,
+                 stepper: Stepper,
+                 task,
+                 mask_gen,
+                 batch_size=None):
+        '''
+        A simple discrete decoder, alternating getting logits from model and actions from policy
+        :param stepper:
+        :param policy: choose an action from the logits, can be max, or random sample,
+        or choose from pre-determined target sequence. Only depends on current logits + history,
+        can't handle multi-step strategies like beam search
+        :param mask_fun: takes in one-hot encoding of previous action (for now that's all we care about)
+        :param task: environment that returns rewards and whether the episode is finished
+        '''
+        super().__init__()
+        self.stepper = to_gpu(stepper)
+        self.task = task
+        self.mask_gen = mask_gen
+        self.output_shape = [None, None, self.stepper.output_shape[-1]]
+        self.batch_size = batch_size
+
+    def forward(self, z=None):
+        # initialize the decoding model
+        self.stepper.init_encoder_output(z)
+        self.mask_gen.reset()
+        last_state = self.task.reset()
+        out_logp = []
+        out_rewards = []
+        while True:
+            try:
+                #  batch x num_actions
+                next_action, next_logp = self.stepper(last_state)
+                out_logp.append(next_logp)
+                last_state, rewards, done, info = self.task.step(to_numpy(next_action))
+                out_rewards.append(to_pytorch(rewards))
+            except StopIteration as e:
+                break
+            rewards = sum(out_rewards)
+            logp = sum(out_logp)
+
+        out = {'rewards': rewards, 'logp':logp, 'info': (info[0], to_pytorch(info[1]))}
+
+        # if hasattr(self.stepper,'mask_gen') and hasattr(self.stepper.mask_gen,'graphs'):
+        #     # TODO: this is very ad hoc, will be neater once mask_gen is moved into the environment
+        #     out['graphs'] = self.stepper.mask_gen.graphs
+        return out
+
+def to_numpy(x):
+    if type(x) in (list, tuple):
+        return [to_numpy(xx) for xx in x]
+    else:
+        return x.detach().cpu().numpy()
+
+# TODO: split that in two decoders, with and without task
 class SimpleDiscreteDecoderWithEnv(nn.Module):
     def __init__(self,
                  stepper: Stepper,

@@ -279,11 +279,13 @@ class HypergraphMaskGenerator:
         self.graphs = None
         self.t = 0
         self.last_action = None
+        self.next_expand_location = None
 
     def reset(self):
         self.graphs = None
         self.t = 0
         self.last_action = None
+        self.next_expand_location = None
 
     def apply_one_action(self, graph, last_action, expand_id):
         # TODO: allow None action
@@ -322,6 +324,37 @@ class HypergraphMaskGenerator:
     def __call__(self, last_action):
         self.apply_action(last_action)
         return self.valid_action_mask()
+
+    def step(self, last_action):
+        """
+        A version for OpenAI gym-style interface, encapsulating node choice and action choice
+        :param last_action:
+        :return:
+        """
+        last_node, last_rule = last_action
+        if last_node is not None:
+            self.pick_next_node_to_expand(last_node) # converts index to node id, validating it in the process
+        self.apply_action(last_rule)
+        next_node = self.valid_node_mask()
+        full_logit_priors = -1e5*np.ones(list(next_node.shape) + [len(self.grammar)])
+        for g, graph in enumerate(self.graphs):
+            if graph is None: # first step, no graphs created yet
+                full_logit_priors[g, 0, :] = -1e5*(1-np.array(self.get_one_mask(None, None)))
+            elif len(graph.child_ids()) > 0:
+                for l, loc in enumerate(graph.node.keys()):
+                    if loc in graph.child_ids():
+                        full_logit_priors[g,l,:] = -1e5*(1-np.array(self.get_one_mask(graph, loc)))
+            else: # no nonterminals left, got to use the padding rule
+                for l, loc in enumerate(graph.node.keys()):
+                    if loc != graph.parent_node_id:
+                        full_logit_priors[g,l,:] = -1e5*(1-np.array(self.get_one_mask(graph, None)))
+                        break
+
+        log_freqs = self.grammar.get_log_frequencies()[None, None, :]
+        full_logit_priors += log_freqs
+        return self.graphs, next_node, full_logit_priors
+
+
 
     def apply_action(self, last_action):
         self.last_action = last_action # to be used for next step's conditional frequencies
