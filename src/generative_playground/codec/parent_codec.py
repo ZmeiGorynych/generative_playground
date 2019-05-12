@@ -1,4 +1,4 @@
-from generative_playground.utils.gpu_utils import to_gpu, FloatTensor, LongTensor
+from generative_playground.utils.gpu_utils import device
 import torch
 import numpy as np
 
@@ -55,7 +55,7 @@ class GenericCodec:
         :param z: batch x z_size
         :return: smiles: list(str) of len batch, actions: LongTensor batch_size x max_seq_len
         '''
-        actions, logits = self.decoder(to_gpu(z))
+        actions, logits = self.decoder(z.to(device=device))
         smiles = self.decode_from_actions(actions)
         return smiles, actions
 
@@ -63,7 +63,7 @@ class GenericCodec:
         import rdkit
         if type(z) == np.ndarray:
             numpy_output = True
-            z = FloatTensor(z)
+            z = torch.tensor(z)
         else:
             numpy_output=False
 
@@ -85,8 +85,8 @@ class GenericCodec:
     def action_seq_length(self,these_actions):
         if 'numpy' in str(type(these_actions)):
             # TODO: put a numpy-specific version here, not needing pytorch
-            these_actions = LongTensor(these_actions)
-        out = LongTensor((len(these_actions)))
+            these_actions = these_actions.to(device=device, dtype=torch.long)
+        out = torch.zeros(len(these_actions)).to(device=device, dtype=torch.long)#LongTensor((len(these_actions)))
         for i in range(len(these_actions)):
             if these_actions[i][-1] == self._n_chars -1:
                 out[i] = torch.nonzero(these_actions[i] == (self._n_chars -1))[0]

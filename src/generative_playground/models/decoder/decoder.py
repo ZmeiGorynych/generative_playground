@@ -52,7 +52,7 @@ def get_decoder(molecules=True,
                                                 'action': codec.feature_len()}, # to select the action for chosen node
                                    drop_rate=drop_rate)
 
-        # don't support using this model in VAE-style scenarios yet
+        # don't support using this model in VAE-style models yet
         model.init_encoder_output = lambda x: None
 
         mask_gen = HypergraphMaskGenerator(max_len=max_seq_length,
@@ -98,7 +98,7 @@ def get_decoder(molecules=True,
         else:
             raise NotImplementedError('Unknown decoder type: ' + str(decoder_type))
 
-    if grammar is not False:
+    if grammar is not False and '_graph' not in decoder_type:
         # add a masking layer
         mask_gen = get_codec(molecules, grammar, max_seq_length).mask_gen
         stepper = MaskingHead(stepper, mask_gen)
