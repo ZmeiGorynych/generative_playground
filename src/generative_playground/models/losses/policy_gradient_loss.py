@@ -33,7 +33,7 @@ class PolicyGradientLoss(nn.Module):
         smiles, valid = model_out['info']
 
         if 'logp' in model_out:
-            total_logp = model_out['logp']
+            total_logp = -model_out['logp']
         else:  # old-style outputs
             _, seq_len, _ = model_out['logits'].size()
             float_type = model_out['logits'].dtype

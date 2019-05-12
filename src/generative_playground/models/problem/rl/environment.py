@@ -61,7 +61,7 @@ class GraphEnvironment:
                     self.valid[i] = 0
                 else:
                     self.valid[i] = 1
-                this_reward = self.reward_fun(self.smiles[i])[0]
+                this_reward = self.reward_fun([self.smiles[i]])[0]
                 self.done_rewards[i] = this_reward
                 reward[i] = this_reward
                 self.seq_len[i] = self.mask_gen.t
