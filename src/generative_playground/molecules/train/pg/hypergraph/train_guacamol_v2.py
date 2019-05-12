@@ -32,12 +32,12 @@ reward_funs = guacamol_goal_scoring_functions(ver)
 reward_fun = reward_funs[obj_num]
 # later will run this ahead of time
 gi = GrammarInitializer(grammar_cache)
-# if True:
-#     gi.delete_cache()
-#     gi = GrammarInitializer(grammar_cache)
-#     max_steps_smiles = gi.init_grammar(1000)
+if True:
+    gi.delete_cache()
+    gi = GrammarInitializer(grammar_cache)
+    max_steps_smiles = gi.init_grammar(1000)
 
-root_name = 'guacamol_ar_rnn' + ver + '_' + str(obj_num) + 'lr3e-5'
+root_name = 'guacamol_ar_no_priors' + ver + '_' + str(obj_num) + 'lr3e-5'
 max_steps = 50
 model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        grammar,
@@ -51,7 +51,7 @@ model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        p_thresh=-10,
                                                        drop_rate=drop_rate,
                                                        reward_sm=0.0,
-                                                       decoder_type='rnn_graph',#'attn_graph',  # 'attention',
+                                                       decoder_type='attn_graph',  #'rnn_graph',# 'attention',
                                                        plot_prefix='',
                                                        dashboard= root_name,  # 'policy gradient',
                                                        save_file_root_name=root_name,

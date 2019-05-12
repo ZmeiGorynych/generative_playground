@@ -20,12 +20,10 @@ from generative_playground.codec.hypergraph_grammar import GrammarInitializer
 from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring_functions, version_name_list
 from generative_playground.molecules.data_utils.zinc_utils import get_zinc_smiles
 
-
-
-batch_size = 20 # 20
+batch_size = 2  # 20
 drop_rate = 0.5
 molecules = True
-grammar_cache = 'hyper_grammar.pickle'
+grammar_cache = 'hyper_grammar_rpe.pickle'
 grammar = 'hypergraph:' + grammar_cache
 settings = get_settings(molecules, grammar)
 ver = 'v2'
@@ -36,32 +34,35 @@ reward_fun = reward_funs[obj_num]
 gi = GrammarInitializer(grammar_cache, grammar_class=HypergraphRPEGrammar)
 if True:
     gi.delete_cache()
-    num_mols = 100
+    # need to re-load, this time without the cache
+    gi = GrammarInitializer(grammar_cache, grammar_class=HypergraphRPEGrammar)
+    num_mols = 10
     max_steps_smiles = gi.init_grammar(num_mols)
     smiles = get_zinc_smiles(num_mols)
     gi.grammar.extract_rpe_pairs(smiles, 50)
+    gi.grammar.calc_terminal_distance()
     gi.save()
 
 max_steps = 50
+root_name = 'guacamol_ar_rpe' + ver + '_' + str(obj_num) + 'lr3e-5'
 model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
-                                                grammar,
-                                                EPOCHS=100,
-                                                BATCH_SIZE=batch_size,
-                                                reward_fun_on=reward_fun,
-                                                max_steps=max_steps,
-                                                lr_on=3e-5,
-                                                lr_discrim=5e-4,
-                                                    discrim_wt=0.0,
-                                                    p_thresh=-10,
-                                                drop_rate=drop_rate,
-                                                    reward_sm=0.0,
-                                                decoder_type='attn_graph',  # 'attention',
-                                                plot_prefix='',
-                                                dashboard='guacamol_ar_' + ver + '_' + str(obj_num) + 'lr3e-5',  # 'policy gradient',
-                                                save_file='guacamol_ar_' + ver + '_' + str(obj_num) + '.h5',
-                                                smiles_save_file=None,  # 'pg_smiles_hg1.h5',
-                                                on_policy_loss_type='advantage_record',#''best',
-                                                off_policy_loss_type='mean')
+                                                       grammar,
+                                                       EPOCHS=100,
+                                                       BATCH_SIZE=batch_size,
+                                                       reward_fun_on=reward_fun,
+                                                       max_steps=max_steps,
+                                                       lr_on=3e-5,
+                                                       lr_discrim=5e-4,
+                                                       discrim_wt=0.0,
+                                                       p_thresh=-10,
+                                                       drop_rate=drop_rate,
+                                                       decoder_type='attn_graph',  # 'attention',
+                                                       plot_prefix='',
+                                                       dashboard=root_name,  # 'policy gradient',
+                                                       save_file_root_name=root_name,
+                                                       smiles_save_file=None,  # 'pg_smiles_hg1.h5',
+                                                       on_policy_loss_type='advantage_record',  # ''best',
+                                                       off_policy_loss_type='mean')
 # preload_file='policy_gradient_run.h5')
 
 while True:

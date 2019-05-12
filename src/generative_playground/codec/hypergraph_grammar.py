@@ -19,7 +19,7 @@ grammar_data_location = molecules_root_location + 'data/grammar/'
 
 
 def full_location(filename):
-    return grammar_data_location + filename
+    return os.path.realpath(grammar_data_location + filename)
 
 
 class HypergraphGrammar(GenericCodec):
@@ -33,7 +33,7 @@ class HypergraphGrammar(GenericCodec):
         self.candidate_counter = 0
         self.cache_file = full_location(cache_file)
         self.terminal_distance_by_parent = {}
-        self.rule_term_dist_deltas = []
+        self._rule_term_dist_deltas = []
         self.shortest_rule_by_parent = {}
         self.last_tree_processed = None
         self.MAX_LEN = max_len # only used to pad string_to_actions output, factor out?
@@ -61,11 +61,16 @@ class HypergraphGrammar(GenericCodec):
     def grammar(self):
         return self
 
+    @property
+    def rule_term_dist_deltas(self): # write-protect that one
+        return self._rule_term_dist_deltas
+
     @classmethod
     def load(Class, filename):
         with open(full_location(filename), 'rb') as f:
             self = pickle.load(f)
         return self
+
 
     def get_log_frequencies(self):
         out = np.zeros(len(self.rules))
@@ -138,6 +143,9 @@ class HypergraphGrammar(GenericCodec):
         return new_tree
 
     def calc_terminal_distance(self):
+        self.terminal_distance_by_parent = {}
+        self._rule_term_dist_deltas = []
+        self.shortest_rule_by_parent = {}
         self.terminal_distance_by_parent = {parent_str: float('inf') for parent_str in self.id_by_parent.keys()}
         while True:
             prev_terminal_distance = copy.deepcopy(self.terminal_distance_by_parent)
@@ -154,13 +162,20 @@ class HypergraphGrammar(GenericCodec):
             if self.terminal_distance_by_parent == prev_terminal_distance:
                 break
 
-        for rule in self.rules:
+        for r, rule in enumerate(self.rules):
             if rule is None:
                 rule_term_dist_delta = float('-inf') # the padding rule
             else:
                 rule_term_dist_delta = 1 + sum([self.terminal_distance_by_parent[str(child)] for child in rule.children()])\
                                    - self.terminal_distance_by_parent[str(rule.parent_node())]
-            self.rule_term_dist_deltas.append(rule_term_dist_delta)
+                assert rule_term_dist_delta >= 0
+
+            self._rule_term_dist_deltas.append(rule_term_dist_delta)
+
+        self._rule_term_dist_deltas = tuple(self._rule_term_dist_deltas)  # make it immutable
+
+        assert min(self._rule_term_dist_deltas[1:]) >= 0
+        assert len(self._rule_term_dist_deltas) == len(self.rules)
 
         print('terminal distance calculated!')
 
