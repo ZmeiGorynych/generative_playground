@@ -272,7 +272,7 @@ class HypergraphGrammar(GenericCodec):
 
 
 class HypergraphMaskGenerator:
-    def __init__(self, max_len, grammar, priors=False):
+    def __init__(self, max_len, grammar, priors=True):
         self.grammar = grammar
         self.MAX_LEN = max_len
         self.priors = priors

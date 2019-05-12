@@ -46,9 +46,11 @@ class PolicyGradientLoss(nn.Module):
                 dloss = torch.diag(-log_p[:, i, model_out['actions'][:,i]]) # batch_size, hopefully
                 total_logp += dloss
         if len(model_out['rewards'].shape) > 1: # old-style outputs
-            total_rewards = model_out['rewards'].sum(1).to(dtype=log_p.dtype)
+            total_rewards = model_out['rewards'].sum(1).to(dtype=total_logp.dtype)
         else:
-            total_rewards = model_out['rewards']
+            total_rewards = model_out['rewards'].to(dtype=total_logp.dtype)
+
+
 
         my_loss = 0
         # loss_cutoff causes us to ignore off-policy examples that are grammatically possible but masked away

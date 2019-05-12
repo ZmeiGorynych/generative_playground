@@ -157,11 +157,13 @@ def train_policy_gradient(molecules=True,
                         feature_len=codec.feature_len(),
                         max_seq_length=max_steps,
                         drop_rate=drop_rate,
+                        batch_size=BATCH_SIZE,
                         decoder_type=decoder_type,
+                        reward_fun=reward_fun_on,
                         task=task)[0]
 
     # TODO: really ugly, refactor! In fact this model doesn't need a MaskingHead at all!
-    model.stepper.mask_gen.priors = True#'conditional' # use empirical priors for the mask gen
+    # model.stepper.mask_gen.priors = True#'conditional' # use empirical priors for the mask gen
     if preload_file_root_name is not None:
         try:
             preload_path = full_path(gen_preload_file)
@@ -183,7 +185,9 @@ def train_policy_gradient(molecules=True,
         from rdkit.Chem.Draw import MolToFile
         # actions, logits, rewards, terminals, info = model_out
         smiles, valid = model_out['info']
-        total_rewards = model_out['rewards'].sum(1)
+        total_rewards = model_out['rewards']
+        if len(total_rewards.shape) > 1:
+            total_rewards = total_rewards.sum(1)
         best_ind = torch.argmax(total_rewards).data.item()
         this_smile = smiles[best_ind]
         mol = Chem.MolFromSmiles(this_smile)

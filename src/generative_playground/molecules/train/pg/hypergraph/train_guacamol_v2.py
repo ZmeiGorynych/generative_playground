@@ -20,7 +20,7 @@ from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring
 
 
 
-batch_size = 20 # 20
+batch_size = 2 # 20
 drop_rate = 0.5
 molecules = True
 grammar_cache = 'hyper_grammar.pickle'
@@ -32,12 +32,12 @@ reward_funs = guacamol_goal_scoring_functions(ver)
 reward_fun = reward_funs[obj_num]
 # later will run this ahead of time
 gi = GrammarInitializer(grammar_cache)
-if True:
-    gi.delete_cache()
-    gi = GrammarInitializer(grammar_cache)
-    max_steps_smiles = gi.init_grammar(1000)
+# if True:
+#     gi.delete_cache()
+#     gi = GrammarInitializer(grammar_cache)
+#     max_steps_smiles = gi.init_grammar(100)
 
-root_name = 'guacamol_ar_no_priors' + ver + '_' + str(obj_num) + 'lr3e-5'
+root_name = 'guacamol_ar' + ver + '_' + str(obj_num) + 'lr3e-5'
 max_steps = 50
 model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        grammar,
