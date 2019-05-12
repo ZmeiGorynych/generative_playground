@@ -32,19 +32,19 @@ reward_funs = guacamol_goal_scoring_functions(ver)
 reward_fun = reward_funs[obj_num]
 # later will run this ahead of time
 gi = GrammarInitializer(grammar_cache, grammar_class=HypergraphRPEGrammar)
-if True:
-    gi.delete_cache()
-    # need to re-load, this time without the cache
-    gi = GrammarInitializer(grammar_cache, grammar_class=HypergraphRPEGrammar)
-    num_mols = 100
-    max_steps_smiles = gi.init_grammar(num_mols)
-    smiles = get_zinc_smiles(num_mols)
-    gi.grammar.extract_rpe_pairs(smiles, 50)
-    gi.grammar.calc_terminal_distance()
-    gi.save()
+# if True:
+#     gi.delete_cache()
+#     # need to re-load, this time without the cache
+#     gi = GrammarInitializer(grammar_cache, grammar_class=HypergraphRPEGrammar)
+#     num_mols = 100
+#     max_steps_smiles = gi.init_grammar(num_mols)
+#     smiles = get_zinc_smiles(num_mols)
+#     gi.grammar.extract_rpe_pairs(smiles, 50)
+#     gi.grammar.calc_terminal_distance()
+#     gi.save()
 
 max_steps = 35
-root_name = 'guacamol_ar_rpe' + ver + '_' + str(obj_num) + 'lr3e-5'
+root_name = 'guacamol_ar_node_rpe' + ver + '_' + str(obj_num) + 'lr3e-5'
 model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        grammar,
                                                        EPOCHS=100,
@@ -56,14 +56,13 @@ model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        discrim_wt=0.0,
                                                        p_thresh=-10,
                                                        drop_rate=drop_rate,
-                                                       decoder_type='attn_graph',  # 'attention',
+                                                       decoder_type='attn_graph_node',  # 'attention',
                                                        plot_prefix='',
                                                        dashboard=root_name,  # 'policy gradient',
                                                        save_file_root_name=root_name,
                                                        preload_file_root_name=root_name,
                                                        smiles_save_file=None,  # 'pg_smiles_hg1.h5',
-                                                       on_policy_loss_type='advantage_record',  # ''best',
-                                                       off_policy_loss_type='mean')
+                                                       on_policy_loss_type='advantage_record')
 # preload_file='policy_gradient_run.h5')
 
 while True:

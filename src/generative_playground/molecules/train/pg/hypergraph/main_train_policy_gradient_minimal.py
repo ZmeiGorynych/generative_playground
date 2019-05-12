@@ -169,7 +169,7 @@ def train_policy_gradient(molecules=True,
             preload_path = full_path(gen_preload_file)
             model.load_state_dict(torch.load(preload_path))
             print('Generator weights loaded successfully!')
-        except:
+        except Exception as e:
             print('failed to load generator weights ' + str(e))
 
     anchor_model = None
