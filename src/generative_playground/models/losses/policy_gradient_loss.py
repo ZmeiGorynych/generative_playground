@@ -31,16 +31,24 @@ class PolicyGradientLoss(nn.Module):
         '''
         # actions, logits, rewards, terminals, info = model_out
         smiles, valid = model_out['info']
-        batch_size, seq_len, num_actions = model_out['logits'].size()
-        float_type = model_out['logits'].dtype
-        log_p = F.log_softmax(model_out['logits'], dim=2) * (1-model_out['terminals'].unsqueeze(2).to(float_type))
-        total_rewards = model_out['rewards'].sum(1).to(dtype=log_p.dtype)
-        valid = valid.to(dtype=log_p.dtype)
-        #total_rewards = total_rewards/total_rewards.mean() # normalize to avg weight 1
-        total_logp = 0
-        for i in range(seq_len):
-            dloss = torch.diag(-log_p[:, i, model_out['actions'][:,i]]) # batch_size, hopefully
-            total_logp += dloss
+
+        if 'logp' in model_out:
+            total_logp = model_out['logp']
+        else:  # old-style outputs
+            _, seq_len, _ = model_out['logits'].size()
+            float_type = model_out['logits'].dtype
+            log_p = F.log_softmax(model_out['logits'], dim=2) * (1-model_out['terminals'].unsqueeze(2).to(float_type))
+
+            valid = valid.to(dtype=log_p.dtype)
+            #total_rewards = total_rewards/total_rewards.mean() # normalize to avg weight 1
+            total_logp = 0
+            for i in range(seq_len):
+                dloss = torch.diag(-log_p[:, i, model_out['actions'][:,i]]) # batch_size, hopefully
+                total_logp += dloss
+        if len(model_out['rewards'].shape) > 1: # old-style outputs
+            total_rewards = model_out['rewards'].sum(1).to(dtype=log_p.dtype)
+        else:
+            total_rewards = model_out['rewards']
 
         my_loss = 0
         # loss_cutoff causes us to ignore off-policy examples that are grammatically possible but masked away
@@ -82,8 +90,7 @@ class PolicyGradientLoss(nn.Module):
             self.metrics = {'rec rwd': max(self.best_rewards),
                             'avg rwd': total_rewards.mean().data.item(),
                             'max rwd': total_rewards.max().data.item(),
-                            'med rwd': total_rewards.median().data.item(),
-                            'avg adv': adv.mean().data.item()
+                            'med rwd': total_rewards.median().data.item()
                             }
         else:
             self.metrics = {}

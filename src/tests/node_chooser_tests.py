@@ -10,7 +10,7 @@ from generative_playground.codec.hypergraph_grammar import evaluate_rules, Hyper
 from generative_playground.models.problem.rl.environment import GraphEnvironment
 from generative_playground.models.decoder.graph_decoder import GraphEncoder, GraphDecoderWithNodeSelection
 from generative_playground.models.heads.multiple_output_head import MultipleOutputHead
-
+from generative_playground.models.losses.policy_gradient_loss import PolicyGradientLoss
 
 class Environment(TestCase):
     def test_decoder_with_environment_new(self):
@@ -40,6 +40,9 @@ class Environment(TestCase):
         model.init_encoder_output = lambda x: None
         stepper = GraphDecoderWithNodeSelection(model)
 
-        decoder = DecoderWithEnvironmentNew(stepper, env, batch_size=batch_size)
+        decoder = DecoderWithEnvironmentNew(stepper, env)
         out = decoder()
+        loss = PolicyGradientLoss(loss_type='advantage_record_mean_best')
+        this_loss = loss(out)
+        this_loss.backward()
         print('done!')

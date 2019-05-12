@@ -44,8 +44,7 @@ class OneStepDecoderContinuous(nn.Module):
 class DecoderWithEnvironmentNew(nn.Module):
     def __init__(self,
                  stepper: Stepper,
-                 task,
-                 batch_size=None):
+                 task):
         '''
         A simple discrete decoder, alternating getting logits from model and actions from policy
         :param stepper:
@@ -59,7 +58,6 @@ class DecoderWithEnvironmentNew(nn.Module):
         self.stepper = stepper
         self.task = task
         self.output_shape = [None, None, self.stepper.output_shape[-1]]
-        self.batch_size = batch_size
 
     def forward(self, z=None):
         # initialize the decoding model

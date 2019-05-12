@@ -355,8 +355,6 @@ class HypergraphMaskGenerator:
         full_logit_priors += log_freqs
         return self.graphs, -1e5*(1-np.array(next_node)), full_logit_priors
 
-
-
     def apply_action(self, last_action):
         self.last_action = last_action # to be used for next step's conditional frequencies
         if self.t >= self.MAX_LEN:

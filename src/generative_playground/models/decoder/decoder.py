@@ -11,6 +11,9 @@ from generative_playground.models.heads import MultipleOutputHead, MaskingHead
 from generative_playground.models.transformer.OneStepAttentionDecoder import SelfAttentionDecoderStep
 from generative_playground.molecules.model_settings import get_settings
 from generative_playground.utils.gpu_utils import to_gpu
+from generative_playground.models.decoder.decoders import DecoderWithEnvironmentNew
+from generative_playground.models.problem.rl.environment import GraphEnvironment
+
 
 
 def get_decoder(molecules=True,
@@ -22,6 +25,7 @@ def get_decoder(molecules=True,
                 drop_rate=0.0,
                 decoder_type='step',
                 task=None,
+                reward_fun=lambda x: -1 * np.ones(len(x)),
                 batch_size=None):
 
     codec = get_codec(molecules, grammar, max_seq_length)
@@ -34,14 +38,14 @@ def get_decoder(molecules=True,
                                           steps=max_seq_length,
                                           drop_rate=drop_rate)
         stepper = OneStepDecoderContinuous(stepper)
-    elif decoder_type in ['attn_graph','rnn_graph']:
+    elif decoder_type in ['attn_graph','rnn_graph','attn_graph_node','rnn_graph_node']:
         assert 'hypergraph' in grammar, "Only the hypergraph grammar can be used with attn_graph decoder type"
-        if decoder_type == 'attn_graph':
+        if 'attn' in decoder_type:
             encoder = GraphEncoder(grammar=codec.grammar,
                                d_model=512,
                                drop_rate=drop_rate,
                                    model_type='transformer')
-        elif decoder_type == 'rnn_graph':
+        elif 'rnn' in decoder_type:
             encoder = GraphEncoder(grammar=codec.grammar,
                                    d_model=512,
                                    drop_rate=drop_rate,
@@ -54,12 +58,23 @@ def get_decoder(molecules=True,
 
         # don't support using this model in VAE-style models yet
         model.init_encoder_output = lambda x: None
-
         mask_gen = HypergraphMaskGenerator(max_len=max_seq_length,
                                       grammar=codec.grammar)
+        policy = SoftmaxRandomSamplePolicy()  # bias=codec.grammar.get_log_frequencies())
 
-        stepper = GraphDecoder(model=model,
-                               mask_gen=mask_gen)
+        if 'node' in decoder_type:
+            stepper = GraphDecoderWithNodeSelection(model)
+            env = GraphEnvironment(mask_gen,
+                                   reward_fun=reward_fun,
+                                   batch_size=batch_size)
+            decoder = DecoderWithEnvironmentNew(stepper, env)
+        else:
+            stepper = GraphDecoder(model=model, mask_gen=mask_gen)
+            decoder = to_gpu(SimpleDiscreteDecoderWithEnv(stepper,
+                                                          policy,
+                                                          task=task,
+                                                          batch_size=batch_size))
+        return decoder, stepper
 
     else:
         if decoder_type == 'step':
