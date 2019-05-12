@@ -16,14 +16,14 @@ import torch.nn.functional as F
 class GraphDecoderWithNodeSelection(Stepper):
     def __init__(self,
                  model,
-                 mask_gen: HypergraphMaskGenerator,
-                 # node_selection_policy=PickLastValidValue()
+                 # mask_gen: HypergraphMaskGenerator,
+                 policy=SoftmaxRandomSamplePolicy()
                  ):
         super().__init__()
-        self.mask_gen = mask_gen
+        # self.mask_gen = mask_gen
+        self.policy = policy
         self.model = model
         self.output_shape = [None, self.model.output_shape['action'][-1]]  # a batch of logits to select next action
-        # self.node_selection_policy = node_selection_policy
 
     def init_encoder_output(self, z):
         '''
@@ -44,28 +44,27 @@ class GraphDecoderWithNodeSelection(Stepper):
         """
         graphs, node_mask, full_logit_priors = last_state
 
-        # , rewards, is_done, info = self.mask_gen.step(last_node, last_action) # batch x num_nodes x num_actions, batch x max_num_nodes
         model_out = self.model(graphs)  # batch x num_nodes, batch x num_nodes x num_actions
 
-        node_logits = model_out['next_node_logits'] + node_mask # batch x max_num_nodes
-        next_node = SoftmaxRandomSamplePolicy()(node_logits)
-        node_selection_logp = torch.cat([F.log_softmax(node_logits, dim=1)[b, node] for b, node in enumerate(next_node)])
-
-        # # select the next node to expand: this presents a bunch of complications, do it later
-        # include node choice into rule encoding so can encode-decode the sequence incl rule choices
+        node_logits = model_out['node'].squeeze(2)
+        dtype = node_logits.dtype
+        node_logits += torch.from_numpy(node_mask).to(device=device, dtype=dtype) # batch x max_num_nodes
+        next_node = self.policy(node_logits)
+        node_selection_logp = torch.cat([F.log_softmax(node_logits, dim=1)[b, node:(node+1)] for b, node in enumerate(next_node)])
 
         # and now choose the next logits for the appropriate nodes
         next_logits = model_out['action']
-        next_logits_compact = torch.cat([next_logits[b, next_node, :].unsqueeze(0) for b, node in enumerate(next_node)],
+        next_logits_compact = torch.cat([next_logits[b, node, :].unsqueeze(0) for b, node in enumerate(next_node)],
                                         dim=0)
         # now that we know which nodes we're going to expand, can generate action masks: the logit priors also include masking
-        full_logit_priors_pytorch = torch.from_numpy(full_logit_priors).to(device=device, dtype=next_logits_compact.dtype)
-        logit_priors_pytorch = torch.cat([full_logit_priors_pytorch[b, next_node, :].unsqueeze(0) for b, node in enumerate(next_node)],
+        full_logit_priors_pytorch = torch.from_numpy(full_logit_priors).to(device=device, dtype=dtype)
+        logit_priors_pytorch = torch.cat([full_logit_priors_pytorch[b, node, :].unsqueeze(0)
+                                          for b, node in enumerate(next_node)],
                                         dim=0)
 
         masked_logits = next_logits_compact + logit_priors_pytorch
-        next_action = SoftmaxRandomSamplePolicy()(masked_logits)
-        action_logp = torch.cat([F.log_softmax(node_logits, dim=1)[a, action] for a, action in enumerate(next_action)], dim=0)
+        next_action = self.policy(masked_logits)
+        action_logp = torch.cat([F.log_softmax(masked_logits, dim=1)[a, action:(action+1)] for a, action in enumerate(next_action)], dim=0)
 
         # we only care about the logits for the logP, right?
 

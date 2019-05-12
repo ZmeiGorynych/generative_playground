@@ -348,11 +348,12 @@ class HypergraphMaskGenerator:
                 for l, loc in enumerate(graph.node.keys()):
                     if loc != graph.parent_node_id:
                         full_logit_priors[g,l,:] = -1e5*(1-np.array(self.get_one_mask(graph, None)))
+                        next_node[g, l] = 1.0
                         break
 
         log_freqs = self.grammar.get_log_frequencies()[None, None, :]
         full_logit_priors += log_freqs
-        return self.graphs, next_node, full_logit_priors
+        return self.graphs, -1e5*(1-np.array(next_node)), full_logit_priors
 
 
 
