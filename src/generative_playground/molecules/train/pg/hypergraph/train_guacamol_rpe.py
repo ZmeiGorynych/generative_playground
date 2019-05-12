@@ -43,7 +43,7 @@ gi = GrammarInitializer(grammar_cache, grammar_class=HypergraphRPEGrammar)
 #     gi.grammar.calc_terminal_distance()
 #     gi.save()
 
-max_steps = 40
+max_steps = 35
 root_name = 'guacamol_ar_rpe' + ver + '_' + str(obj_num) + 'lr3e-5'
 model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        grammar,

@@ -161,7 +161,7 @@ def train_policy_gradient(molecules=True,
                         task=task)[0]
 
     # TODO: really ugly, refactor! In fact this model doesn't need a MaskingHead at all!
-    model.stepper.model.mask_gen.priors = True#'conditional' # use empirical priors for the mask gen
+    model.stepper.mask_gen.priors = True#'conditional' # use empirical priors for the mask gen
     if preload_file_root_name is not None:
         try:
             preload_path = full_path(gen_preload_file)
