@@ -26,30 +26,32 @@ class GraphEnvironment:
 
     def reset(self):
         self.mask_gen.reset()
+        next_action = (None, [None for _ in range(self.batch_size)])
+        graphs, node_mask, full_logit_priors = self.mask_gen.step(next_action)
         self.done_rewards = [None for _ in range(self.batch_size)]
         self.smiles = [None for _ in range(self.batch_size)]
         self.seq_len = np.zeros([self.batch_size])
         self.valid = np.zeros([self.batch_size])
-        return #TODO: get valid masks from mask_gen# [None]*self.batch_size
+        return graphs, node_mask, full_logit_priors
 
-    def step(self, action):
+    def step(self, full_action):
         '''
         Convention says environment outputs np.arrays
         :param action: LongTensor(batch_size), or np.array(batch_sizelast discrete action chosen
         :return:
         '''
-        graphs, node_mask, full_logit_priors = self.mask_gen.step(action)
-
+        node_action, rule_action = full_action
+        next_state = self.mask_gen.step(full_action)
+        graphs, node_mask, full_logit_priors = next_state
         # TODO: the rest here is just bookkeeping + reward calculation
-        next_state = action
         if self.mask_gen.t < self._max_episode_steps:
-            done = self.codec.is_padding(action) # max index is padding, by convention
+            done = self.codec.is_padding(np.array(rule_action))# max index is padding, by convention
         else:
-            done = np.ones_like(action) == 1
+            done = np.ones_like(rule_action) == 1
 
-        reward = np.zeros_like(action, dtype=np.float)
+        reward = np.zeros_like(rule_action, dtype=np.float)
         # for those sequences just computed, calculate the reward
-        for i in range(len(action)):
+        for i in range(len(rule_action)):
             if self.done_rewards[i] is None and done[i]:
                 this_graph = graphs[i]
                 self.smiles[i] = this_graph.to_smiles()

@@ -2,7 +2,7 @@ import torch
 from torch import nn as nn
 import numpy as np
 from generative_playground.models.decoder.stepper import Stepper
-from generative_playground.utils.gpu_utils import to_gpu, FloatTensor, LongTensor
+from generative_playground.utils.gpu_utils import to_gpu #,FloatTensor, LongTensor
 from generative_playground.models.decoder.policy import SimplePolicy
 sanity_checks = False
 
@@ -45,7 +45,6 @@ class DecoderWithEnvironmentNew(nn.Module):
     def __init__(self,
                  stepper: Stepper,
                  task,
-                 mask_gen,
                  batch_size=None):
         '''
         A simple discrete decoder, alternating getting logits from model and actions from policy
@@ -57,16 +56,14 @@ class DecoderWithEnvironmentNew(nn.Module):
         :param task: environment that returns rewards and whether the episode is finished
         '''
         super().__init__()
-        self.stepper = to_gpu(stepper)
+        self.stepper = stepper
         self.task = task
-        self.mask_gen = mask_gen
         self.output_shape = [None, None, self.stepper.output_shape[-1]]
         self.batch_size = batch_size
 
     def forward(self, z=None):
         # initialize the decoding model
         self.stepper.init_encoder_output(z)
-        self.mask_gen.reset()
         last_state = self.task.reset()
         out_logp = []
         out_rewards = []
@@ -82,7 +79,10 @@ class DecoderWithEnvironmentNew(nn.Module):
             rewards = sum(out_rewards)
             logp = sum(out_logp)
 
-        out = {'rewards': rewards, 'logp':logp, 'info': (info[0], to_pytorch(info[1]))}
+        out = {'rewards': rewards,
+               'logp':logp,
+               'graphs': last_state[0],
+               'info': (info[0], to_pytorch(info[1]))}
 
         # if hasattr(self.stepper,'mask_gen') and hasattr(self.stepper.mask_gen,'graphs'):
         #     # TODO: this is very ad hoc, will be neater once mask_gen is moved into the environment
@@ -90,10 +90,16 @@ class DecoderWithEnvironmentNew(nn.Module):
         return out
 
 def to_numpy(x):
-    if type(x) in (list, tuple):
-        return [to_numpy(xx) for xx in x]
-    else:
+    if type(x) == tuple:
+        return tuple([to_numpy(xx) for xx in x])
+    elif type(x) == list:
+        return np.array([to_numpy(xx) for xx in x])
+    elif type(x).__name__ == 'ndarray':
+        return x
+    elif type(x).__name__ == 'Tensor':
         return x.detach().cpu().numpy()
+    else:
+        return x
 
 # TODO: split that in two decoders, with and without task
 class SimpleDiscreteDecoderWithEnv(nn.Module):

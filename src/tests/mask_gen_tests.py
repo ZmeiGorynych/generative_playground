@@ -175,3 +175,24 @@ class TestStart(TestCase):
         all_smiles = gi.grammar.actions_to_strings(all_actions)
         for smile in all_smiles:
             self.assertIsNot(MolFromSmiles(smile), None)
+
+    def test_hypergraph_mask_gen_step(self):
+        tmp_file = 'tmp2.pickle'
+        gi = GrammarInitializer(tmp_file)
+        gi.delete_cache()
+        # now create a clean new one
+        gi = GrammarInitializer(tmp_file)
+        # run a first run for 10 molecules
+        gi.init_grammar(20)
+        gi.grammar.check_attributes()
+        mask_gen = HypergraphMaskGenerator(30, gi.grammar, priors=True)
+        batch_size = 2
+        next_action = (None, [None for _ in range(batch_size)])
+        while True:
+            try:
+                graphs, node_mask, full_logit_priors = mask_gen.step(next_action)
+                next_node = np.argmax(node_mask, axis=1)
+                next_action_ = [np.argmax(full_logit_priors[b, next_node[b]]) for b in range(batch_size)]
+                next_action = (next_node, next_action_)
+            except StopIteration:
+                break
