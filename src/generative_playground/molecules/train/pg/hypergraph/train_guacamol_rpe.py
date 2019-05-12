@@ -44,14 +44,14 @@ gi = GrammarInitializer(grammar_cache, grammar_class=HypergraphRPEGrammar)
 #     gi.save()
 
 max_steps = 35
-root_name = 'guacamol_ar_node_rpe' + ver + '_' + str(obj_num) + 'lr3e-5'
+root_name = 'guacamol_ar_node_rpe' + ver + '_' + str(obj_num) + 'lr2e-5'
 model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        grammar,
                                                        EPOCHS=100,
                                                        BATCH_SIZE=batch_size,
                                                        reward_fun_on=reward_fun,
                                                        max_steps=max_steps,
-                                                       lr_on=3e-5,
+                                                       lr_on=2e-5,
                                                        lr_discrim=5e-4,
                                                        discrim_wt=0.0,
                                                        p_thresh=-10,
@@ -60,7 +60,7 @@ model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        plot_prefix='',
                                                        dashboard=root_name,  # 'policy gradient',
                                                        save_file_root_name=root_name,
-                                                       preload_file_root_name=root_name,
+                                                       preload_file_root_name=None,
                                                        smiles_save_file=None,  # 'pg_smiles_hg1.h5',
                                                        on_policy_loss_type='advantage_record')
 # preload_file='policy_gradient_run.h5')

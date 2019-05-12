@@ -159,7 +159,7 @@ def train_policy_gradient(molecules=True,
                         drop_rate=drop_rate,
                         batch_size=BATCH_SIZE,
                         decoder_type=decoder_type,
-                        reward_fun=reward_fun_on,
+                        reward_fun=adj_reward,
                         task=task)[0]
 
     # TODO: really ugly, refactor! In fact this model doesn't need a MaskingHead at all!
