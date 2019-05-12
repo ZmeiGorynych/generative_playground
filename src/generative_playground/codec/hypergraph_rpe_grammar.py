@@ -1,9 +1,18 @@
 from collections import defaultdict
 
+import numpy as np
 from rdkit.Chem import MolFromSmiles
 
 from .hypergraph_grammar import HypergraphGrammar, HypergraphTree, apply_rule
 from .hypergraph_parser import hypergraph_parser
+
+
+def compute_rule_length_stats(trees):
+    num_rules = [len(t.rules()) for t in trees]
+    avg = np.mean(num_rules)
+    max_ = max(num_rules)
+    print("Current rule length stats: avg: {}, max: {}".format(avg, max_))
+    return avg, max_
 
 
 class HypergraphRPEGrammar(HypergraphGrammar):
@@ -74,6 +83,7 @@ class HypergraphRPEGrammar(HypergraphGrammar):
         return HypergraphTree(new_node, transformed_children)
 
     def extract_popular_hypergraph_pairs(self, hypergraph_trees, num_rules):
+        compute_rule_length_stats(hypergraph_trees)
         new_rules = {}
         for i in range(num_rules):
             print('iteration', i)
@@ -106,6 +116,7 @@ class HypergraphRPEGrammar(HypergraphGrammar):
                 )
                 for tree in hypergraph_trees
             ]
+            compute_rule_length_stats(hypergraph_trees)
 
         return new_rules
 
