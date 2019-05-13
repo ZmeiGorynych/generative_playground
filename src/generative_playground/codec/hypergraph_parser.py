@@ -197,7 +197,7 @@ def abstract_ring_atoms(tree):
             new_child, subtree_inds = abstract_ring_atom(tree.node, t_id)
             if new_child is not None:
                 grandchildren = [] # the abstracted node takes over some children
-                for ind in subtree_inds:
+                for ind in sorted(subtree_inds, reverse=True):
                     grandchildren.append(new_children.pop(ind))
                 child_tree = HypergraphTree(node=new_child, children=grandchildren)
                 new_children.append(child_tree)

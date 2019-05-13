@@ -138,7 +138,6 @@ class TestStart(TestCase):
 
         self.assertEqual(smiles, recovered_smiles)
 
-    @skip('Need to fix these')
     def test_hypergraph_rpe_parser_bad_smiles(self):
         g = HypergraphGrammar()
 
