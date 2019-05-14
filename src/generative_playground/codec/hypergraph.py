@@ -118,7 +118,10 @@ class HyperGraph:
 
     def add_edge(self, x: Edge):
         assert isinstance(x, Edge)
-        self.edges[uuid.uuid4()] = x
+        assert x not in list(self.edges.values())
+        edge_id = uuid.uuid4()
+        self.edges[edge_id] = x
+        return edge_id
 
     def __str__(self):
         out = str(len(self.edges)) + ' edges,'
@@ -223,8 +226,6 @@ class HyperGraph:
             first, second = self.node_ids_from_edge_id(edge_id)
             G.add_edge(first, second, id=edge_id, data=edge)
         return G
-
-
 
     def other_end_of_edge(self, node_id, edge_id):
         assert edge_id in self.node[node_id].edge_ids

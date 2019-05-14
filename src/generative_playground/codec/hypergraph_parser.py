@@ -2,7 +2,7 @@ import copy
 from collections import OrderedDict
 from rdkit.Chem import MolFromSmiles
 from rdkit.Chem.rdmolops import Kekulize
-from networkx.algorithms.clique import enumerate_all_cliques
+from networkx.algorithms.clique import enumerate_all_cliques, make_max_clique_graph
 
 from generative_playground.codec.hypergraph import (
     HyperGraph,
@@ -292,18 +292,22 @@ def found_cliques(cliques):
 
 
 def filtered_cliques(graph, parent_node_id):
-    return [c for c in enumerate_all_cliques(graph) if parent_node_id not in c]
+    return [
+        c for c in enumerate_all_cliques(graph)
+        if parent_node_id not in c and len(c) > 1 and not len(c) < len(graph) - 1
+    ]
 
 
 def split_cliques(tree):
+    for child in tree:
+        split_cliques(child)
+
     hypergraph = tree.node
-    children_nodes = hypergraph.child_ids()
-    graph = hypergraph.to_nx()
-    if hypergraph.parent_node_id is not None and children_nodes:
-        cliques = filtered_cliques(graph, hypergraph.parent_node_id)
-        # while found_cliques: TODO iterate until no more collapsing
-        if found_cliques(cliques):
+    if hypergraph.parent_node_id is not None and hypergraph.child_ids():
+        cliques = filtered_cliques(hypergraph.to_nx(), hypergraph.parent_node_id)
+        while found_cliques(cliques):
             clique = sorted(cliques, key=lambda x: len(x))[-1]
+            print('Found {} cliques. Using length {}'.format(len(cliques), len(clique)))
             clique_nodes = []
             clique_children = []
             clique_idxs = []
@@ -317,6 +321,7 @@ def split_cliques(tree):
             for node_id in clique:
                 del hypergraph.node[node_id]
             for idx in sorted(clique_idxs, reverse=True):
+                hypergraph.child_ids
                 tree.pop(idx)
 
             # Add new non-terminal
@@ -325,12 +330,6 @@ def split_cliques(tree):
             for node in clique_nodes:
                 clique_edges.update(set(node.edge_ids))
 
-            # TODO Getting close but still not quite right with the edges
-            # Need to see abstract_ring_atom above for inspiration.
-            # In the new child, I need to add the edges in the correct place with new
-            # ids.
-            # For the parent, I need to point the one/two cut edges to the new
-            # non-terminal
             external_edge_ids = []
             external_edges = []
             for node in hypergraph.node.values():
@@ -339,24 +338,44 @@ def split_cliques(tree):
                         external_edge_ids.append(edge_id)
                         external_edges.append(edge)
 
-            new_nt = Node(edge_ids=external_edges, edges=external_edges)
+            new_nt = Node(edge_ids=external_edge_ids, edges=external_edges)
             hypergraph.add_node(new_nt)
+            remaining_clique_edges = clique_edges - set(external_edge_ids)
+            for edge_id in remaining_clique_edges:
+                hypergraph.edges.pop(edge_id)
+            hypergraph.validate()
 
             # Make new child from clique
-            new_nt_child = copy.deepcopy(new_nt)
+            external_edges_ids_cpy = copy.deepcopy(external_edge_ids)
+            external_edges_cpy = copy.deepcopy(external_edges)
+            new_nt_child = Node(
+                edge_ids=external_edges_ids_cpy, edges=external_edges_cpy
+            )
             new_child = HyperGraph()
             new_child.add_parent_node(new_nt_child)
+            edge_id_map = {}
             for node in clique_nodes:
                 new_child.add_node(node)
-                for edge in node.edges:
-                    new_child.add_edges(node.edges)
-            tree.append(HypergraphTree(new_child, clique_children))
+                for i, (edge_id, edge) in enumerate(zip(node.edge_ids, node.edges)):
+                    new_id = edge_id_map.get(edge_id)
+                    if not new_id:
+                        new_id = new_child.add_edge(edge)
+                        edge_id_map[edge_id] = new_id
+
+                    node.edge_ids[i] = new_id
+
+                    if edge_id in external_edge_ids:
+                        idx = external_edge_ids.index(edge_id)
+                        new_nt_child.edge_ids[idx] = new_id
 
             new_child.validate()
-            tree.validate()
+            child_graph = new_child.to_nx()
+            child_graph.remove_node(new_child.parent_node_id)
+            assert len(make_max_clique_graph(child_graph)) == 1
 
-    for child in tree:
-        split_cliques(child)
+            tree.append(HypergraphTree(new_child, clique_children))
+            cliques = filtered_cliques(hypergraph.to_nx(), hypergraph.parent_node_id)
+    tree.validate()
     return tree
 
 
@@ -367,8 +386,9 @@ def hypergraph_parser(mol):
     graph_tree = dict_tree_to_graph_tree(copy.deepcopy(tree))
     graph_tree_2a = abstract_ring_atoms(copy.deepcopy(graph_tree))
     graph_tree_2 = abstract_atoms(graph_tree_2a)
-    # graph_tree_3 = split_cliques(graph_tree_2)
-    return graph_tree_2
+    graph_tree_3 = split_cliques(graph_tree_2)
+    print('Done a tree!')
+    return graph_tree_3
 
 
 def graph_from_graph_tree(tree):
