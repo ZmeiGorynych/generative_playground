@@ -26,6 +26,7 @@ from generative_playground.data_utils.data_sources import IterableTransform
 from generative_playground.molecules.models.graph_discriminator import GraphDiscriminator
 from generative_playground.utils.gpu_utils import device
 
+
 def train_policy_gradient(molecules=True,
                           grammar=True,
                           EPOCHS=None,
@@ -51,7 +52,8 @@ def train_policy_gradient(molecules=True,
                           smiles_save_file=None,
                           on_policy_loss_type='best',
                           off_policy_loss_type='mean',
-                          sanity_checks=True):
+                          sanity_checks=True,
+                          temperature_schedule=False):
     root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     root_location = root_location + '/../../'
 
@@ -77,7 +79,7 @@ def train_policy_gradient(molecules=True,
     if preload_file_root_name is not None:
         try:
             preload_path = full_path(disc_preload_file)
-            discrim_model.load_state_dict(torch.load(preload_path))
+            discrim_model.load_state_dict(torch.load(preload_path), strict=False)
             print('Discriminator weights loaded successfully!')
         except Exception as e:
             print('failed to load discriminator weights ' + str(e))
@@ -150,6 +152,9 @@ def train_policy_gradient(molecules=True,
                                   max_steps=max_steps,
                                   save_dataset=save_dataset)
 
+    temperature = torch.tensor(100.0)
+    node_policy = SoftmaxRandomSamplePolicy(temperature=temperature)
+
     model = get_decoder(molecules,
                         grammar,
                         z_size=settings['z_size'],
@@ -160,14 +165,13 @@ def train_policy_gradient(molecules=True,
                         batch_size=BATCH_SIZE,
                         decoder_type=decoder_type,
                         reward_fun=adj_reward,
-                        task=task)[0]
+                        task=task,
+                        node_policy=node_policy)[0]
 
-    # TODO: really ugly, refactor! In fact this model doesn't need a MaskingHead at all!
-    # model.stepper.mask_gen.priors = True#'conditional' # use empirical priors for the mask gen
     if preload_file_root_name is not None:
         try:
             preload_path = full_path(gen_preload_file)
-            model.load_state_dict(torch.load(preload_path))
+            model.load_state_dict(torch.load(preload_path), strict=False)
             print('Generator weights loaded successfully!')
         except Exception as e:
             print('failed to load generator weights ' + str(e))
@@ -225,6 +229,17 @@ def train_policy_gradient(molecules=True,
                 if s not in data:
                     data.append(s)
         return hc
+
+    class TemperatureCallback:
+        def __init__(self, policy, temperature_function):
+            self.policy = policy
+            self.counter = 0
+            self.temp_fun = temperature_function
+
+        def __call__(self,inputs, model, outputs, loss_fn, loss):
+            self.counter +=1
+            target_temp = self.temp_fun(self.counter)
+            self.policy.set_temperature(target_temp)
 
 
     # need to have something there to begin with, else the DataLoader constructor barfs
@@ -296,6 +311,8 @@ def train_policy_gradient(molecules=True,
     # the on-policy fitter
 
     history_callbacks = [make_callback(d) for d in history_data]
+    if temperature_schedule is not None:
+        history_callbacks.append(TemperatureCallback(node_policy, temperature_schedule))
     fitter1 = get_rl_fitter(model,
                             PolicyGradientLoss(on_policy_loss_type),# last_reward_wgt=reward_sm),
                             GeneratorToIterable(my_gen),
@@ -335,7 +352,7 @@ def train_policy_gradient(molecules=True,
 
     def on_policy_gen(fitter, model):
         while True:
-            model.policy = SoftmaxRandomSamplePolicy()#bias=codec.grammar.get_log_frequencies())
+            # model.policy = SoftmaxRandomSamplePolicy()#bias=codec.grammar.get_log_frequencies())
             yield next(fitter)
 
-    return model, on_policy_gen(fitter1, model), fitter2
+    return model, fitter1, fitter2  #,on_policy_gen(fitter1, model)

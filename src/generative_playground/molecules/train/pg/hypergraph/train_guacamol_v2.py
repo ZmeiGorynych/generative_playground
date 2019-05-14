@@ -37,7 +37,7 @@ gi = GrammarInitializer(grammar_cache)
 #     gi = GrammarInitializer(grammar_cache)
 #     max_steps_smiles = gi.init_grammar(1000)
 
-root_name = 'guacamol_ar_node' + ver + '_' + str(obj_num) + 'lr2e-5'
+root_name = 'guacamol_temp_test' + ver + '_' + str(obj_num) + 'do 0.3 lr4e-5'
 max_steps = 50
 model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        grammar,
@@ -45,7 +45,7 @@ model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        BATCH_SIZE=batch_size,
                                                        reward_fun_on=reward_fun,
                                                        max_steps=max_steps,
-                                                       lr_on=2e-5,
+                                                       lr_on=4e-5,
                                                        lr_discrim=5e-4,
                                                        discrim_wt=0.0,
                                                        p_thresh=-10,
@@ -55,7 +55,7 @@ model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        plot_prefix='',
                                                        dashboard= root_name,  # 'policy gradient',
                                                        save_file_root_name=root_name,
-                                                       preload_file_root_name=None,#root_name,
+                                                       preload_file_root_name='guacamol_ar_emb_node_rpev2_0lr2e-5',#'guacamol_ar_nodev2_0lr2e-5',#root_name,
                                                        smiles_save_file=None,  # 'pg_smiles_hg1.h5',
                                                        on_policy_loss_type='advantage_record')
 # preload_file='policy_gradient_run.h5')

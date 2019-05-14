@@ -39,23 +39,38 @@ class SoftmaxRandomSamplePolicy(SimplePolicy):
     TODO: should probably switch that to something more like
     http://pytorch.org/docs/master/distributions.html
     '''
-    def __init__(self, bias=None):
+    def __init__(self, temperature=1.0, bias=None):
         '''
 
         :param bias: a vector of log frequencies, to bias the sampling towards what we want
         '''
         super().__init__()
         self.gumbel = Gumbel(loc=0, scale=1)
+        self.temperature = torch.tensor(temperature, requires_grad=False)
         if bias is not None:
             self.bias = torch.from_numpy(np.array(bias)).to(dtype=torch.float32, device=device).unsqueeze(0)
         else:
             self.bias = None
+
+    def set_temperature(self, new_temperature):
+        if self.temperature != new_temperature:
+            self.temperature = torch.tensor(new_temperature,
+                                            dtype=self.temperature.dtype,
+                                            device=self.temperature.device)
+
     def forward(self, logits: Variable):
         '''
 
         :param logits: Logits to generate probabilities from, batch_size x out_dim float32
         :return:
         '''
+        if self.temperature.dtype != logits.dtype or self.temperature.device != logits.device:
+            self.temperature = torch.tensor(self.temperature,
+                            dtype=logits.dtype,
+                            device=logits.device,
+                            requires_grad=False)
+        logits /= self.temperature
+
         eff_logits = self.effective_logits(logits)
         x = self.gumbel.sample(logits.shape).to(device=device, dtype=eff_logits.dtype) + eff_logits
         _, out = torch.max(x, -1)

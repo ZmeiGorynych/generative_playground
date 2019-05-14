@@ -25,6 +25,8 @@ def get_decoder(molecules=True,
                 drop_rate=0.0,
                 decoder_type='step',
                 task=None,
+                node_policy=None,
+                rule_policy=None,
                 reward_fun=lambda x: -1 * np.ones(len(x)),
                 batch_size=None):
 
@@ -60,18 +62,24 @@ def get_decoder(molecules=True,
         model.init_encoder_output = lambda x: None
         mask_gen = HypergraphMaskGenerator(max_len=max_seq_length,
                                       grammar=codec.grammar)
-        policy = SoftmaxRandomSamplePolicy()  # bias=codec.grammar.get_log_frequencies())
-
+        # bias=codec.grammar.get_log_frequencies())
+        if node_policy is None:
+            node_policy = SoftmaxRandomSamplePolicy()
+        if rule_policy is None:
+            rule_policy = SoftmaxRandomSamplePolicy()
         if 'node' in decoder_type:
-            stepper = GraphDecoderWithNodeSelection(model)
+            stepper = GraphDecoderWithNodeSelection(model,
+                                                    node_policy=node_policy,
+                                                    rule_policy=rule_policy)
             env = GraphEnvironment(mask_gen,
                                    reward_fun=reward_fun,
                                    batch_size=batch_size)
             decoder = DecoderWithEnvironmentNew(stepper, env)
         else:
+
             stepper = GraphDecoder(model=model, mask_gen=mask_gen)
             decoder = to_gpu(SimpleDiscreteDecoderWithEnv(stepper,
-                                                          policy,
+                                                          rule_policy,
                                                           task=task,
                                                           batch_size=batch_size))
         return decoder, stepper

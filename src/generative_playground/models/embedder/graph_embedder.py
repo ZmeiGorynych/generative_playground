@@ -7,7 +7,7 @@ import networkx as nx
 
 
 class GraphEmbedder(nn.Module):
-    def __init__(self, target_dim, max_nodes=512, grammar=None):
+    def __init__(self, target_dim, max_nodes=256, grammar=None, embed_self=True):
         '''
 
         :param max_nodes: maximum number of nodes in a graph
@@ -15,7 +15,8 @@ class GraphEmbedder(nn.Module):
         :param grammar: HypergraphGrammar, used to encode the node data, if any
         '''
         super().__init__()
-        self.pre_output_shape = [None, None, max_nodes +
+        self.embed_self = embed_self
+        self.pre_output_shape = [None, None, 2*max_nodes +
                                  (0 if grammar is None else grammar.node_data_index_length())]
         self.output_shape = [None, None, target_dim]
         self.grammar = grammar
@@ -75,10 +76,12 @@ class GraphEmbedder(nn.Module):
             for n, node in enumerate(graph.node.values()):
                 if n >= self.max_nodes:
                     break
+                if self.embed_self:
+                    out[i, n, self.max_nodes + n] = 1
                 if hasattr(node, 'data'):
                     # TODO: also encode the is_terminal values
                     assert n < self.max_nodes, "Graph has too many nodes"
-                    offset = self.max_nodes
+                    offset = self.max_nodes*2
                     for fn in self.grammar.node_data_index.keys():
                         this_dict = self.grammar.node_data_index[fn]
                         if fn in node.data:

@@ -16,12 +16,13 @@ import torch.nn.functional as F
 class GraphDecoderWithNodeSelection(Stepper):
     def __init__(self,
                  model,
-                 # mask_gen: HypergraphMaskGenerator,
-                 policy=SoftmaxRandomSamplePolicy()
+                 node_policy=SoftmaxRandomSamplePolicy(),
+                 rule_policy=SoftmaxRandomSamplePolicy()
                  ):
         super().__init__()
         # self.mask_gen = mask_gen
-        self.policy = policy
+        self.node_policy = node_policy
+        self.rule_policy = rule_policy
         self.model = model
         self.output_shape = [None, self.model.output_shape['action'][-1]]  # a batch of logits to select next action
 
@@ -49,7 +50,7 @@ class GraphDecoderWithNodeSelection(Stepper):
         node_logits = model_out['node'].squeeze(2)
         dtype = node_logits.dtype
         node_logits += torch.from_numpy(node_mask).to(device=device, dtype=dtype) # batch x max_num_nodes
-        next_node = self.policy(node_logits)
+        next_node = self.node_policy(node_logits)
         node_selection_logp = torch.cat([F.log_softmax(node_logits, dim=1)[b, node:(node+1)] for b, node in enumerate(next_node)])
 
         # and now choose the next logits for the appropriate nodes
@@ -63,7 +64,7 @@ class GraphDecoderWithNodeSelection(Stepper):
                                         dim=0)
 
         masked_logits = next_logits_compact + logit_priors_pytorch
-        next_action = self.policy(masked_logits)
+        next_action = self.rule_policy(masked_logits)
         action_logp = torch.cat([F.log_softmax(masked_logits, dim=1)[a, action:(action+1)] for a, action in enumerate(next_action)], dim=0)
 
         # we only care about the logits for the logP, right?
