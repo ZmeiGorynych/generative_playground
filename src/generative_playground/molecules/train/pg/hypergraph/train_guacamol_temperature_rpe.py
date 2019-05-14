@@ -23,7 +23,7 @@ from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring
 batch_size = 20 # 20
 drop_rate = 0.5
 molecules = True
-grammar_cache = 'hyper_grammar.pickle'
+grammar_cache = 'hyper_grammar_rpe.pickle'
 grammar = 'hypergraph:' + grammar_cache
 settings = get_settings(molecules, grammar)
 ver = 'v2'
@@ -37,7 +37,7 @@ gi = GrammarInitializer(grammar_cache)
 #     gi = GrammarInitializer(grammar_cache)
 #     max_steps_smiles = gi.init_grammar(1000)
 
-root_name = 'guacamol_temp_' + ver + '_' + str(obj_num) + 'do 0.5 lr4e-5'
+root_name = 'guacamol_temp_rpe_' + ver + '_' + str(obj_num) + 'do 0.5 lr4e-5'
 max_steps = 30
 model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        grammar,
