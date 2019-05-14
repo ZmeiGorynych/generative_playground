@@ -294,7 +294,7 @@ def found_cliques(cliques):
 def filtered_cliques(graph, parent_node_id):
     return [
         c for c in enumerate_all_cliques(graph)
-        if parent_node_id not in c and len(c) > 1 and not len(c) < len(graph) - 1
+        if parent_node_id not in c and len(c) > 1 and len(c) < len(graph) - 1
     ]
 
 
@@ -307,7 +307,6 @@ def split_cliques(tree):
         cliques = filtered_cliques(hypergraph.to_nx(), hypergraph.parent_node_id)
         while found_cliques(cliques):
             clique = sorted(cliques, key=lambda x: len(x))[-1]
-            print('Found {} cliques. Using length {}'.format(len(cliques), len(clique)))
             clique_nodes = []
             clique_children = []
             clique_idxs = []
@@ -387,7 +386,6 @@ def hypergraph_parser(mol):
     graph_tree_2a = abstract_ring_atoms(copy.deepcopy(graph_tree))
     graph_tree_2 = abstract_atoms(graph_tree_2a)
     graph_tree_3 = split_cliques(graph_tree_2)
-    print('Done a tree!')
     return graph_tree_3
 
 

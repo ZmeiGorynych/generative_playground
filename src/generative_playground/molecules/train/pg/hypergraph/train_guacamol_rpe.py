@@ -36,7 +36,7 @@ if True:
     gi.delete_cache()
     # need to re-load, this time without the cache
     gi = GrammarInitializer(grammar_cache, grammar_class=HypergraphRPEGrammar)
-    num_mols = 1000
+    num_mols = 100
     max_steps_smiles = gi.init_grammar(num_mols)
     smiles = get_zinc_smiles(num_mols)
     gi.grammar.extract_rpe_pairs(smiles, 50)
