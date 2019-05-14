@@ -206,7 +206,7 @@ class HyperGraph:
         # for count in edge_count.values():
         #     assert count == 2
         for nodes in edge_count.values():
-            assert len(nodes) == 2
+            assert len(nodes) == 2, "Graph is not 2-regular. Found edge connecting {} nodes".format(len(nodes))
 
         assert set(edge_count.keys()) == set(self.edges.keys())
 
