@@ -53,7 +53,8 @@ def train_policy_gradient(molecules=True,
                           on_policy_loss_type='best',
                           off_policy_loss_type='mean',
                           sanity_checks=True,
-                          temperature_schedule=False):
+                          temperature_schedule=lambda x: 1.0,
+                          eps=0.0):
     root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     root_location = root_location + '/../../'
 
@@ -153,7 +154,7 @@ def train_policy_gradient(molecules=True,
                                   save_dataset=save_dataset)
 
     temperature = torch.tensor(100.0)
-    node_policy = SoftmaxRandomSamplePolicy(temperature=temperature)
+    node_policy = SoftmaxRandomSamplePolicy(temperature=temperature, eps=eps)
 
     model = get_decoder(molecules,
                         grammar,

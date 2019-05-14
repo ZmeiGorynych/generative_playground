@@ -74,7 +74,8 @@ class SoftmaxRandomSamplePolicy(SimplePolicy):
                                 requires_grad=False)
             logits /= self.temperature
         else:
-            logits = torch.zeros_like(logits)
+            new_logits = torch.zeros_like(logits)
+            new_logits[logits < logits.max()-1000] = -1e4
 
         eff_logits = self.effective_logits(logits)
         x = self.gumbel.sample(logits.shape).to(device=device, dtype=eff_logits.dtype) + eff_logits
