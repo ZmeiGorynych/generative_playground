@@ -32,17 +32,17 @@ reward_funs = guacamol_goal_scoring_functions(ver)
 reward_fun = reward_funs[obj_num]
 # later will run this ahead of time
 gi = GrammarInitializer(grammar_cache, grammar_class=HypergraphRPEGrammar)
-# if True:
-#     gi.delete_cache()
-#     # need to re-load, this time without the cache
-#     gi = GrammarInitializer(grammar_cache, grammar_class=HypergraphRPEGrammar)
-#     num_mols = 100
-#     max_steps_smiles = gi.init_grammar(num_mols)
-#     smiles = get_zinc_smiles(num_mols)
-#     gi.grammar.extract_rpe_pairs(smiles, 50)
-#     gi.grammar.calc_terminal_distance()
-#     print('Num rules after RPE: {}'.format(len(gi.grammar.rules)))
-#     gi.save()
+if True:
+    gi.delete_cache()
+    # need to re-load, this time without the cache
+    gi = GrammarInitializer(grammar_cache, grammar_class=HypergraphRPEGrammar)
+    num_mols = 100
+    max_steps_smiles = gi.init_grammar(num_mols)
+    smiles = get_zinc_smiles(num_mols)
+    gi.grammar.extract_rpe_pairs(smiles, 50)
+    gi.grammar.calc_terminal_distance()
+    print('Num rules after RPE: {}'.format(len(gi.grammar.rules)))
+    gi.save()
 
 max_steps = 30
 root_name = 'guacamol_NEW_' + ver + '_' + str(obj_num) + 'lr2e-5'
