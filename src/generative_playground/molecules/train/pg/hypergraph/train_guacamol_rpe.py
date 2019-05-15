@@ -41,10 +41,11 @@ gi = GrammarInitializer(grammar_cache, grammar_class=HypergraphRPEGrammar)
 #     smiles = get_zinc_smiles(num_mols)
 #     gi.grammar.extract_rpe_pairs(smiles, 50)
 #     gi.grammar.calc_terminal_distance()
+#     print('Num rules after RPE: {}'.format(len(gi.grammar.rules)))
 #     gi.save()
 
 max_steps = 30
-root_name = 'guacamol_ar_emb_node_rpe' + ver + '_' + str(obj_num) + 'lr2e-5'
+root_name = 'guacamol_NEW_' + ver + '_' + str(obj_num) + 'lr2e-5'
 model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        grammar,
                                                        EPOCHS=100,

@@ -1,18 +1,14 @@
-from collections import OrderedDict, defaultdict
-from generative_playground.molecules.lean_settings import get_data_location, molecules_root_location
-import frozendict
+from collections import OrderedDict
+from generative_playground.molecules.lean_settings import molecules_root_location
 from generative_playground.codec.parent_codec import GenericCodec
 from generative_playground.codec.hypergraph import (
-    HyperGraph, HypergraphTree, replace_nonterminal, to_mol, MolToSmiles, MolFromSmiles, hypergraphs_are_equivalent
-)
+    HyperGraph, HypergraphTree, replace_nonterminal, to_mol, MolToSmiles, MolFromSmiles, hypergraphs_are_equivalent,
+    put_parent_node_first)
 from generative_playground.codec.hypergraph_parser import hypergraph_parser, tree_with_rule_inds_to_list_of_tuples
 from generative_playground.molecules.data_utils.zinc_utils import get_zinc_smiles
-import networkx as nx
 import pickle
-import zipfile
 import os, copy
 import numpy as np
-from pathlib import Path
 import math
 
 grammar_data_location = molecules_root_location + 'data/grammar/'
@@ -220,6 +216,8 @@ class HypergraphGrammar(GenericCodec):
         return (len(self.rules)-1), {i: i for i in rule.node.keys()}
 
     def add_rule(self, rule):
+        rule = put_parent_node_first(rule)
+
         parent_node = rule.parent_node()
         # add more information to the rule nodes, to be used later
         for n, node in enumerate(rule.node.values()):

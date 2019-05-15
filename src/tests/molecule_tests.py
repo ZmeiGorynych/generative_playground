@@ -9,7 +9,7 @@ from generative_playground.codec.hypergraph_grammar import evaluate_rules, Hyper
 from generative_playground.codec.hypergraph_rpe_grammar import HypergraphRPEGrammar
 from rdkit.Chem import MolFromSmiles, AddHs, MolToSmiles, RemoveHs, Kekulize, BondType
 
-smiles = get_zinc_smiles(20)
+smiles = get_zinc_smiles(10)
 smiles1 = smiles[0]
 bad_smiles = [
     'C1(CCCCC1)(C)C(=O)N',
@@ -138,7 +138,6 @@ class TestStart(TestCase):
 
         self.assertEqual(smiles, recovered_smiles)
 
-    @skip('Need to fix these')
     def test_hypergraph_rpe_parser_bad_smiles(self):
         g = HypergraphGrammar()
 

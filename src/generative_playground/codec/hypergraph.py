@@ -118,7 +118,10 @@ class HyperGraph:
 
     def add_edge(self, x: Edge):
         assert isinstance(x, Edge)
-        self.edges[uuid.uuid4()] = x
+        assert x not in list(self.edges.values())
+        edge_id = uuid.uuid4()
+        self.edges[edge_id] = x
+        return edge_id
 
     def __str__(self):
         out = str(len(self.edges)) + ' edges,'
@@ -206,7 +209,7 @@ class HyperGraph:
         # for count in edge_count.values():
         #     assert count == 2
         for nodes in edge_count.values():
-            assert len(nodes) == 2
+            assert len(nodes) == 2, "Graph is not 2-regular. Found edge connecting {} nodes".format(len(nodes))
 
         assert set(edge_count.keys()) == set(self.edges.keys())
 
@@ -223,8 +226,6 @@ class HyperGraph:
             first, second = self.node_ids_from_edge_id(edge_id)
             G.add_edge(first, second, id=edge_id, data=edge)
         return G
-
-
 
     def other_end_of_edge(self, node_id, edge_id):
         assert edge_id in self.node[node_id].edge_ids
@@ -533,6 +534,8 @@ def replace_nonterminal(orig_node, loc, new_node):
 
 
 def hypergraphs_are_equivalent(graph1, graph2):
+    graph1 = put_parent_node_first(graph1)
+    graph2 = put_parent_node_first(graph2)
     if len(graph1) != len(graph2):
         return None
 
@@ -601,3 +604,11 @@ def hypergraphs_are_equivalent(graph1, graph2):
     #     return GM.mapping
     # else:
     #     return None
+
+
+def put_parent_node_first(rule):
+    if rule.parent_node_id is not None:
+        new_node_order = [(rule.parent_node_id, rule.parent_node())] + \
+            [item for item in rule.node.items() if item[0] != rule.parent_node_id]
+        rule.node = OrderedDict(new_node_order)
+    return rule
