@@ -493,6 +493,8 @@ class GrammarInitializer:
         self.last_processed = -1
         self.new_rules = []
         self.frequency_dict = {}
+        self.total_len = 0
+        self.stats = {}
         if os.path.isfile(self.grammar_filename):
             self.grammar = grammar_class.load(filename)
         else:
@@ -549,7 +551,9 @@ class GrammarInitializer:
                                 self.grammar.rule_frequency_dict[a] = 0
                             self.grammar.rule_frequency_dict[a] += 1
 
-                    new_max_len = max([len(x) for x in these_actions])
+                    lengths = [len(x) for x in these_actions]
+                    new_max_len = max(lengths)
+                    self.total_len += sum(lengths)
                     if new_max_len > self.max_len:
                         self.max_len = new_max_len
                         print("Max len so far:", self.max_len)
@@ -562,5 +566,11 @@ class GrammarInitializer:
                     print(self.new_rules[-1])
             if ind % 10 == 9:
                 self.save()
+            if ind % 100 == 0 and ind > 0:
+                self.stats[ind] = {
+                    'max_len': self.max_len,
+                    'avg_len': self.total_len / ind,
+                    'num_rules': len(self.grammar.rules),
+                }
         self.grammar.calc_terminal_distance()
         return self.max_len # maximum observed molecule length

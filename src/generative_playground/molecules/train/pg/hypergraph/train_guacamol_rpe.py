@@ -20,7 +20,7 @@ from generative_playground.codec.hypergraph_grammar import GrammarInitializer
 from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring_functions, version_name_list
 from generative_playground.molecules.data_utils.zinc_utils import get_zinc_smiles
 
-batch_size = 20  # 20
+batch_size = 2  # 20
 drop_rate = 0.5
 molecules = True
 grammar_cache = 'hyper_grammar_rpe.pickle'
@@ -36,7 +36,7 @@ if True:
     gi.delete_cache()
     # need to re-load, this time without the cache
     gi = GrammarInitializer(grammar_cache, grammar_class=HypergraphRPEGrammar)
-    num_mols = 100
+    num_mols = 1000
     max_steps_smiles = gi.init_grammar(num_mols)
     smiles = get_zinc_smiles(num_mols)
     gi.grammar.extract_rpe_pairs(smiles, 50)
@@ -44,8 +44,8 @@ if True:
     print('Num rules after RPE: {}'.format(len(gi.grammar.rules)))
     gi.save()
 
-max_steps = 30
-root_name = 'guacamol_NEW_' + ver + '_' + str(obj_num) + 'lr2e-5'
+max_steps = 35
+root_name = 'guacamol_ar_node_rpe3' + ver + '_' + str(obj_num) + 'lr2e-5'
 model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        grammar,
                                                        EPOCHS=100,
@@ -61,11 +61,11 @@ model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        plot_prefix='',
                                                        dashboard=root_name,  # 'policy gradient',
                                                        save_file_root_name=root_name,
-                                                       preload_file_root_name=root_name,
+                                                       preload_file_root_name=None,
                                                        smiles_save_file=None,  # 'pg_smiles_hg1.h5',
                                                        on_policy_loss_type='advantage_record')
 # preload_file='policy_gradient_run.h5')
-
+#
 while True:
     next(gen_fitter)
     # for _ in range(1):

@@ -3,6 +3,7 @@ from collections import OrderedDict
 from rdkit.Chem import MolFromSmiles
 from rdkit.Chem.rdmolops import Kekulize
 from networkx.algorithms.clique import enumerate_all_cliques, make_max_clique_graph
+from networkx.algorithms.cycles import cycle_basis
 
 from generative_playground.codec.hypergraph import (
     HyperGraph,
@@ -291,11 +292,89 @@ def found_cliques(cliques):
     return not all([c == [] for c in cliques])
 
 
-def filtered_cliques(graph, parent_node_id):
+def filtered_cliques(graph, condition=None):
+    if condition is None:
+        condition = lambda c: len(c) > 1
     return [
-        c for c in enumerate_all_cliques(graph)
-        if parent_node_id not in c and len(c) > 1 and len(c) < len(graph) - 1
+        c for c in enumerate_all_cliques(graph.to_nx())
+        if graph.parent_node_id not in c and condition(c) and len(c) < len(graph) - 1
     ]
+
+
+def _remove_largest_clique(cliques, tree):
+    hypergraph = tree.node
+    clique = sorted(cliques, key=lambda x: len(x))[-1]
+    clique_nodes = []
+    clique_children = []
+    clique_idxs = []
+    for i, node_id in enumerate(hypergraph.child_ids()):
+        if node_id in clique:
+            clique_nodes.append(hypergraph.node[node_id])
+            clique_children.append(tree[i])
+            clique_idxs.append(i)
+
+    # Clean parent
+    for node_id in clique:
+        del hypergraph.node[node_id]
+    for idx in sorted(clique_idxs, reverse=True):
+        hypergraph.child_ids
+        tree.pop(idx)
+
+    # Add new non-terminal
+    # Find external edges from clique
+    clique_edges = set()
+    for node in clique_nodes:
+        clique_edges.update(set(node.edge_ids))
+
+    external_edge_ids = []
+    external_edges = []
+    for node in hypergraph.node.values():
+        for edge_id, edge in zip(node.edge_ids, node.edges):
+            if edge_id in clique_edges:
+                external_edge_ids.append(edge_id)
+                external_edges.append(edge)
+
+    new_nt = Node(edge_ids=external_edge_ids, edges=external_edges)
+    hypergraph.add_node(new_nt)
+    remaining_clique_edges = clique_edges - set(external_edge_ids)
+    for edge_id in remaining_clique_edges:
+        hypergraph.edges.pop(edge_id)
+    hypergraph.validate()
+
+    # Make new child from clique
+    external_edges_ids_cpy = copy.deepcopy(external_edge_ids)
+    external_edges_cpy = copy.deepcopy(external_edges)
+    new_nt_child = Node(
+        edge_ids=external_edges_ids_cpy, edges=external_edges_cpy
+    )
+    new_child = HyperGraph()
+    new_child.add_parent_node(new_nt_child)
+    edge_id_map = {}
+    for node in clique_nodes:
+        new_child.add_node(node)
+        for i, (edge_id, edge) in enumerate(zip(node.edge_ids, node.edges)):
+            new_id = edge_id_map.get(edge_id)
+            if not new_id:
+                new_id = new_child.add_edge(edge)
+                edge_id_map[edge_id] = new_id
+
+            node.edge_ids[i] = new_id
+
+            if edge_id in external_edge_ids:
+                idx = external_edge_ids.index(edge_id)
+                new_nt_child.edge_ids[idx] = new_id
+
+    new_child.validate()
+    child_graph = new_child.to_nx()
+    child_graph.remove_node(new_child.parent_node_id)
+    assert len(make_max_clique_graph(child_graph)) == 1
+
+    tree.append(HypergraphTree(new_child, clique_children))
+
+
+def filtered_cycles(graph):
+    cycles = cycle_basis(graph.to_nx())
+    return [c for c in cycles if len(c) > 5]
 
 
 def split_cliques(tree):
@@ -304,76 +383,26 @@ def split_cliques(tree):
 
     hypergraph = tree.node
     if hypergraph.parent_node_id is not None and hypergraph.child_ids():
-        cliques = filtered_cliques(hypergraph.to_nx(), hypergraph.parent_node_id)
+        cliques = filtered_cliques(
+            hypergraph,
+            lambda c: len(c) >= 3
+        )
         while found_cliques(cliques):
-            clique = sorted(cliques, key=lambda x: len(x))[-1]
-            clique_nodes = []
-            clique_children = []
-            clique_idxs = []
-            for i, node_id in enumerate(hypergraph.child_ids()):
-                if node_id in clique:
-                    clique_nodes.append(hypergraph.node[node_id])
-                    clique_children.append(tree[i])
-                    clique_idxs.append(i)
-
-            # Clean parent
-            for node_id in clique:
-                del hypergraph.node[node_id]
-            for idx in sorted(clique_idxs, reverse=True):
-                hypergraph.child_ids
-                tree.pop(idx)
-
-            # Add new non-terminal
-            # Find external edges from clique
-            clique_edges = set()
-            for node in clique_nodes:
-                clique_edges.update(set(node.edge_ids))
-
-            external_edge_ids = []
-            external_edges = []
-            for node in hypergraph.node.values():
-                for edge_id, edge in zip(node.edge_ids, node.edges):
-                    if edge_id in clique_edges:
-                        external_edge_ids.append(edge_id)
-                        external_edges.append(edge)
-
-            new_nt = Node(edge_ids=external_edge_ids, edges=external_edges)
-            hypergraph.add_node(new_nt)
-            remaining_clique_edges = clique_edges - set(external_edge_ids)
-            for edge_id in remaining_clique_edges:
-                hypergraph.edges.pop(edge_id)
-            hypergraph.validate()
-
-            # Make new child from clique
-            external_edges_ids_cpy = copy.deepcopy(external_edge_ids)
-            external_edges_cpy = copy.deepcopy(external_edges)
-            new_nt_child = Node(
-                edge_ids=external_edges_ids_cpy, edges=external_edges_cpy
+            _remove_largest_clique(cliques, tree)
+            cliques = filtered_cliques(
+                hypergraph,
+                lambda c: len(c) >= 3
             )
-            new_child = HyperGraph()
-            new_child.add_parent_node(new_nt_child)
-            edge_id_map = {}
-            for node in clique_nodes:
-                new_child.add_node(node)
-                for i, (edge_id, edge) in enumerate(zip(node.edge_ids, node.edges)):
-                    new_id = edge_id_map.get(edge_id)
-                    if not new_id:
-                        new_id = new_child.add_edge(edge)
-                        edge_id_map[edge_id] = new_id
 
-                    node.edge_ids[i] = new_id
+        cycles = filtered_cycles(hypergraph)
+        while cycles:
+            cliques = filtered_cliques(
+                hypergraph,
+                lambda c: len(c) == 2
+            )
+            _remove_largest_clique(cliques, tree)
+            cycles = filtered_cycles(hypergraph)
 
-                    if edge_id in external_edge_ids:
-                        idx = external_edge_ids.index(edge_id)
-                        new_nt_child.edge_ids[idx] = new_id
-
-            new_child.validate()
-            child_graph = new_child.to_nx()
-            child_graph.remove_node(new_child.parent_node_id)
-            assert len(make_max_clique_graph(child_graph)) == 1
-
-            tree.append(HypergraphTree(new_child, clique_children))
-            cliques = filtered_cliques(hypergraph.to_nx(), hypergraph.parent_node_id)
     tree.validate()
     return tree
 
