@@ -136,10 +136,10 @@ class GraphEncoder(nn.Module):
                  grammar,
                  d_model=512,
                  drop_rate=0.1,
-                 transformer_params={'n_layers': 6,
-                                     'n_head': 8,
-                                     'd_k': 64,
-                                     'd_v': 64},
+                 transformer_params={'n_layers': 5, #6
+                                     'n_head': 6, #8
+                                     'd_k': 32, # a64
+                                     'd_v': 32},
                  rnn_params={'num_layers': 3,
                              'bidirectional': False},
                  model_type='transformer'):

@@ -19,7 +19,7 @@ def full_location(filename):
 
 
 class HypergraphGrammar(GenericCodec):
-    def __init__(self, cache_file='tmp.pickle', max_len=None):
+    def __init__(self, cache_file='tmp.pickle', max_len=None, isomorphy=False):
         self.id_by_parent = {'DONE': [0]} # from str(parent_node) to rule index
         self.parent_by_id = {0: 'DONE'} # from rule index to str(parent_node)
         self.rules = [None]# list of HyperGraphFragments
@@ -35,6 +35,7 @@ class HypergraphGrammar(GenericCodec):
         self.MAX_LEN = max_len # only used to pad string_to_actions output, factor out?
         self.PAD_INDEX = 0
         self.conditional_frequencies = {}
+        # self.isomorphy_match = isomorphy
 
     def __len__(self):
         return len(self.rules)

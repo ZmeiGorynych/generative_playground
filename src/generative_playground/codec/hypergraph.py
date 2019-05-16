@@ -173,7 +173,7 @@ class HyperGraph:
     def is_parent_node(self, x):
         if self.parent_node_id is None:
             return False
-        return self.node[self.parent_node_id] == x
+        return self.node[self.parent_node_id] is x
 
     def __len__(self):
         return len(self.node)
@@ -533,77 +533,79 @@ def replace_nonterminal(orig_node, loc, new_node):
     return orig_node
 
 
-def hypergraphs_are_equivalent(graph1, graph2):
+def hypergraphs_are_equivalent(graph1, graph2, isomorphy=True):
     graph1 = put_parent_node_first(graph1)
     graph2 = put_parent_node_first(graph2)
     if len(graph1) != len(graph2):
         return None
 
-    index_cache_1 = {}
-    index_cache_2 = {}
-    # node type must match as well as node ordering, nx is just needed to check that the edges also align
-    edge2nodes1 = graph1.node_ids_by_edge_id()
-    edge2nodes2 = graph2.node_ids_by_edge_id()
+    # index_cache_1 = {}
+    # index_cache_2 = {}
+    if not isomorphy:
+        # node type must match as well as node ordering, nx is just needed to check that the edges also align
+        edge2nodes1 = graph1.node_ids_by_edge_id()
+        edge2nodes2 = graph2.node_ids_by_edge_id()
 
-    def other_node1(node_id, edge_id):
-        nodes = edge2nodes1[edge_id]
-        tmp = [n for n in nodes if n!=node_id]
-        assert len(tmp) == 1, "This node is not connected to this edge!"
-        return tmp[0]
+        def other_node1(node_id, edge_id):
+            nodes = edge2nodes1[edge_id]
+            tmp = [n for n in nodes if n != node_id]
+            assert len(tmp) == 1, "This node is not connected to this edge!"
+            return tmp[0]
 
-    def other_node2(node_id, edge_id):
-        nodes = edge2nodes2[edge_id]
-        tmp = [n for n in nodes if n!=node_id]
-        assert len(tmp) == 1, "This node is not connected to this edge!"
-        return tmp[0]
+        def other_node2(node_id, edge_id):
+            nodes = edge2nodes2[edge_id]
+            tmp = [n for n in nodes if n != node_id]
+            assert len(tmp) == 1, "This node is not connected to this edge!"
+            return tmp[0]
 
-    mapping = {id1: id2 for id1, id2 in zip(graph1.node.keys(), graph2.node.keys())}
+        mapping = {id1: id2 for id1, id2 in zip(graph1.node.keys(), graph2.node.keys())}
 
-    for i, (node1_id, node1), (node2_id, node2) in zip(range(len(graph1)), graph1.node.items(), graph2.node.items()):
-        if not (graph1.is_parent_node(node1) == graph2.is_parent_node(node2)):
-            return None
-        elif str(node1) != str(node2) or len(node1.edges) != len(node2.edges):
-            return None
+        for i, (node1_id, node1), (node2_id, node2) in zip(range(len(graph1)), graph1.node.items(), graph2.node.items()):
+            if not (graph1.is_parent_node(node1) == graph2.is_parent_node(node2)):
+                return None
+            elif str(node1) != str(node2) or len(node1.edges) != len(node2.edges):
+                return None
+            else:
+                for edge1_id, edge2_id in zip(node1.edge_ids, node2.edge_ids):
+                    edge1 = graph1.edges[edge1_id]
+                    edge2 = graph2.edges[edge2_id]
+                    if edge1.type != edge2.type or edge1.data != edge2.data:
+                        return None
+                    # now test that matching edges lead to matching nodes
+                    candidate_node_id1 = other_node1(node1_id, edge1_id)
+                    candidate_node_id2 = other_node2(node2_id, edge2_id)
+                    if mapping[candidate_node_id1] != candidate_node_id2:
+                        return None
+
+        return mapping
+
+    else:
+        def nodes_match(node1, node2):
+            # parent nodes must be aligned
+            if not graph1.is_parent_node(node1['node']) == graph2.is_parent_node(node2['node']):
+                return False
+            # and for all nodes the content must match as well as the ordering
+            return str(node1['node']) == str(node2['node'])
+
+        def edges_match(edge1, edge2):
+            return edge1['data'].type == edge2['data'].type and edge1['data'].data == edge2['data'].data
+
+        from networkx.algorithms.isomorphism import GraphMatcher
+        graph1_nx = graph1.to_nx()
+        graph2_nx = graph2.to_nx()
+        GM = GraphMatcher(graph1_nx, graph2_nx, edge_match=edges_match, node_match=nodes_match)
+
+        if GM.is_isomorphic():
+            # assert str(graph1) == str(graph2)
+            # for id1, id2
+            # test = {id1: id2 for id1, id2 in zip(graph1.node.keys(), graph2.node.keys())}
+            # for id1 in test:
+            #     if test[id1] != GM.mapping[id1]:
+            #         print("what?")
+            assert graph1.parent_node_id is None or GM.mapping[graph1.parent_node_id] == graph2.parent_node_id
+            return GM.mapping
         else:
-            for edge1_id, edge2_id in zip(node1.edge_ids, node2.edge_ids):
-                edge1 = graph1.edges[edge1_id]
-                edge2 = graph2.edges[edge2_id]
-                if edge1.type != edge2.type or edge1.data != edge2.data:
-                    return None
-                # now test that matching edges lead to matching nodes
-                candidate_node_id1 = other_node1(node1_id, edge1_id)
-                candidate_node_id2 = other_node2(node2_id, edge2_id)
-                if mapping[candidate_node_id1] != candidate_node_id2:
-                    return None
-
-    return mapping
-
-    # def nodes_match(node1, node2):
-    #     # parent nodes must be aligned
-    #     if not graph1.is_parent_node(node1['node']) == graph2.is_parent_node(node2['node']):
-    #         return False
-    #     # and for all nodes the content must match as well as the ordering
-    #     return str(node1['node']) == str(node2['node']) and \
-    #            node1['index'] == node2['index']
-    #
-    # def edges_match(edge1, edge2):
-    #     return edge1['data'].type == edge2['data'].type
-    #
-    # from networkx.algorithms.isomorphism import GraphMatcher
-    # graph1_nx = graph1.to_nx()
-    # graph2_nx = graph2.to_nx()
-    # GM = GraphMatcher(graph1_nx, graph2_nx, edge_match=edges_match, node_match=nodes_match)
-    #
-    # if GM.is_isomorphic():
-    #     # assert str(graph1) == str(graph2)
-    #     # for id1, id2
-    #     test = {id1: id2 for id1, id2 in zip(graph1.node.keys(), graph2.node.keys())}
-    #     for id1 in test:
-    #         if test[id1] != GM.mapping[id1]:
-    #             print("what?")
-    #     return GM.mapping
-    # else:
-    #     return None
+            return None
 
 
 def put_parent_node_first(rule):

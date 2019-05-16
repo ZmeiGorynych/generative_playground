@@ -125,8 +125,8 @@ def train_policy_gradient(molecules=True,
             p = discriminator_reward_mult(x)
         else:
             p = 0
-        rwd = reward_fun_on(x)
-        reward = np.minimum(rwd, rwd * originality_mult(x))
+        rwd = 0.1 + 0.9*np.array(reward_fun_on(x))
+        reward = np.minimum(rwd/originality_mult(x), np.power(np.abs(rwd),1/originality_mult(x)))
         out = reward + discrim_wt*p
         return out
 
@@ -282,7 +282,7 @@ def train_policy_gradient(molecules=True,
                         epochs=EPOCHS,
                         loss_fn=loss_obj,
                         grad_clip=5,
-                        half_float=True,
+                        half_float=False,
                         anchor_model=anchor_model,
                         anchor_weight=anchor_weight,
                         callbacks=[metric_monitor, checkpointer] + extra_callbacks

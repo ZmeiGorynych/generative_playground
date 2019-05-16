@@ -102,4 +102,7 @@ class PolicyGradientLoss(nn.Module):
             self.metrics.update({'unique': len(set(smiles)) / len(smiles)})
         except:
             pass
+
+        if my_loss != my_loss:  # NaN check
+            print("NaN loss!")
         return my_loss

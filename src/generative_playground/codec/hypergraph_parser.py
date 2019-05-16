@@ -414,8 +414,8 @@ def hypergraph_parser(mol):
     graph_tree = dict_tree_to_graph_tree(copy.deepcopy(tree))
     graph_tree_2a = abstract_ring_atoms(copy.deepcopy(graph_tree))
     graph_tree_2 = abstract_atoms(graph_tree_2a)
-    graph_tree_3 = split_cliques(graph_tree_2)
-    return graph_tree_3
+    # graph_tree_3 = split_cliques(graph_tree_2)
+    return graph_tree_2
 
 
 def graph_from_graph_tree(tree):
