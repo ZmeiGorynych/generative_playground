@@ -1,0 +1,4 @@
+\subsection{SMILES brief introduction}
+SMILES \cite{Weininger88} is a common format for describing molecules with a character string.
+ 
+Briefly, atoms following each other in the string are assumed to be connected with a single bond, double bonds are denoted with \verb|=|, and triple bonds with \verb|#|, thus for example $CO_2$ is represented as \verb|O=C=O| and $N_2$ as \verb|N#N|. Side branches are represented by brackets, thus $SO_3$ is \verb|O=S(=O)=O|, aromatic atoms (those contributing one valence to an aromatic ring) are represented as lowercase letters, and cycles are represented by numerals following an atom, with atoms being followed by the same numeral understood to be connected; thus for example benzene is \verb|c1ccccc1|. Valences not used in the explicitly specified bonds are assumed to have hydrogens attached, for example $H_2O$ is \verb|O|.
