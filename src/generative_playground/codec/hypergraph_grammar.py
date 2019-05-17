@@ -75,8 +75,8 @@ class HypergraphGrammar(GenericCodec):
             out[ind] = math.log(value)
         return out
 
-    def get_conditional_log_frequencies(self, x):
-        out = np.zeros(len(self.rules))
+    def get_conditional_log_frequencies_single_query(self, x, default=-3):
+        out = default*np.ones(len(self.rules))
         if x in self.conditional_frequencies:
             for ind, value in self.conditional_frequencies[x].items():
                 out[ind] = math.log(value)
@@ -350,9 +350,36 @@ class HypergraphMaskGenerator:
                         next_node[g, l] = 1.0
                         break
 
-        log_freqs = self.grammar.get_log_frequencies()[None, None, :]
-        full_logit_priors += log_freqs
+        if self.priors == True:
+            log_freqs = self.grammar.get_log_frequencies()[None, None, :]
+            full_logit_priors += log_freqs
+        elif self.priors == 'conditional':
+            log_freqs = self.get_log_conditional_frequencies()
+            full_logit_priors += log_freqs
         return self.graphs, -1e5*(1-np.array(next_node)), full_logit_priors
+
+    def get_log_conditional_frequencies(self):
+        freqs = -3*np.ones((len(self.graphs),
+                           max([1 if g is None else len(g) for g in self.graphs]),
+                           len(self.grammar)))
+        for g, graph in enumerate(self.graphs):
+            if graph is None: # first step, no graph yet
+                query = (None, None)
+                this_freqs = self.grammar.get_conditional_log_frequencies_single_query(query)
+                # if we don't have a graph yet, put to every node the cond log frequencies of starting nodes
+                for n in range(freqs.shape[1]):
+                    freqs[g, n, :] = this_freqs
+            else:
+                for n, node_id in enumerate(graph.node.keys()):
+                    if node_id in graph.child_ids():# conditional probabilities only matter for nonterminals
+                        this_node = graph.node[node_id]
+                        parent_rule = this_node.rule_id
+                        nt_index = this_node.node_index # nonterminal index in the original rule
+                        query = (parent_rule, nt_index)
+                        this_freqs = self.grammar.get_conditional_log_frequencies_single_query(query)
+                        freqs[g, n, :] = this_freqs
+
+        return freqs
 
     def apply_action(self, last_action):
         self.last_action = last_action # to be used for next step's conditional frequencies
@@ -384,23 +411,7 @@ class HypergraphMaskGenerator:
         out = np.array(masks)#
         return out
 
-    def get_log_conditional_frequencies(self):
-        freqs = []
-        for graph, expand_loc in zip(self.graphs, self.next_expand_location):
-            if graph is None: # first step
-                query = (None, None)
-            elif expand_loc is None: # graph is finished, we're just doing padding
-                assert len(graph.child_ids()) == 0
-                return np.zeros((len(self.graphs), len(self.grammar.rules)))
-            else:
-                this_node = graph.node[expand_loc]
-                parent_rule = this_node.rule_id
-                nt_index = this_node.node_index # nonterminal index in teh original rule
-                query = (parent_rule, nt_index)
-            this_freqs = self.grammar.get_conditional_log_frequencies(query)
-            freqs.append(this_freqs)
-        out = np.array(freqs)
-        return out
+
 
     def action_prior_logits(self):
         masks = self.valid_action_mask()

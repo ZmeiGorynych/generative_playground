@@ -51,8 +51,7 @@ def train_policy_gradient(molecules=True,
                           dashboard='policy gradient',
                           smiles_save_file=None,
                           on_policy_loss_type='best',
-                          off_policy_loss_type='mean',
-                          sanity_checks=True,
+                          priors=True,
                           temperature_schedule=lambda x: 1.0,
                           eps=0.0):
     root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
@@ -153,8 +152,7 @@ def train_policy_gradient(molecules=True,
                                   max_steps=max_steps,
                                   save_dataset=save_dataset)
 
-    temperature = torch.tensor(100.0)
-    node_policy = SoftmaxRandomSamplePolicy(temperature=temperature, eps=eps)
+    node_policy = SoftmaxRandomSamplePolicy(temperature=torch.tensor(1.0), eps=eps)
 
     model = get_decoder(molecules,
                         grammar,
@@ -167,7 +165,8 @@ def train_policy_gradient(molecules=True,
                         decoder_type=decoder_type,
                         reward_fun=adj_reward,
                         task=task,
-                        node_policy=node_policy)[0]
+                        node_policy=node_policy,
+                        priors=priors)[0]
 
     if preload_file_root_name is not None:
         try:

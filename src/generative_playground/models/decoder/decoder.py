@@ -28,7 +28,8 @@ def get_decoder(molecules=True,
                 node_policy=None,
                 rule_policy=None,
                 reward_fun=lambda x: -1 * np.ones(len(x)),
-                batch_size=None):
+                batch_size=None,
+                priors=True):
 
     codec = get_codec(molecules, grammar, max_seq_length)
 
@@ -62,6 +63,7 @@ def get_decoder(molecules=True,
         model.init_encoder_output = lambda x: None
         mask_gen = HypergraphMaskGenerator(max_len=max_seq_length,
                                       grammar=codec.grammar)
+        mask_gen.priors = priors
         # bias=codec.grammar.get_log_frequencies())
         if node_policy is None:
             node_policy = SoftmaxRandomSamplePolicy()
