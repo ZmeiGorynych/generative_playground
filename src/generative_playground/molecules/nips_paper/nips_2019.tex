@@ -56,33 +56,23 @@ We present a novel approach to the issue of molecular optimization. Our approach
 
 \section{Introduction}
 
-\section{Generating guaranteed valid SMILES strings}\label{sec:valid_smiles}
-
-\subsection{Context-free grammar}\label{sec:cfgs}
-
-\subsection{Respecting valences}\label{sec:valences}
-\subsubsection{Implicit hydrogens}\label{sec:hydrogen}
-
-\subsection{Cycles}\label{sec:cycles}
-\subsubsection{Numeral assignment}
-\subsubsection{Cycle size}
-\subsubsection{Cycle chaining}
-\subsubsection{Aromatic cycles}
-
-\subsection{Extraction of Hypergraph Cliques}\label{sec:cliques}
-
-\subsection{Rule-pair Encoding}\label{sec:rpe}
-
-\subsection{Making sure the expansions terminate}\label{sec:termination}
-
-\subsection{Limits of context-free grammars}\label{sec:cfg_limits}
-
+\section{Hypergraph grammar}\label{sec:valid_smiles}
+Will need some pictures here like in Kajino, to explain how the whole thing works!
+\subsection{Definition}\label{sec:cfgs}
+\subsection{Parsing algorithm}\label{sec:valences}
+\subsubsection{Extraction of Hypergraph Cliques}\label{sec:cliques}
+\subsection{Rule-pair compression}
+\subsection{Using the grammar to create new molecules}
+\subsunsection{Conditional and unconditional rule frequencies}\label{sec:hydrogen}
+\subsubsection{Making sure the expansions terminate}\label{sec:termination}
 \subsection{Grammar conciseness and expressiveness}\label{sec:expressiveness}
 
 
 \section{Model choice}\label{sec:model}
 
 \subsection{Reinforcement learning}\label{sec:rl}
+\subsubsection{Batch Advantage}
+\subsubsection{Record rewards}
 
 \subsection{Architecture}\label{sec:architecture}
 
