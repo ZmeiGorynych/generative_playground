@@ -4,12 +4,12 @@ import numpy as np
 from unittest import TestCase, skip
 from generative_playground.codec.hypergraph import to_mol, HyperGraph, HypergraphTree
 from generative_playground.codec.hypergraph_parser import hypergraph_parser, graph_from_graph_tree
-from generative_playground.molecules.data_utils.zinc_utils import get_zinc_smiles
+from generative_playground.molecules.data_utils.zinc_utils import get_smiles_from_database
 from generative_playground.codec.hypergraph_grammar import evaluate_rules, HypergraphGrammar, HypergraphMaskGenerator, apply_rule
 from generative_playground.codec.hypergraph_rpe_grammar import HypergraphRPEGrammar
 from rdkit.Chem import MolFromSmiles, AddHs, MolToSmiles, RemoveHs, Kekulize, BondType
 
-smiles = get_zinc_smiles(10)
+smiles = get_smiles_from_database(10)
 smiles1 = smiles[0]
 bad_smiles = [
     'C1(CCCCC1)(C)C(=O)N',

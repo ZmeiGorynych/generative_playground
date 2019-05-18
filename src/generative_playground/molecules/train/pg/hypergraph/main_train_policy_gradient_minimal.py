@@ -7,6 +7,7 @@ import torch.nn.functional as F
 import torch
 import numpy as np
 from torch.utils.data import DataLoader
+from generative_playground.molecules.molecule_saver_callback import MoleculeSaver
 
 from generative_playground.utils.fit_rl import fit_rl
 from generative_playground.data_utils.data_sources import DatasetFromHDF5
@@ -21,7 +22,7 @@ from generative_playground.models.decoder.policy import SoftmaxRandomSamplePolic
 from generative_playground.data_utils.blended_dataset import EvenlyBlendedDataset
 from generative_playground.data_utils.data_sources import IncrementingHDF5Dataset
 from generative_playground.codec.codec import get_codec
-from generative_playground.molecules.data_utils.zinc_utils import get_zinc_smiles
+from generative_playground.molecules.data_utils.zinc_utils import get_smiles_from_database
 from generative_playground.data_utils.data_sources import IterableTransform
 from generative_playground.molecules.models.graph_discriminator import GraphDiscriminator
 from generative_playground.utils.gpu_utils import device
@@ -29,6 +30,7 @@ from generative_playground.utils.gpu_utils import device
 
 def train_policy_gradient(molecules=True,
                           grammar=True,
+                            smiles_source='ZINC',
                           EPOCHS=None,
                           BATCH_SIZE=None,
                           reward_fun_on=None,
@@ -52,7 +54,7 @@ def train_policy_gradient(molecules=True,
                           smiles_save_file=None,
                           on_policy_loss_type='best',
                           priors=True,
-                          temperature_schedule=lambda x: 1.0,
+                          node_temperature_schedule=lambda x: 1.0,
                           eps=0.0):
     root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     root_location = root_location + '/../../'
@@ -60,11 +62,7 @@ def train_policy_gradient(molecules=True,
     def full_path(x):
         return os.path.realpath(root_location + 'pretrained/' + x)
 
-    if smiles_save_file is not None:
-        smiles_save_path = root_location + 'pretrained/' + smiles_save_file
-        save_dataset = IncrementingHDF5Dataset(smiles_save_path)
-    else:
-        save_dataset = None
+
 
     if save_file_root_name is not None:
         gen_save_file = save_file_root_name + '_gen.h5'
@@ -85,7 +83,7 @@ def train_policy_gradient(molecules=True,
             print('failed to load discriminator weights ' + str(e))
 
 
-    zinc_data = get_zinc_smiles()
+    zinc_data = get_smiles_from_database(source=smiles_source)
     zinc_set = set(zinc_data)
     lookbacks = [BATCH_SIZE, 10*BATCH_SIZE, 100*BATCH_SIZE]
     history_data = [deque(['O'], maxlen=lb) for lb in lookbacks]
@@ -125,8 +123,10 @@ def train_policy_gradient(molecules=True,
         else:
             p = 0
         rwd = 0.1 + 0.9*np.array(reward_fun_on(x))
-        reward = np.minimum(rwd/originality_mult(x), np.power(np.abs(rwd),1/originality_mult(x)))
-        out = reward + discrim_wt*p
+        orig_mult = originality_mult(x)
+        # we assume the reward is <=1, first term will dominate for reward <0, second for 0 < reward < 1
+        reward = np.minimum(rwd/orig_mult, np.power(np.abs(rwd),1/orig_mult))
+        out = reward + discrim_wt*p*orig_mult
         return out
 
     def adj_reward_old(x):
@@ -150,7 +150,7 @@ def train_policy_gradient(molecules=True,
                                   reward_fun=adj_reward,
                                   batch_size=BATCH_SIZE,
                                   max_steps=max_steps,
-                                  save_dataset=save_dataset)
+                                  save_dataset=None)
 
     node_policy = SoftmaxRandomSamplePolicy(temperature=torch.tensor(1.0), eps=eps)
 
@@ -310,9 +310,15 @@ def train_policy_gradient(molecules=True,
 
     # the on-policy fitter
 
-    history_callbacks = [make_callback(d) for d in history_data]
-    if temperature_schedule is not None:
-        history_callbacks.append(TemperatureCallback(node_policy, temperature_schedule))
+    gen_extra_callbacks = [make_callback(d) for d in history_data]
+
+    if smiles_save_file is not None:
+        smiles_save_path = os.path.realpath(root_location + 'pretrained/' + smiles_save_file)
+        gen_extra_callbacks.append(MoleculeSaver(smiles_save_path, gzip=True))
+
+    if node_temperature_schedule is not None:
+        gen_extra_callbacks.append(TemperatureCallback(node_policy, node_temperature_schedule))
+
     fitter1 = get_rl_fitter(model,
                             PolicyGradientLoss(on_policy_loss_type),# last_reward_wgt=reward_sm),
                             GeneratorToIterable(my_gen),
@@ -320,7 +326,7 @@ def train_policy_gradient(molecules=True,
                             plot_prefix + 'on-policy',
                             model_process_fun=model_process_fun,
                             lr=lr_on,
-                            extra_callbacks=history_callbacks,
+                            extra_callbacks=gen_extra_callbacks,
                             anchor_model=anchor_model,
                             anchor_weight=anchor_weight)
     #

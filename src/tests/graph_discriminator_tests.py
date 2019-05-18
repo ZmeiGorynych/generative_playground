@@ -6,7 +6,7 @@ from unittest import TestCase
 from generative_playground.codec.hypergraph import HyperGraph
 from generative_playground.codec.hypergraph_grammar import GrammarInitializer
 from generative_playground.models.embedder.graph_embedder import GraphEmbedder
-from generative_playground.molecules.data_utils.zinc_utils import get_zinc_molecules, get_zinc_smiles
+from generative_playground.molecules.data_utils.zinc_utils import get_zinc_molecules, get_smiles_from_database
 from generative_playground.models.decoder.graph_decoder import GraphEncoder
 from generative_playground.codec.codec import get_codec
 from generative_playground.models.heads.attention_aggregating_head import *
@@ -105,7 +105,7 @@ class TestGraphDiscriminator(TestCase):
 
     def test_discriminator_class(self):
         d = GraphDiscriminator(gi.grammar, drop_rate=0.1)
-        smiles = get_zinc_smiles(5)
+        smiles = get_smiles_from_database(5)
         out = d(smiles)
         assert out['p_zinc'].size(0) == len(smiles)
         assert out['p_zinc'].size(1) == 2
@@ -114,7 +114,7 @@ class TestGraphDiscriminator(TestCase):
 
     def test_discriminator_class_dict_input(self):
         d = GraphDiscriminator(gi.grammar, drop_rate=0.1)
-        smiles = get_zinc_smiles(5)
+        smiles = get_smiles_from_database(5)
         out = d({'smiles':smiles, 'test': 'test'})
         assert out['p_zinc'].size(0) == len(smiles)
         assert out['p_zinc'].size(1) == 2
@@ -124,7 +124,7 @@ class TestGraphDiscriminator(TestCase):
 
     def test_discriminator_class_determinism(self):
         d = GraphDiscriminator(gi.grammar, drop_rate=0.0)
-        smiles = get_zinc_smiles(5)
+        smiles = get_smiles_from_database(5)
         out1 = d({'smiles': smiles})['p_zinc']
         out2 = d({'smiles': smiles})['p_zinc']
         diff = torch.max((out1-out2).abs())
@@ -132,7 +132,7 @@ class TestGraphDiscriminator(TestCase):
 
     def test_discriminator_class_batch_independence(self):
         d = GraphDiscriminator(gi.grammar, drop_rate=0.0)
-        smiles = get_zinc_smiles(5)
+        smiles = get_smiles_from_database(5)
         out1 = d({'smiles': smiles})['p_zinc']
         out2 = d({'smiles': smiles[:1]})['p_zinc']
         diff = torch.max((out1[0,:] - out2[0,:]).abs())

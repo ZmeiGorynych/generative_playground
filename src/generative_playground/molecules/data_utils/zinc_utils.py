@@ -1,11 +1,11 @@
 from generative_playground.molecules.lean_settings import get_data_location
 from rdkit.Chem import MolFromSmiles, AddHs, MolToSmiles, RemoveHs, Kekulize, BondType
 
-def get_zinc_smiles(num=None):
+def get_smiles_from_database(num=None, source='ZINC'):
     if num is None:
         num = float('inf') # get all molecules
     L = []
-    settings = get_data_location(molecules=True)
+    settings = get_data_location(molecules=True, source=source)
     # Read in the strings
     with open(settings['source_data'], 'r') as f:
         for line in f:
@@ -18,5 +18,5 @@ def get_zinc_smiles(num=None):
     return L
 
 def get_zinc_molecules(num=10):
-    smiles = get_zinc_smiles(num)
+    smiles = get_smiles_from_database(num)
     return [MolFromSmiles(s) for s in smiles]

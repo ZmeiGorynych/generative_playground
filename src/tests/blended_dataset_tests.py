@@ -3,7 +3,7 @@ import torch
 from torch.utils.data import DataLoader
 from generative_playground.data_utils.blended_dataset import EvenlyBlendedDataset
 from collections import deque
-from generative_playground.molecules.data_utils.zinc_utils import get_zinc_smiles
+from generative_playground.molecules.data_utils.zinc_utils import get_smiles_from_database
 
 class TestBlendedDataset(TestCase):
     def test_combined_loader_tensor_in_tensor_out_no_labels(self):
@@ -40,7 +40,7 @@ class TestBlendedDataset(TestCase):
     def test_zinc_loaders(self):
         history_size = 1000
         history_data = deque(['aaa','aaa','aaa'], maxlen=history_size)
-        zinc_data = get_zinc_smiles(100)
+        zinc_data = get_smiles_from_database(100)
         dataset = EvenlyBlendedDataset([history_data,zinc_data], labels=True)
         loader = DataLoader(dataset, shuffle=True, batch_size=10)
         for batch in loader:

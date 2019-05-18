@@ -20,7 +20,7 @@ from generative_playground.molecules.rdkit_utils.rdkit_utils import num_atoms, n
 from generative_playground.molecules.model_settings import get_settings
 from generative_playground.molecules.train.pg.hypergraph.main_train_policy_gradient_minimal import train_policy_gradient
 from generative_playground.codec.hypergraph_grammar import GrammarInitializer
-from generative_playground.molecules.data_utils.zinc_utils import get_zinc_smiles
+from generative_playground.molecules.data_utils.zinc_utils import get_smiles_from_database
 
 
 def reward_length(smiles):

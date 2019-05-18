@@ -5,7 +5,7 @@ import torch
 import os
 from unittest import TestCase
 from generative_playground.codec.hypergraph_grammar import evaluate_rules, HypergraphGrammar, HypergraphMaskGenerator
-from generative_playground.molecules.data_utils.zinc_utils import get_zinc_smiles
+from generative_playground.molecules.data_utils.zinc_utils import get_smiles_from_database
 from generative_playground.codec.codec import get_codec
 from generative_playground.models.decoder.policy import SoftmaxRandomSamplePolicy
 from generative_playground.utils.gpu_utils import device
@@ -20,7 +20,7 @@ class TestStart(TestCase):
         g = HypergraphGrammar(cache_file=grammar_cache)
         if os.path.isfile(g.cache_file):
             os.remove(g.cache_file)
-        g.strings_to_actions(get_zinc_smiles(5))
+        g.strings_to_actions(get_smiles_from_database(5))
         mask_gen1 = get_codec(molecules, grammar, 30).mask_gen
         mask_gen2 = get_codec(molecules, grammar, 30).mask_gen
         mask_gen1.priors = False

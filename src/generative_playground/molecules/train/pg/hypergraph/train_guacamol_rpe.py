@@ -18,7 +18,7 @@ from generative_playground.molecules.model_settings import get_settings
 from generative_playground.molecules.train.pg.hypergraph.main_train_policy_gradient_minimal import train_policy_gradient
 from generative_playground.codec.hypergraph_grammar import GrammarInitializer
 from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring_functions, version_name_list
-from generative_playground.molecules.data_utils.zinc_utils import get_zinc_smiles
+from generative_playground.molecules.data_utils.zinc_utils import get_smiles_from_database
 
 batch_size = 20 # 20
 drop_rate = 0.5
@@ -64,7 +64,7 @@ model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        preload_file_root_name=root_name,
                                                        smiles_save_file=None,  # 'pg_smiles_hg1.h5',
                                                        on_policy_loss_type='advantage_record',
-                                                       temperature_schedule=lambda x: 100.0)
+                                                       node_temperature_schedule=lambda x: 100.0)
 # preload_file='policy_gradient_run.h5')
 #
 while True:

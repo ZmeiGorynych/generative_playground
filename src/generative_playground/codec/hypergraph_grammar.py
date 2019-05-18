@@ -5,7 +5,7 @@ from generative_playground.codec.hypergraph import (
     HyperGraph, HypergraphTree, replace_nonterminal, to_mol, MolToSmiles, MolFromSmiles, hypergraphs_are_equivalent,
     put_parent_node_first)
 from generative_playground.codec.hypergraph_parser import hypergraph_parser, tree_with_rule_inds_to_list_of_tuples
-from generative_playground.molecules.data_utils.zinc_utils import get_zinc_smiles
+from generative_playground.molecules.data_utils.zinc_utils import get_smiles_from_database
 import pickle
 import os, copy
 import numpy as np
@@ -539,7 +539,7 @@ class GrammarInitializer:
         self.grammar.delete_cache()
 
     def init_grammar(self, max_num_mols):
-        L = get_zinc_smiles(max_num_mols)
+        L = get_smiles_from_database(max_num_mols)
         for ind, smiles in enumerate(L):
             if ind >= max_num_mols:
                 break

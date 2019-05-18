@@ -55,10 +55,10 @@ model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        plot_prefix='',
                                                        dashboard= root_name,  # 'policy gradient',
                                                        save_file_root_name=root_name,
-                                                       preload_file_root_name=None,#'guacamol_ar_emb_node_rpev2_0lr2e-5',#'guacamol_ar_nodev2_0lr2e-5',#root_name,
+                                                       preload_file_root_name=None,  #'guacamol_ar_emb_node_rpev2_0lr2e-5',#'guacamol_ar_nodev2_0lr2e-5',#root_name,
                                                        smiles_save_file=None,  # 'pg_smiles_hg1.h5',
                                                        on_policy_loss_type='advantage_record',
-                                                       temperature_schedule=lambda x: 100,
+                                                       node_temperature_schedule=lambda x: 100,
                                                        eps=.1)
 # preload_file='policy_gradient_run.h5')
 
