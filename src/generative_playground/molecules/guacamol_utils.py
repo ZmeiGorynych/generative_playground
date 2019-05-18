@@ -1,9 +1,13 @@
 from guacamol.benchmark_suites import goal_directed_benchmark_suite
 from guacamol.distribution_matching_generator import DistributionMatchingGenerator
 from guacamol.goal_directed_generator import GoalDirectedGenerator
+import gzip, pickle
 from guacamol.assess_distribution_learning import assess_distribution_learning
+from guacamol.assess_goal_directed_generation import assess_goal_directed_generation
 from abc import ABCMeta, abstractmethod
 from typing import List, Optional
+import numpy as np
+import os, inspect
 
 from guacamol.scoring_function import ScoringFunction
 
@@ -26,16 +30,23 @@ def guacamol_goal_scoring_functions(version_name):
     out = [GuacamolGoalWrapper(b) for b in benchmarks]
     return out
 
-class MyDistributionMatchingGenerator(DistributionMatchingGenerator):
-    def __init__(self, chembl_training_file: str):
+class DummyMoleculeGenerator(DistributionMatchingGenerator):
+    def __init__(self, cache_file, maximize_reward=False):
         # self.molecules = read(chembl_training_file) # TODO: the generator is allowed to see the molecule training file, right?
-        pass
+        with gzip.open(cache_file, 'rb') as f:
+            self.data = pickle.load(f)
+            # unique_
+            # for s, r in self.data:
+            if maximize_reward:
+                self.data = sorted(list(set(self.data)), key=lambda x: x[1], reverse=True)
     def generate(self, number_samples: int): # the benchmarks use 10K samples
-        pass
+        return [x[0] for x in self.data[:number_samples]]
 
 class MyGoalDirectedGenerator(GoalDirectedGenerator):
-    def __init__(self, molecules_training_file):
-        pass
+    def __init__(self, version):
+        self.version = version
+        self.num_benchmarks = len(goal_directed_benchmark_suite(self.version))
+        self.obj_num = 0
         #TODO: want to generate the grammar from ChEMBL rather than ZINC
     def generate_optimized_molecules(self,
                                      scoring_function: ScoringFunction,
@@ -52,3 +63,13 @@ class MyGoalDirectedGenerator(GoalDirectedGenerator):
         Returns:
             A list of SMILES strings for the generated molecules.
         """
+        benchmarks = goal_directed_benchmark_suite(self.version)
+        cache_file = 'canned_' + self.version + '_' + str(self.obj_num) + 'do_0.5_lr4e-5_smiles.zip'
+        root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+        full_cache_file = os.path.realpath(root_location + '/train/pretrained/' + cache_file)
+        #TODO: put the directory for the cache file here
+        gen = DummyMoleculeGenerator(full_cache_file, maximize_reward=True)
+        self.obj_num += 1
+        if self.obj_num == self.num_benchmarks:
+            self.obj_num == 0
+        return gen.generate(number_molecules)
