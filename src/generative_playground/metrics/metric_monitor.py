@@ -109,7 +109,7 @@ class MetricPlotter:
                 else:
                     self.smooth[title] = smooth_data(self.smooth[title], metric, metric['smooth'])
 
-            self.vis.plot_metric_dict({title:value for title, value in self.smooth.items() if title in all_metrics.keys()})
+            self.vis.plot_metric_dict({title: value for title, value in self.smooth.items() if title in all_metrics.keys()})
 
             # TODO: factor this out
             if self.process_model_fun is not None:

@@ -60,24 +60,30 @@ class SoftmaxRandomSamplePolicy(SimplePolicy):
                                             dtype=self.temperature.dtype,
                                             device=self.temperature.device)
 
-    def forward(self, logits: Variable):
+    def forward(self, logits: Variable, priors=None):
         '''
 
         :param logits: Logits to generate probabilities from, batch_size x out_dim float32
         :return:
         '''
-        if random.random() > self.eps:
-            if self.temperature.dtype != logits.dtype or self.temperature.device != logits.device:
-                self.temperature = torch.tensor(self.temperature,
-                                dtype=logits.dtype,
-                                device=logits.device,
-                                requires_grad=False)
-            logits /= self.temperature
+        if random.random() < self.eps:
+            if priors is None:
+                new_logits = torch.zeros_like(logits)
+                new_logits[logits < logits.max()-1000] = -1e4
+            else:
+                new_logits = priors
         else:
-            new_logits = torch.zeros_like(logits)
-            new_logits[logits < logits.max()-1000] = -1e4
+            new_logits = logits
 
-        eff_logits = self.effective_logits(logits)
+        if self.temperature.dtype != logits.dtype or self.temperature.device != logits.device:
+            self.temperature = torch.tensor(self.temperature,
+                                            dtype=logits.dtype,
+                                            device=logits.device,
+                                            requires_grad=False)
+
+        new_logits_t = new_logits/self.temperature
+
+        eff_logits = self.effective_logits(new_logits_t)
         x = self.gumbel.sample(logits.shape).to(device=device, dtype=eff_logits.dtype) + eff_logits
         _, out = torch.max(x, -1)
         return out

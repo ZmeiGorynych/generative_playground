@@ -64,7 +64,7 @@ class GraphDecoderWithNodeSelection(Stepper):
                                         dim=0)
 
         masked_logits = next_logits_compact + logit_priors_pytorch
-        next_action = self.rule_policy(masked_logits)
+        next_action = self.rule_policy(masked_logits, logit_priors_pytorch)
         action_logp = torch.cat([F.log_softmax(masked_logits, dim=1)[a, action:(action+1)] for a, action in enumerate(next_action)], dim=0)
 
         # we only care about the logits for the logP, right?
