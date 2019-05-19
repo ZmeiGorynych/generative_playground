@@ -1,23 +1,19 @@
 \BOOKMARK [1][-]{section.1}{Introduction}{}% 1
-\BOOKMARK [1][-]{section.2}{Generating guaranteed valid SMILES strings}{}% 2
-\BOOKMARK [2][-]{subsection.2.1}{Context-free grammar}{section.2}% 3
-\BOOKMARK [2][-]{subsection.2.2}{Respecting valences}{section.2}% 4
-\BOOKMARK [3][-]{subsubsection.2.2.1}{Implicit hydrogens}{subsection.2.2}% 5
-\BOOKMARK [2][-]{subsection.2.3}{Cycles}{section.2}% 6
-\BOOKMARK [3][-]{subsubsection.2.3.1}{Numeral assignment}{subsection.2.3}% 7
-\BOOKMARK [3][-]{subsubsection.2.3.2}{Cycle size}{subsection.2.3}% 8
-\BOOKMARK [3][-]{subsubsection.2.3.3}{Cycle chaining}{subsection.2.3}% 9
-\BOOKMARK [3][-]{subsubsection.2.3.4}{Aromatic cycles}{subsection.2.3}% 10
-\BOOKMARK [2][-]{subsection.2.4}{Extraction of Hypergraph Cliques}{section.2}% 11
-\BOOKMARK [2][-]{subsection.2.5}{Rule-pair Encoding}{section.2}% 12
-\BOOKMARK [2][-]{subsection.2.6}{Making sure the expansions terminate}{section.2}% 13
-\BOOKMARK [2][-]{subsection.2.7}{Limits of context-free grammars}{section.2}% 14
-\BOOKMARK [2][-]{subsection.2.8}{Grammar conciseness and expressiveness}{section.2}% 15
-\BOOKMARK [1][-]{section.3}{Model choice}{}% 16
-\BOOKMARK [2][-]{subsection.3.1}{Reinforcement learning}{section.3}% 17
-\BOOKMARK [2][-]{subsection.3.2}{Architecture}{section.3}% 18
-\BOOKMARK [2][-]{subsection.3.3}{Training}{section.3}% 19
-\BOOKMARK [2][-]{subsection.3.4}{Optimization and the reward function}{section.3}% 20
-\BOOKMARK [1][-]{section.4}{Results}{}% 21
-\BOOKMARK [2][-]{subsection.4.1}{GuacaMol Benchmarks}{section.4}% 22
-\BOOKMARK [2][-]{subsection.4.2}{Ablation Studies}{section.4}% 23
+\BOOKMARK [1][-]{section.2}{Hypergraph grammar}{}% 2
+\BOOKMARK [2][-]{subsection.2.1}{Parsing algorithm}{section.2}% 3
+\BOOKMARK [3][-]{subsubsection.2.1.1}{Extraction of Hypergraph Cliques}{subsection.2.1}% 4
+\BOOKMARK [2][-]{subsection.2.2}{Rule-pair compression}{section.2}% 5
+\BOOKMARK [2][-]{subsection.2.3}{Using the grammar to create new molecules}{section.2}% 6
+\BOOKMARK [3][-]{subsubsection.2.3.1}{Conditional and unconditional rule frequencies}{subsection.2.3}% 7
+\BOOKMARK [3][-]{subsubsection.2.3.2}{Ensuring expansions terminate}{subsection.2.3}% 8
+\BOOKMARK [2][-]{subsection.2.4}{Grammar conciseness and expressiveness}{section.2}% 9
+\BOOKMARK [1][-]{section.3}{Model choice}{}% 10
+\BOOKMARK [2][-]{subsection.3.1}{Reinforcement learning}{section.3}% 11
+\BOOKMARK [3][-]{subsubsection.3.1.1}{Batch Advantage}{subsection.3.1}% 12
+\BOOKMARK [3][-]{subsubsection.3.1.2}{Record rewards}{subsection.3.1}% 13
+\BOOKMARK [2][-]{subsection.3.2}{Architecture}{section.3}% 14
+\BOOKMARK [2][-]{subsection.3.3}{Training}{section.3}% 15
+\BOOKMARK [2][-]{subsection.3.4}{Optimization and the reward function}{section.3}% 16
+\BOOKMARK [1][-]{section.4}{Results}{}% 17
+\BOOKMARK [2][-]{subsection.4.1}{GuacaMol Benchmarks}{section.4}% 18
+\BOOKMARK [2][-]{subsection.4.2}{Ablation Studies}{section.4}% 19

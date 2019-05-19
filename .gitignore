@@ -1,4 +1,13 @@
 *.pyc
+.idea/
 .ropeproject/
+.ipynb_checkpoints/
 .coverage
 *.log
+
+*.bbl
+*.aux
+*.blg
+*.dvi
+*.fdb_latexmk
+*.fls
