@@ -26,6 +26,7 @@
 \usepackage{amsmath}
 \usepackage{nicefrac}       % compact symbols for 1/2, etc.
 \usepackage{microtype}      % microtypography
+\usepackage[ruled, vlined]{algorithm2e}  % algorithm styling
 \usepackage[sort&compress, numbers]{natbib}
 \setcitestyle{square}
 
@@ -33,6 +34,15 @@
 \newcommand{\CITE}[1]{{\bf TODOCITE [#1]}}
 \newcommand{\TD}{\ensuremath{\text{TD}}}
 
+\newcommand{\forcond}{$i=0$ \KwTo $n$}
+\SetStartEndCondition{ }{}{}%
+\SetKwProg{Fn}{def}{\string:}{}
+\SetKwFunction{Range}{range}%%
+\SetKw{KwTo}{in}\SetKwFor{For}{for}{\string:}{}%
+\SetKwIF{If}{ElseIf}{Else}{if}{:}{elif}{else:}{}%
+\SetKwFor{While}{while}{:}{fintq}%
+\renewcommand{\forcond}{$i$ \KwTo\Range{$n$}}
+\SetKwFunction{FRecurs}{FnRecursive}%
 
 \title{Batch-Advantage Transformer with Hypergraph Optimized Grammar (BAT/HOG)}
 
@@ -73,11 +83,11 @@ A recent development which partially remedied the issue was presented by Kusner,
 
 Moving away from linear representations, Kajino \cite{kajino2018} proposed the use of a grammar defined on a hypergraph representation of molecular structure. The molecular hypergraph grammar (MHG), a special case of an hyperedge replacement grammar (HRG) \cite{drewes1997}, uses rules which can be pictured as splitting the molecular graph at non-terminal bonds, and replacing them with another subgraph, thereby constructing any desired molecular structure while guaranteeing that only chemically valid molecules are produced. In particular, this approach does not have issues of invalid atom valences or loss of stereochemistry that other approaches suffer.
 
-In this work, we make use of an optimized form of the MHG, using an approach we term {\em rule-pair encoding} (RPE) after the commonly known byte-pair encoding of Gage \cite{gage1994}. The RPE technique creates additional grammar rules from the most commonly found subsequent rule pairs in the set of molecules used to deduce the grammar. These new rules allow the model to obtain richer molecular structure, while keeping the rule sequence length reasonable and so producing molecules that would otherwise be impossible with even a generous maximum rule length. We infer our grammar from the GuacaMol \cite{pogany2019} training set of 1,273,104 SMILES strings, the resulting grammar is able to express any of these molecules, and with fewer rules than the unoptimized MHG.
+Rather than reducing all cliques as in \cite{kajino2018}, we terminate early allowing cycles of length five and greater to remain. This permits an equally expressive grammar but allows non-trivial cycle structure to be expressed with far fewer rules. This allows the model to produce novelties without straying too far from reasonable drug-like molecules but, comes at the cost of introducing more rules. We optimize the model's usage of the HOG by injecting conditional priors for rule selection. After parsing, we count all occurrences of rules conditional on the parent rule -- counting all occurrences of $(\text{parent}, \text{child})$ pairs -- and use these as priors to the rule selection with the effect of grounding the molecular structure in the region of those seen in the training set, but allowing the model to explore further substructure. We infer this grammar from the GuacaMol \cite{pogany2019} training set of 1,273,104 SMILES strings.
 % TODO explain max rule length
 % TODO prove we can do any ZINC molecule, will be nice if true, otherwise drop it
 
-The second innovation we present is the use of the Transformer architecture \cite{vaswani2017} in place of the more typically applied RNNs. Unlike a RNN, the Transformer's information distance between any two inputs is always one, giving the network full information about the sequence so far when selecting the next graph node and rule to expand. This will clearly have an impact on the memory performance of the algorithm, which grows as the square of the sequence length, and so it is beneficial that our optimized MHG, which we call the hypergraph optimized grammar (HOG), provides a concise representation of a given molecule.
+The second innovation to this problem we present is the use of the Transformer architecture \cite{vaswani2017} in place of the more typically applied RNNs. Unlike a RNN, the Transformer's information distance between any two inputs is always one, giving the network full information about the sequence so far when selecting the next graph node and rule to expand. This will clearly have an impact on the memory performance of the algorithm, which grows as the square of the sequence length, and so it is beneficial that our optimized MHG, which we call the hypergraph optimized grammar (HOG), provides a concise representation of a given molecule.
 
 Furthermore, in place of the encoder-decoder architecture used in previous work, we treat this problem with a reinforcement learning approach, using a batch-advantage modification of the policy gradient algorithm.
 
@@ -88,32 +98,27 @@ Using this approach, we obtain state-of-the-art performance on both common bench
 
 \section{Hypergraph grammar}\label{sec:grammar}
 % TODO Will need some pictures here like in Kajino, to explain how the whole thing works!
-In order to address the issue highlighted in Sec.~\ref{sec:intro} relating to SMILES string grammars, we choose to use a {\em molecular hypergraph grammar} (MHG) as derived by Kajino in \cite{kajino2018}. This works by first representing the molecular graph atoms as hyperedges and bonds as hypernodes of a molecular hypergraph. This will produce hypergraphs which are (i) 2-regular and (ii) have constrained cardinality of its hyperedges. (i) ensures that the hypergraph can be decoded back to a molecular graph and the cardinality constraint preserves the valence of each atom.
+In order to address the issue highlighted in Sec.~\ref{sec:intro} relating to SMILES string grammars, we choose to use a {\em molecular hypergraph grammar} (MHG) as derived by Kajino in \cite{kajino2018}. This works by first representing the molecular graph atoms as hyperedges and bonds as hypernodes of a molecular hypergraph. This will produce hypergraphs which are (i) 2-regular and (ii) have constrained cardinality of its hyperedges. (i) ensures that the hypergraph can be decoded back to a molecular graph and (ii) preserves the valence of each atom.
 
 The MHG is defined over these hypergraphs as a hyperedge replacement grammar (HRG) \cite{drewes1997}, a context free grammar generating a hypergraph by replacement of hyperedges with other hypergraphs. This approach has a number of desirable properties, such as preserving the number of hypernodes belonging to each hyperedge, thereby preserving an atom's valence -- satisfying (i) above. Furthermore, stereochemisty can be encoded directly into the hyperedge replacement rules. MHG is thus guaranteed to produce only chemically valid molecules, allowing our model below to focus on optimizing the target benchmarks, without wasting network capacity on learning to generate valid outputs.
 
 \subsection{Parsing algorithm}\label{sec:parsing}
 % TODO read carefully our implementation and spot differences in approach. I don't think we're following Kajino exactly
-In order to build the grammar which will be used by the RL agent outlined in \ref{sec:model}, we use the approach of \cite{kajino2018} to construct a parse tree for each molecule in a training set. By doing so for each molecule, we can identify the set of unique hyperedge replacement rules defining the grammar. Given an input molecular graph, the algorithm to deduce the MHG rules is as follows
+In order to build the grammar which will be used by the RL agent outlined in \ref{sec:model}, we use the approach of \cite{kajino2018} to construct a parse tree for each molecule in a training set. By doing so for each molecule, we can identify the set of unique hyperedge replacement rules defining the grammar. Given an input molecular graph, the algorithm to deduce the MHG rules is as follows.
 \begin{enumerate}
 	\item Find a node, $n$, at which the graph can be subdivided by cutting a single connected hyperedge 
     \item Split the graph at $n$ producing a now reduced parent graph and a new child graph containing a new non-terminal node on the cut hyperedge, which we call the {\em parent node}
     \item Iterate steps above until the parent graph can no longer be subdivided in this manner
     \item Apply all of the above recursively to the new child graphs
 \end{enumerate}
-After this, we have a parse tree where the original graph can be reconstructed by replacing parent graphs with children at their respective parent nodes. A tree constructed in this manner will contain only graphs containing a single hyperedge or graphs composed of cycles.
+After this, we have a parse tree where the original graph can be reconstructed by replacing the correct node in the parent graphs with children at their corresponding parent nodes. A tree constructed in this manner will contain only graphs containing a single hyperedge or graphs composed of cycles.
 
 % TODO Atom abstraction and bond information encoding
 
 \subsubsection{Extraction of Hypergraph Cliques}\label{sec:cliques}
-Though the above procedure will produce a MHG able to represent any molecule, it is not the most efficient representation given the combinatorial complexity in the construction of molecular graph cycles leading to an unnecessarily large set of rules. We now continue to reduce the cycle containing graphs by indentifying any cliques of the remaining graph of length greater than or equal to three, but do not contain the parent node. This is achieved by replacing the entire clique with a new non-terminal graph node in the parent. The child consists of the clique and all edges exiting the clique connected to the new non-terminal parent node.
+Though the above procedure will produce a MHG able to represent any molecule, it is not the most efficient representation given the combinatorial complexity in the construction of molecular graph cycles leading to an unnecessarily large set of rules. We now continue to reduce the cycle containing graphs by indentifying any cliques of the remaining graph of length greater than or equal to three, but which do not contain the parent node. This is achieved by replacing the entire clique with a new non-terminal graph node in the parent. The child consists of the clique and all edges exiting the clique connected to the new non-terminal parent node.
 
-After removing all such cliques, we continue to remove 2-cliques from any remaining cycles of length greater than five. This greatly reduces the complexity of remaining cycles, and so the number of resultant rules, but discourages the production of triangles and boxes which are undesirable in output molecules from the model.
-
-\subsection{Rule-pair compression}\label{sec:rpe}
-Later we shall see that a key constraint in the ability of the model to produce interesting new molecules is the length of the representation of such a molecule in terms of the MHG rules. In order to ensure that the generated molecules terminate in reasonable time, we must constrain the length of allowed rule sequences generated by the model. In order to assist the model in producing more interesting results, we apply an approach we call {\em rule-pair encoding} (RPE) after Gage's commonly known byte-pair encoding \cite{gage1994}.
-
-After having produced parse trees from the grammar inference data set, as described in \ref{sec:parsing} and \ref{sec:cliques}, we pass through the trees counting occurences of each (parent graph, child graph) pair. Selecting the most common rule pair, we apply expand the parent graph by applying the child producing a new expanded rule which is added to the grammar. The grandchild graphs (children of the old child graph) are then appended to the old parent graph's children to produce the new children of this rule in the parse trees. This entire procedure can then be iterated to extract as many new rules as desired, including occurrences of the new RPE rules. With this new RPE enhanced grammar, the model is capable of producing rich molecular structure, but without resulting in unreasonably long sequences of rules.
+After removing all such cliques, we continue to remove 2-cliques from any remaining cycles of length greater than five. This greatly reduces the complexity of remaining cycles, and so the number of resultant rules, but discourages the production of triangles and boxes which are undesirable in output molecules from the model. The resulting grammar we call the hypergraph optimized grammar (HOG).
 
 \subsection{Using the grammar to create new molecules}\label{sec:grammar_usage}
 After following the procedures outlined above, we can collect all unique graphs, taking into account also the position of the parent node. This set of unique graphs are the rules of our MHG. In the sense of a CFG, a rule maps a non-terminal node to a hypergraph containing further terminal and non-terminal nodes. To generate a new molecule we first select a rule which by definition will contain one or more non-terminal nodes. Next, for each non-terminal node in this first graph, we select a rule whose parent node will expand the non-terminal in the parent rule. We recursively apply the same procedure now over the selected child rules until all non-terminals are replaced with terminals. This is guaranteed to produce a valid molecular hypergraph.
@@ -138,7 +143,7 @@ We calculate this distance for each hypergraph in our set of grammar rules by me
             where $\TD_n, \TD_r$ are the node and rule terminal distances respectively. If the child rule, $c$, is terminal it is assigned terminal distance $\TD_r(c) = 0$.
 	\end{enumerate}
 \end{enumerate}
-We repeat step 3.~until convergence, that is until the computed terminal distances do not change between iterations.
+We repeat step 3.~until convergence, that is until the computed terminal distances do not change between iterations. This is most efficiently implemented as a dynamic programming problem since there are many overlapping sub-problems.
 
 Finally, we define the terminal distance of a rule hypergraph as the sum of terminal distances of the child nodes,
 \begin{equation}
@@ -148,7 +153,6 @@ Finally, we define the terminal distance of a rule hypergraph as the sum of term
 We use the terminal distance concept to make sure the rule expansion terminates before the maximum number of steps, in the following manner: at each step, we consider the number $s$ of steps left and the terminal distance, $\text{td}$, of the sequence generated so far. 
 
 At each step, we make sure $\text{td}\le s$, using induction. First, we choose the maximum rule sequence length to be larger than the terminal distance of the root graph. Second, at each rule selection step we consider all child rules, $r$, who can expand the next nonterminal in the graph, and only allow those where $\Delta \TD_r(r) + \text{td} \le s-1$. This must be a nonempty set because $\Delta \TD_r(r') = -1$ for at least one applicable rule $r'$. Thus, by the time we run out of steps, that is, $s=0$, we know $\text{td}=0$, that is our token sequence consists only of nonterminals. 
-
 
 \subsection{Grammar conciseness and expressiveness}\label{sec:expressiveness}
 
