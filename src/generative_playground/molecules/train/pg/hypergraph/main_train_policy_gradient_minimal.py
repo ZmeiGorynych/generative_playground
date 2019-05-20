@@ -5,6 +5,7 @@ from torch.optim import lr_scheduler
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
+import math
 import numpy as np
 from torch.utils.data import DataLoader
 from generative_playground.molecules.molecule_saver_callback import MoleculeSaver
@@ -56,7 +57,8 @@ def train_policy_gradient(molecules=True,
                           priors=True,
                           node_temperature_schedule=lambda x: 1.0,
                           eps=0.0,
-                          half_float=False):
+                          half_float=False,
+                          extra_repetition_penalty=0.0):
     root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     root_location = root_location + '/../../'
 
@@ -118,15 +120,29 @@ def train_policy_gradient(molecules=True,
             discrim_model.train()
         return prob_zinc
 
+
+    def apply_originality_penalty(x, orig_mult):
+        assert x <= 1, "Reward must be no greater than 0"
+        if x > 0.5: # want to punish nearly-perfect scores less and less
+            out = math.pow(x, 1/orig_mult)
+        else: # continuous join at 0.5
+            penalty = math.pow(0.5, 1/orig_mult) - 0.5
+            out = x + penalty
+
+        out -= extra_repetition_penalty*(1-1/orig_mult)
+        return out
+
+
     def adj_reward(x):
         if discrim_wt > 1e-5:
             p = discriminator_reward_mult(x)
         else:
             p = 0
-        rwd = 0.1 + 0.9*np.array(reward_fun_on(x))
+        rwd = np.array(reward_fun_on(x))
         orig_mult = originality_mult(x)
         # we assume the reward is <=1, first term will dominate for reward <0, second for 0 < reward < 1
-        reward = np.minimum(rwd/orig_mult, np.power(np.abs(rwd),1/orig_mult))
+        # reward = np.minimum(rwd/orig_mult, np.power(np.abs(rwd),1/orig_mult))
+        reward = np.array([apply_originality_penalty(x, om) for x, om in zip(rwd, orig_mult)])
         out = reward + discrim_wt*p*orig_mult
         return out
 

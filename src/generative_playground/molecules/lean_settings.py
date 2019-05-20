@@ -5,6 +5,7 @@ molecules_root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspec
 
 
 def get_data_location(molecules=True, source='ZINC'):
+    assert molecules in [True, False], 'molecules argument must be either true or false'
     if molecules:
         if source == 'ZINC':
             return {'source_data': molecules_root_location + 'data/250k_rndm_zinc_drugs_clean.smi'}

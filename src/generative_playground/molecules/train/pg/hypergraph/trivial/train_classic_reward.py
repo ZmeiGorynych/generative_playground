@@ -19,7 +19,7 @@ from generative_playground.codec.hypergraph_grammar import GrammarInitializer
 
 
 
-batch_size = 30 # 20
+batch_size = 15 # 20
 drop_rate = 0.5
 molecules = True
 grammar_cache = 'hyper_grammar_guac_10k_with_clique_collapse.pickle'#'hyper_grammar.pickle'
@@ -42,7 +42,7 @@ model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        max_steps=max_steps,
                                                        lr_on=3e-5,
                                                        lr_discrim=5e-4,
-                                                       discrim_wt=0.1,
+                                                       discrim_wt=0.3,
                                                        p_thresh=-10,
                                                        drop_rate=drop_rate,
                                                        reward_sm=0.5,
@@ -52,7 +52,7 @@ model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        save_file_root_name=root_name,
                                                        smiles_save_file=root_name + '_smiles',
                                                        on_policy_loss_type='advantage_record',
-                                                       half_float=True)
+                                                       half_float=False)
 # preload_file='policy_gradient_run.h5')
 
 while True:
