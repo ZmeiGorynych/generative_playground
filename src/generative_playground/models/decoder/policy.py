@@ -81,7 +81,12 @@ class SoftmaxRandomSamplePolicy(SimplePolicy):
                                             device=logits.device,
                                             requires_grad=False)
 
-        new_logits_t = new_logits/self.temperature
+
+        # temperature is applied to model only, not priors!
+        if priors is None:
+            new_logits_t = new_logits/self.temperature
+        else:
+            new_logits_t = ((new_logits-priors) / self.temperature) + priors
 
         eff_logits = self.effective_logits(new_logits_t)
         x = self.gumbel.sample(logits.shape).to(device=device, dtype=eff_logits.dtype) + eff_logits

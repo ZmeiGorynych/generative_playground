@@ -38,7 +38,10 @@ def guacamol_goal_scoring_functions(version_name):
     return out
 
 class DummyMoleculeGenerator(DistributionMatchingGenerator):
-    def __init__(self, cache_files, maximize_reward=False):
+    def __init__(self, cache_files,
+                 maximize_reward=False,
+                 keep_last=None,
+                 make_unique=False):
         '''
 
         :param cache_files: a filename or list of filenames, that must live in the pretrained directory
@@ -51,7 +54,7 @@ class DummyMoleculeGenerator(DistributionMatchingGenerator):
             cache_files = [cache_files]
 
 
-        self.data = {}
+        pre_data = []
         for cache_file in cache_files:
             if not os.path.isfile(cache_file):
                 full_cache_file = full_cache_path(cache_file)
@@ -60,16 +63,25 @@ class DummyMoleculeGenerator(DistributionMatchingGenerator):
             print(full_cache_file)
             with gzip.open(full_cache_file, 'rb') as f:
                 this_data = pickle.load(f)
-                for s, r in this_data:
-                    if s not in self.data.keys():
-                        self.data[s] = r
-                    else:
-                        self.data[s] = max(r, self.data[s])
+                pre_data += this_data
 
-        self.data = list(self.data.items())
+        if keep_last is not None:
+            pre_data = pre_data[-int(keep_last):]
+
+        if make_unique:
+            tmp_dict = {}
+            for s, r in pre_data:
+                if s not in tmp_dict.keys():
+                    tmp_dict[s] = r
+                else:
+                    tmp_dict = max(r, tmp_dict[s])
+
+            pre_data = list(tmp_dict.items())
+
         if maximize_reward:
-            self.data = sorted(self.data, key=lambda x: x[1], reverse=True)
+            pre_data = sorted(pre_data, key=lambda x: x[1], reverse=True)
 
+        self.data = pre_data
 
     def generate(self, number_samples: int): # the benchmarks use 10K samples
         if self.maximize_reward:

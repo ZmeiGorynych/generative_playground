@@ -56,6 +56,7 @@ def train_policy_gradient(molecules=True,
                           on_policy_loss_type='best',
                           priors=True,
                           node_temperature_schedule=lambda x: 1.0,
+                          rule_temperature_schedule=lambda x: 1.0,
                           eps=0.0,
                           half_float=False,
                           extra_repetition_penalty=0.0):
@@ -170,6 +171,7 @@ def train_policy_gradient(molecules=True,
                                   save_dataset=None)
 
     node_policy = SoftmaxRandomSamplePolicy(temperature=torch.tensor(1.0), eps=eps)
+    rule_policy = SoftmaxRandomSamplePolicy(temperature=torch.tensor(1.0), eps=eps)
 
     model = get_decoder(molecules,
                         grammar,
@@ -183,6 +185,7 @@ def train_policy_gradient(molecules=True,
                         reward_fun=adj_reward,
                         task=task,
                         node_policy=node_policy,
+                        rule_policy=rule_policy,
                         priors=priors)[0]
 
     if preload_file_root_name is not None:
@@ -335,6 +338,9 @@ def train_policy_gradient(molecules=True,
 
     if node_temperature_schedule is not None:
         gen_extra_callbacks.append(TemperatureCallback(node_policy, node_temperature_schedule))
+
+    if rule_temperature_schedule is not None:
+        gen_extra_callbacks.append(TemperatureCallback(rule_policy, rule_temperature_schedule))
 
     fitter1 = get_rl_fitter(model,
                             PolicyGradientLoss(on_policy_loss_type),# last_reward_wgt=reward_sm),
