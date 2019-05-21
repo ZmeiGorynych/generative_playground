@@ -13,7 +13,7 @@ TESTS = $(addprefix make/, $(OBJECTS_TEST) $(STYLES_TEST) $(BIB_TEST))
 TEMP2 := $(shell mkdir make 2>/dev/null)
 
 .PHONY: all
-all: all
+all:
 	pdflatex $(MAINFILE)
 	bibtex $(MAINFILE)
 	pdflatex $(MAINFILE)

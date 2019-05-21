@@ -26,6 +26,9 @@
 \usepackage{amsmath}
 \usepackage{nicefrac}       % compact symbols for 1/2, etc.
 \usepackage{microtype}      % microtypography
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
 \usepackage[ruled, vlined]{algorithm2e}  % algorithm styling
 \usepackage[sort&compress, numbers]{natbib}
 \setcitestyle{square}
@@ -84,13 +87,13 @@ A recent development which partially remedied the issue was presented by Kusner,
 
 Moving away from linear representations, Kajino \cite{kajino2018} proposed the use of a grammar defined on a hypergraph representation of molecular structure. The molecular hypergraph grammar (MHG), a special case of an hyperedge replacement grammar (HRG) \cite{drewes1997}, uses rules which can be pictured as splitting the molecular graph at non-terminal bonds, and replacing them with another subgraph, thereby constructing any desired molecular structure while guaranteeing that only chemically valid molecules are produced. In particular, this approach does not have issues of invalid atom valences or loss of stereochemistry that other approaches suffer.
 
-Rather than reducing all cliques as in \cite{kajino2018}, we terminate early allowing cycles of length five and greater to remain. This permits an equally expressive grammar but allows non-trivial cycle structure to be expressed with far fewer rules. This allows the model to produce novelties without straying too far from reasonable drug-like molecules but, comes at the cost of introducing more rules. We optimize the model's usage of the HOG by injecting conditional priors for rule selection. After parsing, we count all occurrences of rules conditional on the parent rule -- counting all occurrences of $(\text{parent}, \text{child})$ pairs -- and use these as priors to the rule selection with the effect of grounding the molecular structure in the region of those seen in the training set, but allowing the model to explore further substructure. We infer this grammar from the GuacaMol \cite{pogany2019} training set of 1,273,104 SMILES strings.
+Rather than reducing all cliques as in \cite{kajino2018}, we terminate early allowing cycles of length five and greater to remain. This permits an equally expressive grammar but allows non-trivial cycle structure to be expressed with far fewer rules, resulting in a grammar we call the hypergraph-optimized grammar (HOG). This allows the model to produce novelties without straying too far from reasonable drug-like molecules but, comes at the cost of introducing more rules. We optimize the model's usage of the HOG by injecting conditional priors for rule selection. After parsing, we count all occurrences of rules conditional on the parent rule -- counting all occurrences of $(\text{parent}, \text{child})$ pairs -- and use these as priors to the rule selection with the effect of grounding the molecular structure in the region of those seen in the training set, but allowing the model to explore further substructure. We infer this grammar from the GuacaMol \cite{pogany2019} training set of 1,273,104 SMILES strings.
 % TODO explain max rule length
 % TODO prove we can do any ZINC molecule, will be nice if true, otherwise drop it
 
-The second innovation we present, first adapted to this problem in \cite{kraev2018}, is the use of the Transformer architecture \cite{vaswani2017} in place of the more typically applied RNNs \cite{yang2017, olivecrona2017} or, recently, a graph convolutional network \cite{you2018}.\footnote{You, et.~al.~\cite{you2018} also adopt a reinforcement learning approach with policy gradient optimization, but do not use an explicitly grammar based construction mechanism} Unlike an RNN or CGN, the Transformer's information distance between any two inputs is always one, giving the network full information about the sequence so far when selecting the next graph node and rule to expand. This will clearly have an impact on the memory performance of the algorithm, which grows as the square of the sequence length, and so it is beneficial that our optimized MHG, which we call the hypergraph optimized grammar (HOG), provides a concise representation of a given molecule.
+The second innovation we present, first adapted to this problem in \cite{kraev2018}, is the use of the Transformer architecture \cite{vaswani2017} in place of the more typically applied RNNs \cite{yang2017, olivecrona2017} or, recently, a graph convolutional network \cite{you2018}.\footnote{You, et.~al.~\cite{you2018} also adopt a reinforcement learning approach with policy gradient optimization, but do not use an explicitly grammar based construction mechanism} Unlike an RNN or CGN, the Transformer's information distance between any two inputs is always one, giving the network full information about the sequence so far when selecting the next graph node and rule to expand. This will clearly have an impact on the memory performance of the algorithm, which grows as the square of the sequence length, and so it is beneficial that the HOG optimized MHG provides a concise representation of a given molecule.
 
-Furthermore, in place of the encoder-decoder architecture used in previous work \cite{dai2018, jin2018, simonovsky2018, kusner2017, gomezbombarelli2016}, we treat this problem with a reinforcement learning approach (see \cite{popova2018} \CITE{other RL papers} for other RL based approaches) with policies selecting directly the next graph node to expand and the next grammar rule to use. This means that we do not have to learn a latent space representation of the molecules. We train these policies using a batch-advantage modification of the policy gradient algorithm.
+Furthermore, in place of the encoder-decoder architecture used in previous work \cite{dai2018, jin2018, simonovsky2018, kusner2017, gomezbombarelli2016}, we treat this problem with a reinforcement learning approach (see \cite{popova2018} \CITE{other RL papers} for other RL based approaches) with policies selecting directly the next grammar rule and onto which hypergraph node it should be applied. This means that we do not have to learn a latent space representation of the molecules. We train these policies using a batch-advantage modification of the policy gradient algorithm.
 
 Using this approach, we obtain state-of-the-art performance on both common benchmarks from the literature, such as penalized logP and QED, and on more advanced GuacaMol v2 goal-oriented benchmarks. Coupled with a Transformer based discriminator \footnote{see \cite{guimaraes2017, sanchezlengeling2017, putin2018} for applications of discrimator based method, though with a sequential SMILES molecular representation}, the model achieves competitive results on the GuacaMol distribution benchmarks with stable training over a range of hyperparameter values. This is accomplished with only hundreds of steps (without pre-training) on a budget GPU instance.
 
@@ -111,15 +114,47 @@ In order to build the grammar which will be used by the RL agent outlined in \re
 \end{enumerate}
 After this, we have a parse tree where the original graph can be reconstructed by replacing the correct node in the parent graphs with children at their corresponding parent nodes. A tree constructed in this manner will contain only graphs containing a single hyperedge or graphs composed of cycles.
 
+\begin{figure}
+    \centering
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[scale=0.25]{images/mols_rule_before_cut.pdf}
+        \caption{Molecular hypergraph before cutting.}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[scale=0.25]{images/mols_rule_after_cut.pdf}
+        \caption{Parent and child sections of parse tree after cutting.}
+    \end{subfigure}
+    \caption{Molecular hypergraph parse tree creation step. Black node indicates the parent node that is merged into the green parent node when the child rule is applied.}
+\end{figure}
+
 % TODO Atom abstraction and bond information encoding
 
 \subsubsection{Extraction of Hypergraph Cliques}\label{sec:cliques}
 Though the above procedure will produce a MHG able to represent any molecule, it is not the most efficient representation given the combinatorial complexity in the construction of molecular graph cycles leading to an unnecessarily large set of rules. We now continue to reduce the cycle containing graphs by indentifying any cliques of the remaining graph of length greater than or equal to three, but which do not contain the parent node. This is achieved by replacing the entire clique with a new non-terminal graph node in the parent. The child consists of the clique and all edges exiting the clique connected to the new non-terminal parent node.
 
-After removing all such cliques, we continue to remove 2-cliques from any remaining cycles of length greater than five. This greatly reduces the complexity of remaining cycles, and so the number of resultant rules, but discourages the production of triangles and boxes which are undesirable in output molecules from the model. The resulting grammar we call the hypergraph optimized grammar (HOG).
+After removing all such cliques, we continue to remove 2-cliques from any remaining cycles of length greater than five. This greatly reduces the complexity of remaining cycles, and so the number of resultant rules, but discourages the production of triangles and boxes which are undesirable in output molecules from the model.
+
+\begin{figure}
+    \centering
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[scale=0.25]{images/mols_clique_connected.pdf}
+        \caption{Molecular hypergraph before removal of the 3-clique.}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[scale=0.25]{images/mols_clique_collapsed.pdf}
+        \caption{Parent and child sections of parse tree after removing the 3-clique.}
+    \end{subfigure}
+    \caption{Molecular hypergraph clique extraction step. Black node indicates the parent node that is merged into the green parent node when the child rule is applied.}
+\end{figure}
 
 \subsection{Using the grammar to create new molecules}\label{sec:grammar_usage}
-After following the procedures outlined above, we can collect all unique graphs, taking into account also the position of the parent node. This set of unique graphs are the rules of our MHG. In the sense of a CFG, a rule maps a non-terminal node to a hypergraph containing further terminal and non-terminal nodes. To generate a new molecule we first select a rule which by definition will contain one or more non-terminal nodes. Next, for each non-terminal node in this first graph, we select a rule whose parent node will expand the non-terminal in the parent rule. We recursively apply the same procedure now over the selected child rules until all non-terminals are replaced with terminals. This is guaranteed to produce a valid molecular hypergraph.
+After following the procedures outlined above, we can collect all unique graphs, taking into account also the position of the parent node. This set of unique graphs are the rules of the HOG. In the sense of a CFG, a rule maps a non-terminal node to a hypergraph containing further terminal and non-terminal nodes. To generate a new molecule we first select a rule which by definition will contain one or more non-terminal nodes. Next, for each non-terminal node in this first graph, we select a rule whose parent node will expand the non-terminal in the parent rule. We recursively apply the same procedure now over the selected child rules until all non-terminals are replaced with terminals. This is guaranteed to produce a valid molecular hypergraph.
 
 \subsubsection{Conditional and unconditional rule frequencies}\label{sec:freq}
 To assist the model in selecting these rules, we collect the unconditional and conditional rule frequencies as they appear in the inference data set after having inferred the final set of grammar rules. Unconditional frequencies are simply the total count of appearances of each unique rule in the inference set parse trees, whereas conditional frequencies count the occurrence of each rule conditional on the given parent it will expand in the parse tree. These are used as priors for rule selection by the model before learning.
@@ -153,7 +188,7 @@ We use the terminal distance concept to make sure the rule expansion terminates 
 At each step, we make sure $\text{td}\le s$, using induction. First, we choose the maximum rule sequence length to be larger than the terminal distance of the root graph. Second, at each rule selection step we consider all child rules, $r$, who can expand the next nonterminal in the graph, and only allow those where $\Delta \TD_r(r) + \text{td} \le s-1$. This must be a nonempty set because $\Delta \TD_r(r') = -1$ for at least one applicable rule $r'$. Thus, by the time we run out of steps, that is, $s=0$, we know $\text{td}=0$, that is our token sequence consists only of nonterminals. 
 
 \subsection{Grammar conciseness and expressiveness}\label{sec:expressiveness}
-When constructing a grammar, there is a tradeoff between 
+When constructing a grammar, there is a trade-off between the number of rules taken to express a given molecule and the total number of unique rules in the grammar. This tension is caused by the complexity of the individual rules. If we allow far more complex substructures to remain in the final rule-set then molecules containing such substructure are able to be expressed succinctly. However, given that these substructures can be arbitrarily complex we can swiftly see an explosion of the number of rules remaining in the grammar. 
 
 
 \section{Model choice}\label{sec:model}
@@ -163,7 +198,7 @@ In a model that generates a discrete object via a series of decisions, we need t
 We choose a simple encoding of three concatenated parts, with a sequence of length equaling the number of nodes in the graph. That embedding is composed of the concatenation of the connectivity matrix of the graph (with values 0, 1, 2, etc.~denoting no connection, single bond, double bond, etc.~), the identity matrix (so that the vector knows which node it refers to, as the ordering of the sequence itself is arbitrary), and a one-hot encoding of any data on each node, such as atomic number and chirality. This is then linearly transformed to the dimension of the downstream model.
 
 \subsubsection{Network architecture}
-We choose the Transformer architecture \cite{vaswani2017} rather than the more often used RNNs, because the nodes in the graph are not naturally ordered, and as we don't add the sinusoidal position encoding from the original Transformer model to the inputs, the outputs are invariant to the ordering of the input sequence. The Transformer was used for graph inputs by \CITE{???}, but never to our knowledge in the context of molecular optimization. To assess the usefulness of this approach, we provide ablation tests using an RNN architecture. We use model dimension 512, 6 heads, head size 64, and 5 layers. 
+We choose the Transformer architecture \cite{vaswani2017} rather than the more often used RNNs, because the nodes in the graph are not naturally ordered, and as we don't add the sinusoidal position encoding from the original Transformer model to the inputs, the outputs are invariant to the ordering of the input sequence. The Transformer was used for graph inputs by \cite{kondratyuk2019}, \TODO{WERE YOU THINKING OF THIS? They use a transformer based model for graph-based NLP parsing} but never to our knowledge in the context of molecular optimization. To assess the usefulness of this approach, we provide ablation tests using an RNN architecture. We use model dimension 512, 6 heads, head size 64, and 5 layers. 
 
 \subsubsection{Policy network and Discriminator}
 We implement both a policy model and for some runs a discriminator model using the above architecture. The policy model has two heads, one that supplies the logits for choosing the next nonterminal node to expand, and one that supplies the logits for the next rule to use on that node.
@@ -175,6 +210,7 @@ Most of the literature on molecular optimization either trains a VAE and then op
 
 \subsubsection{Non-originality penalty}
 To avoid the optimization getting stuck in a local minimum, we penalize repeated occurrences of a molecule. Denoting the batch size used for generator training as $b$, we keep buffers of $b$, $10\cdot b$, and $100\cdot b$ last unique molecules, and decrease the rewards of new molecules if these are found in the training dataset or one of these buffers, with the exact formulation found in Appendix \ref{TODO!!!}
+
 \subsubsection{Batch Advantage}
 We extend the approach of \cite{segler2017} by introducing the concept of batch advantage, defined as the reward for a particular molecule in the batch minus the average reward for the batch. This can be regarded as a special case of the advantage concept \cite{baird1994} \TODO{CHECK THIS REFERENCE - WASN'T CLEAR WHERE ADVANTAGE COMES FROM. Probably also want to add more recent developments like the async learning paper} being applied to the molecular optimization, regarding the whole sequence of decisions going into a particular molecule as one `action'. The batch reward average can then be regarded as an estimate of the state value of the initial state, and the rewards for the batch members as their exact action values. To keep the learning rate uniform, we normalize these advantage values so that the sum of their absolute values equals 1, and use them as weights for the log likelihood of the respective molecule.
 
