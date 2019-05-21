@@ -103,11 +103,7 @@ class HypergraphGrammar(GenericCodec):
         for smile in smiles:
             mol = MolFromSmiles(smile)
             assert mol is not None, "SMILES String could not be parsed: " + smile
-            try:
-                tree = hypergraph_parser(mol)
-            except Exception as e:
-                print(str(e))
-                continue
+            tree = hypergraph_parser(mol)
             yield self.normalize_tree(tree)
 
     def raw_strings_to_actions(self, smiles):
@@ -541,36 +537,36 @@ class GrammarInitializer:
     def init_grammar(self, max_num_mols):
         L = get_smiles_from_database(max_num_mols)
         for ind, smiles in enumerate(L):
-            if ind >= max_num_mols:
+            if max_num_mols and ind >= max_num_mols:
                 break
             if ind > self.last_processed: # don't repeat
-                try:
-                    # this causes g to remember all the rules occurring in these molecules
-                    these_actions = self.grammar.raw_strings_to_actions([smiles])
-                    this_tree = self.grammar.last_tree_processed
-                    these_tuples = tree_with_rule_inds_to_list_of_tuples(this_tree)
-                    for p, nt, c in these_tuples:
-                        if (p,nt) not in self.grammar.conditional_frequencies:
-                            self.grammar.conditional_frequencies[(p, nt)] = {}
-                        if c not in self.grammar.conditional_frequencies[(p, nt)]:
-                            self.grammar.conditional_frequencies[(p, nt)][c] = 1
-                        else:
-                            self.grammar.conditional_frequencies[(p, nt)][c] += 1
-                    # count the frequency of the occurring rules
-                    for aa in these_actions:
-                        for a in aa:
-                            if a not in self.grammar.rule_frequency_dict:
-                                self.grammar.rule_frequency_dict[a] = 0
-                            self.grammar.rule_frequency_dict[a] += 1
+                # this causes g to remember all the rules occurring in these molecules
+                these_actions = self.grammar.raw_strings_to_actions([smiles])
+                this_tree = self.grammar.last_tree_processed
+                these_tuples = tree_with_rule_inds_to_list_of_tuples(this_tree)
+                for p, nt, c in these_tuples:
+                    if (p,nt) not in self.grammar.conditional_frequencies:
+                        self.grammar.conditional_frequencies[(p, nt)] = {}
+                    if c not in self.grammar.conditional_frequencies[(p, nt)]:
+                        self.grammar.conditional_frequencies[(p, nt)][c] = 1
+                    else:
+                        self.grammar.conditional_frequencies[(p, nt)][c] += 1
+                # count the frequency of the occurring rules
+                for aa in these_actions:
+                    for a in aa:
+                        if a not in self.grammar.rule_frequency_dict:
+                            self.grammar.rule_frequency_dict[a] = 0
+                        self.grammar.rule_frequency_dict[a] += 1
 
-                    lengths = [len(x) for x in these_actions]
-                    new_max_len = max(lengths)
-                    self.total_len += sum(lengths)
-                    if new_max_len > self.max_len:
-                        self.max_len = new_max_len
-                        print("Max len so far:", self.max_len)
-                except Exception as e: #TODO: fix this, make errors not happen ;)
-                    print(e)
+                lengths = [len(x) for x in these_actions]
+                if not lengths:
+                    import ipdb; ipdb.set_trace()  # XXX BREAKPOINT
+
+                new_max_len = max(lengths)
+                self.total_len += sum(lengths)
+                if new_max_len > self.max_len:
+                    self.max_len = new_max_len
+                    print("Max len so far:", self.max_len)
                 self.last_processed = ind
                 # if we discovered a new rule, remember that
                 if not len(self.new_rules) or self.grammar.rate_tracker[-1][-1] > self.new_rules[-1][-1]:

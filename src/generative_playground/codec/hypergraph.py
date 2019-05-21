@@ -297,8 +297,6 @@ class HyperGraph:
 
         return self
 
-
-
     @classmethod
     def from_tree_node(Class, mol, tree_node):
         '''

@@ -12,10 +12,14 @@ from rdkit.Chem import MolFromSmiles, AddHs, MolToSmiles, RemoveHs, Kekulize, Bo
 smiles = get_smiles_from_database(10)
 smiles1 = smiles[0]
 bad_smiles = [
-    'C1(CCCCC1)(C)C(=O)N',
-    'C1(CCCCC1)(C)C',
-    'C12=CC=CC=C1C=C3[N]2CC(NC3)(C)C',
-    'CC(=O)Nc1c2n(c3ccccc13)C[C@](C)(C(=O)NC1CCCCC1)N(C1CCCCC1)C2=O'
+    # 'C1(CCCCC1)(C)C(=O)N',
+    # 'C1(CCCCC1)(C)C',
+    # 'C12=CC=CC=C1C=C3[N]2CC(NC3)(C)C',
+    # 'CC(=O)Nc1c2n(c3ccccc13)C[C@](C)(C(=O)NC1CCCCC1)N(C1CCCCC1)C2=O',
+    # 'C2=CC=C1C(=O)CCC3=C1C2=CC=C3',
+    # 'C2=CC=C1C(=O)N(C)C(=O)C3=C1C2=CC=C3',
+    # 'CCCCCCCCCCCCNC1=CC=C2C(=O)N(CCCN3CCCNCCNCCCNCC3)C(=O)C3=C2C1=CC=C3',
+    'COC1=CC2=C3C=C1OC1=C(OC)C(OC)=CC4=C1C(=NCC4)CC1=CC=C(C=C1)OC1=CC(=CC=C1O)CC3N(C)CC2',
 ]
 
 
@@ -115,17 +119,17 @@ class TestStart(TestCase):
         self.assertEqual(smiles1, recovered_smiles1)
         self.assertEqual(recovered_smiles1, recovered_smiles2)
 
+    def _tree_to_smiles(self, tree):
+        graph = graph_from_graph_tree(tree)
+        mol = to_mol(graph)
+        return MolToSmiles(mol)
+
     def _parser_roundtrip(self, grammar, smiles_strings):
         collapsed_trees = [
             grammar.raw_strings_to_trees([smile])[0] for smile in smiles_strings
         ]
 
-        recovered_smiles = []
-        for tree in collapsed_trees:
-            graph = graph_from_graph_tree(tree)
-            mol = to_mol(graph)
-            recovered_smiles.append(MolToSmiles(mol))
-        return recovered_smiles
+        return [self._tree_to_smiles(tree) for tree in collapsed_trees]
 
     def test_hypergraph_rpe_parser(self):
         g = HypergraphRPEGrammar()
@@ -138,7 +142,7 @@ class TestStart(TestCase):
 
         self.assertEqual(smiles, recovered_smiles)
 
-    def test_hypergraph_rpe_parser_bad_smiles(self):
+    def test_hypergraph_parser_bad_smiles(self):
         g = HypergraphGrammar()
 
         trees = []
@@ -152,3 +156,7 @@ class TestStart(TestCase):
             except (AssertionError, IndexError):
                 print('Failed for {}'.format(smile))
                 raise
+
+        for smiles, tree in zip(bad_smiles, trees):
+            with self.subTest(smiles=smiles):
+                self.assertEqual(smiles, self._tree_to_smiles(tree))

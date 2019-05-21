@@ -1,6 +1,6 @@
 import copy
 from collections import OrderedDict
-from rdkit.Chem import MolFromSmiles
+from rdkit.Chem import MolFromSmiles, MolToSmiles
 from rdkit.Chem.rdmolops import Kekulize
 from networkx.algorithms.clique import enumerate_all_cliques, make_max_clique_graph
 from networkx.algorithms.cycles import cycle_basis
@@ -46,9 +46,21 @@ def build_junction_tree(mol):
                         if other_idx not in my_atoms and other_idx in atoms_left:
                             my_atoms.append(other_idx)
 
+        if my_atoms != my_start_atoms:  # In a ring
+            # Check to see if we're connected to another cycle
+            for _ in range(2):
+                for ring in atom_rings:
+                    if set(my_atoms) == set(ring):
+                        continue
+                    intersection = set(my_atoms) & set(ring)
+                    if len(intersection) > 0:
+                        for a in ring:
+                            if a not in my_atoms and a in atoms_left:
+                                my_atoms.append(a)
+
         # this is a check that we never assign the same atom to two nodes
         for idx in my_atoms:
-            assert idx in atoms_left
+            assert idx in atoms_left, "Atom has already been assigned to a node: {}".format(idx)
             atoms_left.discard(idx)
 
         # determine all my bonds
