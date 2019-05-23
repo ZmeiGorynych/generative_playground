@@ -10,7 +10,7 @@ from generative_playground.molecules.lean_settings import get_data_location
 # stable-ish run with discriminator sampling
 #
 files = [
-    'distribution_naive_no_priors_smiles.zip',
+    ['distribution_naive_no_priors_smiles.zip', 'distribution_naive_no_priors_smiles_2.zip'],
     'distribution_naive_uncond_priors_smiles.zip',  # is the one with unconditional priors
     'distribution_naive_smiles.zip',  # is the one with conditional priors
     'distribution_discr_eps0.2_smiles.zip']
