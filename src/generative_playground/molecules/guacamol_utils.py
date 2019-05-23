@@ -112,10 +112,9 @@ class MyGoalDirectedGenerator(GoalDirectedGenerator):
             A list of SMILES strings for the generated molecules.
         """
         benchmarks = goal_directed_benchmark_suite(self.version)
-        cache_file_template = 'canned_' + self.version + '_' + str(self.obj_num) + 'do_0.5_lr4e-5_smiles*.zip'
-        cache_files = glob.glob(os.path.realpath(root_location + '/train/pretrained/') + '/' + cache_file_template)
+        cache_files = ['guac_v2_{}do_0.5_lr4e-5_mark'.format(idx) for idx in range(20)]
         #TODO: put the directory for the cache file here
-        gen = DummyMoleculeGenerator(cache_files, maximize_reward=True)
+        gen = DummyMoleculeGenerator([cache_files[19]], maximize_reward=True)
         self.obj_num += 1
         if self.obj_num == self.num_benchmarks:
             self.obj_num == 0
