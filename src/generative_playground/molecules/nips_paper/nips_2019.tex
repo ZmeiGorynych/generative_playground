@@ -73,13 +73,13 @@
 \maketitle
 
 \begin{abstract}
-We present a novel approach to the issue of molecular optimization. Our approach uses a hypergraph replacement grammar inferred from the ChEMBL database, with grammar construction optimized for molecular structure creation. While constructing the grammar, we also count the frequencies of particular rules being used to expand particular nonterminals in other rules, and use these as priors for the policy model.
+We present a novel approach to the issue of molecular optimization. Our approach uses a hypergraph replacement grammar inferred from the ChEMBL database. We count the frequencies of particular rules being used to expand particular nonterminals in other rules, and use these as priors for the policy model.
 
-Simulating random molecules from the resulting grammar, we show, using GuacaMol distribution benchmarks, that conditional priors result in a molecular distribution closer to the training set than using equal rule probabilities or unconditional priors (total rule frequencies). 
+Simulating random molecules from the resulting probabilistic grammar, we show that conditional priors result in a molecular distribution closer to the training set than using equal rule probabilities or unconditional priors. 
 
-We treat the optimization as a reinforcement learning problem, using a batch-advantage modification of the policy gradient algorithm - using individual rewards minus the batch average reward to weight the log probability loss. The reinforcement learning agent is tasked with building molecules using this grammar, with the goal of maximizing benchmark scores available from the literature. To do so, the agent has policies both to choose the next node in the graph to expand and to select the next grammar rule to apply. The policies are implemented using the Transformer architecture with the partially expanded graph as the input.
+We treat molecular optimization as a reinforcement learning problem, using a batch-advantage modification of the policy gradient algorithm - using individual rewards minus the batch average reward to weight the log probability loss. The reinforcement learning agent is tasked with building molecules using this grammar, with the goal of maximizing benchmark scores available from the literature. To do so, the agent has policies both to choose the next node in the graph to expand and to select the next grammar rule to apply. The policies are implemented using the Transformer architecture with the partially expanded graph as the input at each step.
 
-We show that using the empirical priors as the starting point for a policy eliminates the need for pre-training, and allows us to reach optima faster. We achieve competitive performance on common benchmarks from the literature, such as penalized logP and QED, with only hundreds of batches (without pre-training) on a budget GPU instance. 
+We show that using the empirical priors as the starting point for a policy eliminates the need for pre-training, and allows us to reach optima faster. We achieve competitive performance on common benchmarks from the literature, such as penalized logP and QED, with only hundreds of training steps on a budget GPU instance. 
 \end{abstract}
 
 \section{Introduction}\label{sec:intro}
@@ -206,7 +206,7 @@ We choose a simple encoding of three concatenated parts, with a sequence of leng
 \subsubsection{Network architecture}
 We choose the Transformer architecture \cite{vaswani2017} rather than the more often used RNNs, because the nodes in the graph are not naturally ordered, and as we don't add the sinusoidal position encoding from the original Transformer model to the inputs, the outputs are invariant to the ordering of the input sequence. The Transformer was used for graph inputs by \cite{kondratyuk2019}, \TODO{WERE YOU THINKING OF THIS? They use a transformer based model for graph-based NLP parsing} but never to our knowledge in the context of molecular optimization. To assess the usefulness of this approach, we provide ablation tests using an RNN architecture. We use model dimension 512, 6 heads, head size 64, and 5 layers. 
 
-\subsubsection{Policy network and Discriminator}
+\subsubsection{Policy network and discriminator}
 We implement both a policy model and for some runs a discriminator model using the above architecture. The policy model has two heads, one that supplies the logits for choosing the next nonterminal node to expand, and one that supplies the logits for the next rule to use on that node.
 
 The discriminator network has a single head that tries to calculate the probability of whether a given molecule comes from the training dataset or has been created by the model.
@@ -221,26 +221,32 @@ To avoid the optimization getting stuck in a local minimum, we penalize repeated
 We extend the approach of \cite{segler2017} by introducing the concept of batch advantage, defined as the reward for a particular molecule in the batch minus the average reward for the batch. This can be regarded as a special case of the advantage concept \cite{baird1994} \TODO{CHECK THIS REFERENCE - WASN'T CLEAR WHERE ADVANTAGE COMES FROM. Probably also want to add more recent developments like the async learning paper} being applied to the molecular optimization, regarding the whole sequence of decisions going into a particular molecule as one `action'. The batch reward average can then be regarded as an estimate of the state value of the initial state, and the rewards for the batch members as their exact action values. To keep the learning rate uniform, we normalize these advantage values so that the sum of their absolute values equals 1, and use them as weights for the log likelihood of the respective molecule.
 
 Note that batch advantage is especially effective in encouraging exploration when used together with non-originality penalty. When these two are combined, if a batch returns many molecules with very similar rewards (before applying the non-originality penalty), some of them new, and some repeated, then after applying the penalty and batch advantage, the repeated molecules' log likelihood will actually have a negative weight, so we will discourage the model from reproducing these and encourage it to learn new ones.
-
 \subsubsection{Record rewards}
 As a final way to encourage exploration, we keep a buffer of the 10 best rewards observed in the current simulation. In the goal-optimization benchmarks, if a new reward is bigger than the smallest of these, we add the respective log likelihood to the objective function for that iteration, to especially encourage such molecules
-
 \subsubsection{Training step}
 A training step for the generator consists of simply computing the objective function as above and doing one step of the Adam optimizer with {\bf SETTINGS}. 
 
 For the discriminator, the key thing was to balance a quick reaction to innovations from the generator with long-term memory. To achieve that, we use the above mentioned buffers of size $b$, $10\cdot b$, and $100\cdot b$ last unique molecules, let's call them $buf_1$, $buf_{10}$, and $buf_{100}$. Then each batch of $b_g$ molecules fed to the generator consists of $0.5 b_g$ molecules from the training set, $0.25 b_g$ molecules from $buf_1$,  $0.125 b_g$ molecules from $buf_{10}$, and  $0.125 b_g$ molecules from $buf_{100}$. 
 
 \section{Results}\label{sec:results}
-\subsection{GuacaMol Benchmarks}
-The GuacaMol framework formulates three sets of benchmarks. The distributional benchmarks measure a model's ability to sample from the `same' distribution as that of the training set. The goal-oriented benchmarks ...
+\subsection{Comparison of distributions}
+To see whether the conditional priors are a better approximation of the training set distribution, we generate sets of 10000 random molecules from our grammar, in three versions: using equal rule probabilities; using unconditional probabilities (rule frequencies); and using conditional priors as discussed in Section~\ref{sec:conditional}. We further train a generator/discriminator pair, using the probability output by the discriminator as a reward for the generator, with repetition penalty and batch advantage-weighted log likelihood as generator objective (no rewards for record values in this case as we're interested in distribution as a whole, not the outliers). 
+
+The results are in Table~\ref{tab:distr}. As we see, both the KL divergence and the Frechet ChemNet distance improve as we move from random, to unconditional, to conditional priors. These are further improved by training a generator/discriminator pair, which also greatly improves uniqueness. Finally, as expected the Validdity benchmark is at 1.0 throughout, as all molecules are valid by construction.
+
+\subsection{Goal-optimization benchmarks}
+We first look at the goal-optimization benchmarks called 'trivial' by GuacaMol. Wven though these are indeed not sufficient to measure a model's superiority for de novo drug design, they still provide an important baseline for any approach to satisfy. 
+Here we don't use a discriminator, as always use batch advantage and repetition penalty, and also use the reward for record values as described in earlier sections.
+
+As Table~\ref{tab:guac-trivial} shows, we achieve competitive performance on all of these benchmarks, and notably succeed in doing so after merely hundreds of batches, each batch having size 15.
 
 \begin{table}
-    \caption{GuacaMol Trivial Benchmark Results}
-    \label{guac-trivial}
+    \caption{GuacaMol `Trivial' Benchmark Results}
+    \label{tab:guac-trivial}
     \centering
     \begin{tabular}{llll}
         \toprule
-        Benchmark & GuacaMol Value & BAT/HOG Result & Top Molecular Score \\
+        Benchmark & GuacaMol best modelValue & PHG Result & Top Molecular Score \\
         \midrule
         $\text{logP} = -1$ & 1 & 0.999969 & 0.9999997 \\
         $\text{logP} = 8.0$ & 1 & 0.999873 & 0.99999997 \\
@@ -253,22 +259,23 @@ The GuacaMol framework formulates three sets of benchmarks. The distributional b
     \end{tabular}
 \end{table}
 
-\subsection{Ablation Studies}
-best-of-batch vs batch advantage
-rnn vs transformer
+For continuity with prior literature, we also ran the penalized logP optimization as optimized by \CITE{Kusner et al, You et al 2018}, and many others. In this case we did use a discriminator as part of the penalty, to reward similarity to training set molecules. While our approach does't allow to directly specify maximum number of atoms, we achieved that by adding a term to the objective function penalizing number of atoms greater than a set limit. When we limit the number of atoms to 38, as in \CITE{You et al 2018}, we achieve a reward of 8.27 within 960 training steps, as always without pre-training. 
+
+Experimenting with the number of atoms limit, we found that it was the determining factor in the maximum score achieved, thus we conjecture that the increase in the penalized score that \CITE{You et al} achieved (from between 5 and 6 to just under 8) was to a large extent due to a larger maximum number of atoms compared to earlier models.
+
+We next turn to the results on the more advanced GuacaMol benchmarks \CITE{TODO FILL THIS IN}
 
 \section{Discussion}
-We are the first to construct and use a probabilistic grammar for molecular optimization. That allows us to guarantee that all molecules generated by the model are chemically valid by construction, without the need for runtime checks. 
+When training a model, it's best to start with the best inductive bias we can, so the model's training can focus on the metrics of interest, rather than for example chemical validity. To achieve that in the case of molecular optimization, we first constructed a probabilistic hypergraph grammar for molecular optimization, by inferring it from a training dataset similarly to \CITE{Kajino}. That approach allows us to guarantee that all molecules generated by the model are chemically valid by construction, without the need for runtime checks such as done by You et al. 
 
-When we decompose the training dataset using that grammar, we use frequencies of particular rule combinations to calculate conditional priors for a given rule being used to expand a given nonterminal in another rule. Sampling using these probabilities is a good first approximation of the training set distribution, as demonstrated by the ?? GuacaMol distributional benchmarks.
+We then compared evenly distributed rule probability priors to those only using total rule frequency, and to conditional priors also taking into account the parent rule and the nonterminal therein that's being expanded. We showed that using these conditional priors to simulate random molecules gives us the best approximation to the training set distribution, and thus the best starting point for optimization.
 
-Having reasonable priors makes it much easier for a model to proceed to objective optimization. That allowed us to achieve competitive results without pre-training on all the `trivial' goal-oriented GuacaMol benchmarks, in a very small number of steps;  and ??? on their distributional benchmarks.
+Further, we introduced batch advantage, a simple and natural modification to the policy gradient approach, and showed that it encouraged exploration and sped up convergence, especially when used together with a penalty for repetition.
 
-We are also the first to apply the Transformer architecture to graph embeddings for the purpose of molecular optimization, and ?? showed them to have superior performance to RNNs in that context. Comparison with the graph convolutional networks will be the subject of further work.
+Having good priors makes it easier for a model to do objective optimization. That allowed us to achieve competitive results without pre-training on all the `trivial' goal-oriented GuacaMol benchmarks, in a very small number of steps, as well as on the penalized logP objective common in the literature;  our approach showed promise, but was less successful, on the more advanced GuacaMol benchmarks - we conjecture that a more sophisticated reinforcement learning algorithm, such as PPO, is needed there.
 
-Further, we introduced the concept of batch advantage, and showed that it encouraged exploration and sped up convergence, especially when used together with a penalty for repetition.
+We are also to our knowledge the first to apply the Transformer architecture to graph embeddings for the purpose of molecular optimization. Comparison with the graph convolutional networks for that purpose will be the subject of further work.
 
-?? is our best result on non-trivial benchmarks at least better than the max over dataset???
 
 
 \subsubsection*{Acknowledgments}
