@@ -236,6 +236,9 @@ def train_policy_gradient(molecules=True,
                           'line',
                           X=np.array([n]),
                           Y=np.array([valid.mean().data.item()]))
+            visdom.append('num atoms', 'line',
+                          X=np.array([n]),
+                          Y=np.array([len(mol.GetAtoms())]))
 
     if reward_fun_off is None:
         reward_fun_off = reward_fun_on

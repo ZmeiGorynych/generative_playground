@@ -418,7 +418,8 @@ class HypergraphMaskGenerator:
         out = -1e4*(1-np.array(masks))
         if self.priors is True:
             out += self.grammar.get_log_frequencies()
-        elif self.priors == 'conditional':
+        elif self.priors == 'conditional': # TODO this bit is broken, needs fixing
+            raise NotImplementedError()
             out += self.get_log_conditional_frequencies()
         return out
 

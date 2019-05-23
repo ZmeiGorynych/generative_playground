@@ -48,7 +48,7 @@
 \renewcommand{\forcond}{$i$ \KwTo\Range{$n$}}
 \SetKwFunction{FRecurs}{FnRecursive}%
 
-\title{Batch-Advantage Transformer with Hypergraph Optimized Grammar (BAT/HOG)}
+\title{Probabilistic hypergraph grammars for efficient molecular optimization}
 
 % The \author macro works with any number of authors. There are two commands
 % used to separate the names and addresses of multiple authors: \And and \AND.
@@ -73,7 +73,13 @@
 \maketitle
 
 \begin{abstract}
-We present a novel approach to the issue of molecular optimization. Our approach uses a hypergraph replacement grammar inferred from the ZINC database, with grammar construction optimized for molecular structure creation. We treat the optimization as a reinforcement learning problem, using a batch-advantage modification of the policy gradient algorithm - using individual rewards minus the batch average reward to weight the log probability loss. The reinforcement learning agent is tasked with building molecules using this grammar, with the goal of maximizing benchmark scores available from the literature. To do so, the agent has policies both to choose the next node in the graph to expand and to select the next grammar rule to apply. The policies are implemented using the Transformer architecture with the partially expanded graph as the input. We achieve state of the art performance on common benchmarks from the literature, such as penalized logP and QED, with only hundreds of steps (without pre-training) on a budget GPU instance. Competitive performance is obtained on more advanced GuacaMol v2 goal-oriented benchmarks. Coupled with a Transformer based discriminator, the model achieves competitive results on the GuacaMol distribution benchmarks; training is stable over a range of hyperparameter values.
+We present a novel approach to the issue of molecular optimization. Our approach uses a hypergraph replacement grammar inferred from the ChEMBL database, with grammar construction optimized for molecular structure creation. While constructing the grammar, we also count the frequencies of particular rules being used to expand particular nonterminals in other rules, and use these as priors for the policy model.
+
+Simulating random molecules from the resulting grammar, we show, using GuacaMol distribution benchmarks, that conditional priors result in a molecular distribution closer to the training set than using equal rule probabilities or unconditional priors (total rule frequencies). 
+
+We treat the optimization as a reinforcement learning problem, using a batch-advantage modification of the policy gradient algorithm - using individual rewards minus the batch average reward to weight the log probability loss. The reinforcement learning agent is tasked with building molecules using this grammar, with the goal of maximizing benchmark scores available from the literature. To do so, the agent has policies both to choose the next node in the graph to expand and to select the next grammar rule to apply. The policies are implemented using the Transformer architecture with the partially expanded graph as the input.
+
+We show that using the empirical priors as the starting point for a policy eliminates the need for pre-training, and allows us to reach optima faster. We achieve competitive performance on common benchmarks from the literature, such as penalized logP and QED, with only hundreds of batches (without pre-training) on a budget GPU instance. 
 \end{abstract}
 
 \section{Introduction}\label{sec:intro}
