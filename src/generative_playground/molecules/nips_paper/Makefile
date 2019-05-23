@@ -18,7 +18,6 @@ all:
 	bibtex $(MAINFILE)
 	pdflatex $(MAINFILE)
 	pdflatex $(MAINFILE)
-	touch $@
 
 .PHONY: clean
 clean:

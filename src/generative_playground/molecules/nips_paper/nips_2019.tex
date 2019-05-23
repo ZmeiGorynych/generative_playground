@@ -215,8 +215,10 @@ To avoid the optimization getting stuck in a local minimum, we penalize repeated
 We extend the approach of \cite{segler2017} by introducing the concept of batch advantage, defined as the reward for a particular molecule in the batch minus the average reward for the batch. This can be regarded as a special case of the advantage concept \cite{baird1994} \TODO{CHECK THIS REFERENCE - WASN'T CLEAR WHERE ADVANTAGE COMES FROM. Probably also want to add more recent developments like the async learning paper} being applied to the molecular optimization, regarding the whole sequence of decisions going into a particular molecule as one `action'. The batch reward average can then be regarded as an estimate of the state value of the initial state, and the rewards for the batch members as their exact action values. To keep the learning rate uniform, we normalize these advantage values so that the sum of their absolute values equals 1, and use them as weights for the log likelihood of the respective molecule.
 
 Note that batch advantage is especially effective in encouraging exploration when used together with non-originality penalty. When these two are combined, if a batch returns many molecules with very similar rewards (before applying the non-originality penalty), some of them new, and some repeated, then after applying the penalty and batch advantage, the repeated molecules' log likelihood will actually have a negative weight, so we will discourage the model from reproducing these and encourage it to learn new ones.
+
 \subsubsection{Record rewards}
 As a final way to encourage exploration, we keep a buffer of the 10 best rewards observed in the current simulation. In the goal-optimization benchmarks, if a new reward is bigger than the smallest of these, we add the respective log likelihood to the objective function for that iteration, to especially encourage such molecules
+
 \subsubsection{Training step}
 A training step for the generator consists of simply computing the objective function as above and doing one step of the Adam optimizer with {\bf SETTINGS}. 
 
@@ -225,6 +227,25 @@ For the discriminator, the key thing was to balance a quick reaction to innovati
 \section{Results}\label{sec:results}
 \subsection{GuacaMol Benchmarks}
 The GuacaMol framework formulates three sets of benchmarks. The distributional benchmarks measure a model's ability to sample from the `same' distribution as that of the training set. The goal-oriented benchmarks ...
+
+\begin{table}
+    \caption{GuacaMol Trivial Benchmark Results}
+    \label{guac-trivial}
+    \centering
+    \begin{tabular}{llll}
+        \toprule
+        Benchmark & GuacaMol Value & BAT/HOG Result & Top Molecular Score \\
+        \midrule
+        $\text{logP} = -1$ & 1 & 0.999969 & 0.9999997 \\
+        $\text{logP} = 8.0$ & 1 & 0.999873 & 0.99999997 \\
+        TPSA (target 150) & 1 & 0.999967 & 0.9999998 \\
+        CNS MPO & 1 & 1 & 1 \\
+        QED & 0.948 & 0.94589 & 0.9476 \\
+        C7H8N202 & 1 & 0.9896 & 1 \\
+        Pioglitazone MPO & 0.998 & 0.99741 & 0.999184 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
 
 \subsection{Ablation Studies}
 best-of-batch vs batch advantage
