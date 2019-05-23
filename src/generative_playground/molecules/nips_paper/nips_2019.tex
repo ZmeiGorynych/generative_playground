@@ -85,7 +85,7 @@ We show that using the empirical priors as the starting point for a policy elimi
 \section{Introduction}\label{sec:intro}
 A major problem facing the exploration of novel molecules for the purposes of drug design is the vast array of potentially useful compounds -- estimated to be in the range of $10^{24}$ and $10^{60}$ possible drug-like structures \cite{walters2019, ruddigkeit2012}. While it is of course necessary to experimentally determine the usefulness, and safety, of candidate drugs in the laboratory, de novo drug design is an approach to finding candidate molecules through either exhaustive search, or through various generative and machine learning models. This approach takes the form of an optimization procedure over given target scoring functions, giving pre-screened, promising molecules and thereby reducing drug discovery costs.
 
-Deep learning has now been extensively investigated for encoding and generating molecular graphs \cite{duvenaud2015, kearnes2016, gilmer2017, dai2018, jin2018, simonovsky2018, kusner2017, gomezbombarelli2016, guimaraes2017}, and remains an area of active research. Typically, the approach taken has been to generate a linear molecular representation, such as the SMILES format \cite{weininger1988}, with an encoder-decoder network architecture similar to that used in machine translation \cite{gomezbombarelli2016}.
+Deep learning has now been extensively investigated for encoding and generating molecular graphs \cite{duvenaud2015, kearnes2016, gilmer2017, dai2018, jin2018, simonovsky2018, kusner2017, gomezbombarelli2016, guimaraes2017, pogany2019}, and remains an area of active research. Typically, the approach taken has been to generate a linear molecular representation, such as the SMILES format \cite{weininger1988}, with an encoder-decoder network architecture similar to that used in machine translation \cite{gomezbombarelli2016}.
 
 This route is, however, not optimal for this problem domain. Unlike written text, a molecule's structure is non-linear -- including both cycles and branches. The model is therefore forced not only to learn to optimize molecules on the given benchmark, but also to learn to generate SMILES strings corresponding to chemically valid molecules. This task is non-trivial and robs capacity of the model from the true task at hand.
 
@@ -93,7 +93,7 @@ A recent development which partially remedied the issue was presented by Kusner,
 
 Moving away from linear representations, Kajino \cite{kajino2018} proposed the use of a grammar defined on a hypergraph representation of molecular structure. The molecular hypergraph grammar (MHG), a special case of an hyperedge replacement grammar (HRG) \cite{drewes1997}, uses rules which can be pictured as splitting the molecular graph at non-terminal bonds, and replacing them with another subgraph, thereby constructing any desired molecular structure while guaranteeing that only chemically valid molecules are produced. In particular, this approach does not have issues of invalid atom valences or loss of stereochemistry that other approaches suffer.
 
-Rather than reducing all cliques as in \cite{kajino2018}, we terminate early allowing cycles of length five and greater to remain. This permits an equally expressive grammar but allows non-trivial cycle structure to be expressed with far fewer rules, resulting in a grammar we call the hypergraph-optimized grammar (HOG). This allows the model to produce novelties without straying too far from reasonable drug-like molecules but, comes at the cost of introducing more rules. We optimize the model's usage of the HOG by injecting conditional priors for rule selection. After parsing, we count all occurrences of rules conditional on the parent rule -- counting all occurrences of $(\text{parent}, \text{child})$ pairs -- and use these as priors to the rule selection with the effect of grounding the molecular structure in the region of those seen in the training set, but allowing the model to explore further substructure. We infer this grammar from the GuacaMol \cite{pogany2019} training set of 1,273,104 SMILES strings.
+Rather than reducing all cliques as in \cite{kajino2018}, we terminate early allowing cycles of length five and greater to remain. This permits an equally expressive grammar but allows non-trivial cycle structure to be expressed with far fewer rules, resulting in a grammar we call the hypergraph-optimized grammar (HOG). This allows the model to produce novelties without straying too far from reasonable drug-like molecules but, comes at the cost of introducing more rules. We optimize the model's usage of the HOG by injecting conditional priors for rule selection. After parsing, we count all occurrences of rules conditional on the parent rule -- counting all occurrences of $(\text{parent}, \text{child})$ pairs -- and use these as priors to the rule selection with the effect of grounding the molecular structure in the region of those seen in the training set, but allowing the model to explore further substructure. We infer this grammar from the GuacaMol \cite{brown2019} training set of 1,273,104 SMILES strings.
 % TODO explain max rule length
 % TODO prove we can do any ZINC molecule, will be nice if true, otherwise drop it
 
@@ -244,22 +244,39 @@ As Table~\ref{tab:guac-trivial} shows, we achieve competitive performance on all
     \caption{GuacaMol `Trivial' Benchmark Results}
     \label{tab:guac-trivial}
     \centering
-    \begin{tabular}{llll}
+    \begin{tabular}{lllll}
         \toprule
-        Benchmark & GuacaMol best modelValue & PHG Result & Top Molecular Score \\
+        Benchmark & GuacaMol Best & PHG Result & Top Molecular Score & Steps to reach max \\
         \midrule
-        $\text{logP} = -1$ & 1 & 0.999969 & 0.9999997 \\
-        $\text{logP} = 8.0$ & 1 & 0.999873 & 0.99999997 \\
-        TPSA (target 150) & 1 & 0.999967 & 0.9999998 \\
-        CNS MPO & 1 & 1 & 1 \\
-        QED & 0.948 & 0.94589 & 0.9476 \\
-        C7H8N202 & 1 & 0.9896 & 1 \\
-        Pioglitazone MPO & 0.998 & 0.99741 & 0.999184 \\
+        $\text{logP} = -1$ & 1 & 0.999969 & 0.9999997 & 40 \\
+        $\text{logP} = 8.0$ & 1 & 0.999873 & 0.99999997 & 130 \\
+        TPSA (target 150) & 1 & 0.999967 & 0.9999998 & 40 \\
+        CNS MPO & 1 & 1 & 1 & 1 \\
+        QED & 0.948 & 0.94589 & 0.9476 & 1200 \\
+        C7H8N202 & 1 & 0.9896 & 1 & 130 \\
+        Pioglitazone MPO & 0.998 & 0.99741 & 0.999184 & 780 \\
         \bottomrule
     \end{tabular}
 \end{table}
 
-For continuity with prior literature, we also ran the penalized logP optimization as optimized by \CITE{Kusner et al, You et al 2018}, and many others. In this case we did use a discriminator as part of the penalty, to reward similarity to training set molecules. While our approach does't allow to directly specify maximum number of atoms, we achieved that by adding a term to the objective function penalizing number of atoms greater than a set limit. When we limit the number of atoms to 38, as in \CITE{You et al 2018}, we achieve a reward of 8.27 within 960 training steps, as always without pre-training. 
+\begin{table}
+    \caption{GuacaMol Distribution Benchmark Results. Compare with table 1.~ from \cite{brown2019}}
+    \label{tab:guac-dist}
+    \centering
+    \begin{tabular}{lllll}
+        \toprule
+        Benchmark & No priors & Unconditional priors & Conditional Priors & With Discriminator \\
+        \midrule
+        Validity & 1 & 1 & 1 & 1 \\
+        Uniqueness & 0.96 & 0.71 & 0.85 & 0.9987 \\
+        Novelty & 0.96 & 0.7 & 0.81 & 0.9946 \\
+        KL Divergence & 0.2 & 0.59 & 0.71 & 0.79 \\
+        Frechet ChemNet Distance & $2 \times 10^{-5}$ & 0.01 & 0.0531 & 0.118 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+For continuity with prior literature, we also ran the penalized logP optimization as optimized by \cite{kusner2017, you2018}, and many others. In this case we did use a discriminator as part of the penalty, to reward similarity to training set molecules. While our approach does't allow to directly specify maximum number of atoms, we achieved that by adding a term to the objective function penalizing number of atoms greater than a set limit. When we limit the number of atoms to 38, as in \CITE{You et al 2018}, we achieve a reward of 8.27 within 960 training steps, as always without pre-training. 
 
 Experimenting with the number of atoms limit, we found that it was the determining factor in the maximum score achieved, thus we conjecture that the increase in the penalized score that \CITE{You et al} achieved (from between 5 and 6 to just under 8) was to a large extent due to a larger maximum number of atoms compared to earlier models.
 

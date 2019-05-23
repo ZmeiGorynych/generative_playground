@@ -23,7 +23,7 @@ from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring
 batch_size = 15 # 20
 drop_rate = 0.5
 molecules = True
-grammar_cache = 'hyper_grammar.pickle'
+grammar_cache = 'hyper_grammar_guac_10k.pickle'
 grammar = 'hypergraph:' + grammar_cache
 settings = get_settings(molecules, grammar)
 ver = 'v2'
@@ -37,33 +37,38 @@ gi = GrammarInitializer(grammar_cache)
 #     gi = GrammarInitializer(grammar_cache)
 #     max_steps_smiles = gi.init_grammar(1000)
 
-root_name = 'guac_' + ver + '_' + str(obj_num) + 'do 0.5 lr4e-5'
-max_steps = 45
-model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
-                                                       grammar,
-                                                       EPOCHS=100,
-                                                       BATCH_SIZE=batch_size,
-                                                       reward_fun_on=reward_fun,
-                                                       max_steps=max_steps,
-                                                       lr_on=4e-5,
-                                                       lr_discrim=5e-4,
-                                                       discrim_wt=0.0,
-                                                       p_thresh=-10,
-                                                       drop_rate=drop_rate,
-                                                       reward_sm=0.0,
-                                                       decoder_type='attn_graph_node',  #'rnn_graph',# 'attention',
-                                                       plot_prefix='',
-                                                       dashboard= root_name,  # 'policy gradient',
-                                                       save_file_root_name=root_name,
-                                                       preload_file_root_name=None,#'guacamol_ar_nodev2_0lr2e-5',#root_name,
-                                                       smiles_save_file=None,  # 'pg_smiles_hg1.h5',
-                                                       on_policy_loss_type='advantage_record',
-                                                       half_float=False,
-                                                       node_temperature_schedule=lambda x: 100,
-                                                       eps=2.0)
+for obj_num in range(20):
+    try:
+        root_name = 'guac_' + ver + '_' + str(obj_num) + 'do_0.5_lr4e-5_mark'
+        max_steps = 45
+        model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
+                                                            grammar,
+                                                            EPOCHS=100,
+                                                            BATCH_SIZE=batch_size,
+                                                            reward_fun_on=reward_fun,
+                                                            max_steps=max_steps,
+                                                            lr_on=4e-5,
+                                                            lr_discrim=5e-4,
+                                                            discrim_wt=0.0,
+                                                            p_thresh=-10,
+                                                            drop_rate=drop_rate,
+                                                            reward_sm=0.0,
+                                                            decoder_type='attn_graph_node',  #'rnn_graph',# 'attention',
+                                                            plot_prefix='',
+                                                            dashboard= root_name,  # 'policy gradient',
+                                                            save_file_root_name=root_name,
+                                                            preload_file_root_name=root_name,
+                                                            smiles_save_file=None,  # 'pg_smiles_hg1.h5',
+                                                            on_policy_loss_type='advantage_record',
+                                                            half_float=False,
+                                                            node_temperature_schedule=lambda x: 100,
+                                                            eps=2.0)
+    except Exception as ex:
+        print('{}: {}({})'.format(obj_num, type(ex), str(ex)))
 # preload_file='policy_gradient_run.h5')
 
-while True:
-    next(gen_fitter)
-    # for _ in range(1):
-    #     next(disc_fitter)
+if False:
+    while True:
+        next(gen_fitter)
+        # for _ in range(1):
+        #     next(disc_fitter)

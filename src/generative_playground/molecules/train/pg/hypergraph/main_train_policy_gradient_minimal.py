@@ -78,7 +78,7 @@ def train_policy_gradient(molecules=True,
     settings = get_settings(molecules=molecules, grammar=grammar)
     codec = get_codec(molecules, grammar, settings['max_seq_length'])
     discrim_model = GraphDiscriminator(codec.grammar, drop_rate=drop_rate)
-    if preload_file_root_name is not None:
+    if False and preload_file_root_name is not None:
         try:
             preload_path = full_path(disc_preload_file)
             discrim_model.load_state_dict(torch.load(preload_path), strict=False)
@@ -191,7 +191,7 @@ def train_policy_gradient(molecules=True,
     if preload_file_root_name is not None:
         try:
             preload_path = full_path(gen_preload_file)
-            model.load_state_dict(torch.load(preload_path), strict=False)
+            model.load_state_dict(torch.load(preload_path, map_location='cpu'), strict=False)
             print('Generator weights loaded successfully!')
         except Exception as e:
             print('failed to load generator weights ' + str(e))
@@ -338,6 +338,7 @@ def train_policy_gradient(molecules=True,
     if smiles_save_file is not None:
         smiles_save_path = os.path.realpath(root_location + 'pretrained/' + smiles_save_file)
         gen_extra_callbacks.append(MoleculeSaver(smiles_save_path, gzip=True))
+        print('Saved SMILES to {}'.format(smiles_save_file))
 
     if node_temperature_schedule is not None:
         gen_extra_callbacks.append(TemperatureCallback(node_policy, node_temperature_schedule))
