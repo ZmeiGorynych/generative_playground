@@ -85,7 +85,7 @@ We show that using the empirical priors as the starting point for a policy elimi
 \section{Introduction}\label{sec:intro}
 A major problem facing the exploration of novel molecules for the purposes of drug design is the vast array of potentially useful compounds -- estimated to be in the range of $10^{24}$ and $10^{60}$ possible drug-like structures \cite{walters2019, ruddigkeit2012}. While it is of course necessary to experimentally determine the usefulness, and safety, of candidate drugs in the laboratory, de novo drug design is an approach to finding candidate molecules through either exhaustive search, or through various generative and machine learning models. This approach takes the form of an optimization procedure over given target scoring functions, giving pre-screened, promising molecules and thereby reducing drug discovery costs.
 
-Deep learning has now been extensively investigated for encoding and generating molecular graphs \cite{duvenaud2015, kearnes2016, gilmer2017, dai2018, jin2018, simonovsky2018, kusner2017, gomezbombarelli2016, guimaraes2017}, and remains an area of active research. Typically, the approach taken has been to generate a linear molecular representation, such as the SMILES format \cite{weininger1988}, with an encoder-decoder network architecture similar to that used in machine translation \cite{gomezbombarelli2016}.
+Deep learning has now been extensively investigated for encoding and generating molecular graphs \cite{duvenaud2015, kearnes2016, gilmer2017, dai2018, jin2018, simonovsky2018, kusner2017, gomezbombarelli2016, guimaraes2017, pogany2019}, and remains an area of active research. Typically, the approach taken has been to generate a linear molecular representation, such as the SMILES format \cite{weininger1988}, with an encoder-decoder network architecture similar to that used in machine translation \cite{gomezbombarelli2016}.
 
 This route is, however, not optimal for this problem domain. Unlike written text, a molecule's structure is non-linear -- including both cycles and branches. The model is therefore forced not only to learn to optimize molecules on the given benchmark, but also to learn to generate SMILES strings corresponding to chemically valid molecules. This task is non-trivial and robs capacity of the model from the true task at hand.
 
@@ -97,7 +97,7 @@ A different approach was taken by \CITE{You et al 2018}, who directly construct 
 
 \CITE{Guacamol} provide an overview of the techniques used, as well as a set of benchmarks for model evaluation and the scores of several reference implementations.
 
-We start with an approach similar to  \cite{kajino2018}, but rather than reducing all cliques as in, we terminate early allowing cycles of length five and greater to remain. This permits an equally expressive grammar but allows non-trivial cycle structure to be expressed with far fewer rules, resulting in a grammar we call the hypergraph-optimized grammar (HOG). This allows the model to produce novelties without straying too far from reasonable drug-like molecules but, comes at the cost of introducing more rules. We then optimize the model's usage of the HOG by injecting conditional priors for rule selection. After parsing, we count all occurrences of rules conditional on the parent rule and the nonterminal therein that's being expanded -- counting all occurrences of $(\text{parent}, \text{location}, \text{child})$ tuples -- and use these frequencies as priors to the rule selection with the effect of grounding the molecular structure in the region of those seen in the training set, but allowing the model to explore further substructure. We infer this grammar from the ChEMBL training set of 1,273,104 SMILES strings provided by \cite{pogany2019} 
+We start with an approach similar to  \cite{kajino2018}, but rather than reducing all cliques as in, we terminate early allowing cycles of length five and greater to remain. This permits an equally expressive grammar but allows non-trivial cycle structure to be expressed with far fewer rules, resulting in a grammar we call the hypergraph-optimized grammar (HOG). This allows the model to produce novelties without straying too far from reasonable drug-like molecules but, comes at the cost of introducing more rules. We then optimize the model's usage of the HOG by injecting conditional priors for rule selection. After parsing, we count all occurrences of rules conditional on the parent rule and the nonterminal therein that's being expanded -- counting all occurrences of $(\text{parent}, \text{location}, \text{child})$ tuples -- and use these frequencies as priors to the rule selection with the effect of grounding the molecular structure in the region of those seen in the training set, but allowing the model to explore further substructure. We infer this grammar from the ChEMBL training set of 1,273,104 SMILES strings provided by \cite{pogany2019}
 % TODO explain max rule length
 % TODO prove we can do any ZINC molecule, will be nice if true, otherwise drop it
 
@@ -117,7 +117,7 @@ The MHG is defined over these hypergraphs as a hyperedge replacement grammar (HR
 In order to build the grammar which will be used by the RL agent outlined in \ref{sec:model}, we  construct a parse tree for each molecule in a training set. By doing so for each molecule, we can identify the set of unique hyperedge replacement rules defining the grammar. Given an input molecular graph, the algorithm to deduce the MHG rules is as follows.
 \begin{enumerate}
 	\item Turn all atoms into child nodes containing the specific atom with a parent node containing a nonterminal with identical connectivity; this means all further graph decomposition only deals with the connectivity of the graph, without regard to the actual atoms.
-	\item Find a node, $n$, at which the graph can be subdivided by cutting a single connected hyperedge 
+	\item Find a node, $n$, at which the graph can be subdivided by cutting a single connected hyperedge
     \item Split the graph at $n$ producing a now reduced parent graph and a new child graph containing a new non-terminal node on the cut hyperedge, which we call the {\em parent node}
     \item Iterate steps above until the parent graph can no longer be subdivided in this manner
     \item Apply all of the above recursively to the new child graphs
@@ -174,7 +174,7 @@ For (parent, location, child) tuples that were never observed in the training se
 % TODO thoroughly check this section
 The final challenge we address is making sure the rule expansion terminates before the maximum allowed number of expansion rules has been reached by the agent. To do this, we define the concept of \emph{terminal distance} of a hypergraph node, defined as the length of the shortest sequence of rules needed to expend said node into a sub-hypergraph consisting only of terminal nodes. 
 
-We calculate this distance for each hypergraph in our set of grammar rules by means of the following dynamic programming algorithm: 
+We calculate this distance for each hypergraph in our set of grammar rules by means of the following dynamic programming algorithm:
 \begin{enumerate}
 	\item Define a set $R$ of all rule hypergraphs observed so far, and seed it with the root token \verb+molecule+. 
     \item Initialize all parent node terminal distances to $\infty$.
@@ -199,7 +199,7 @@ We use the terminal distance concept to make sure the rule expansion terminates 
 At each step, we make sure $\text{td}\le s$, using induction. First, we choose the maximum rule sequence length to be larger than the terminal distance of the root graph. Second, at each rule selection step we consider all child rules, $r$, who can expand the next nonterminal in the graph, and only allow those where $\Delta \TD_r(r) + \text{td} \le s-1$. This must be a nonempty set because $\Delta \TD_r(r') = -1$ for at least one applicable rule $r'$. Thus, by the time we run out of steps, that is, $s=0$, we know $\text{td}=0$, that is our token sequence consists only of nonterminals. 
 
 %\subsection{Grammar conciseness and expressiveness}\label{sec:expressiveness}
-%When constructing a grammar, there is a trade-off between the number of rules taken to express a given molecule and the total number of unique rules in the grammar. This tension is caused by the complexity of the individual rules. If we allow far more complex substructures to remain in the final rule-set then molecules containing such substructure are able to be expressed succinctly. However, given that these substructures can be arbitrarily complex we can swiftly see an explosion of the number of rules remaining in the grammar. 
+%When constructing a grammar, there is a trade-off between the number of rules taken to express a given molecule and the total number of unique rules in the grammar. This tension is caused by the complexity of the individual rules. If we allow far more complex substructures to remain in the final rule-set then molecules containing such substructure are able to be expressed succinctly. However, given that these substructures can be arbitrarily complex we can swiftly see an explosion of the number of rules remaining in the grammar.
 
 
 \section{Model choice}\label{sec:model}
@@ -209,7 +209,7 @@ In a model that generates a discrete object via a series of decisions, we need t
 We choose the latter, via a simple encoding of three concatenated parts, with a sequence of length equaling the number of nodes in the graph. That embedding is composed of the concatenation of the connectivity matrix of the graph (with values 0, 1, 2, etc.~denoting no connection, single bond, double bond, etc.~), the identity matrix (so that the vector knows which node it refers to, as the ordering of the sequence itself is arbitrary), and a one-hot encoding of any data on each node, such as atomic number and chirality. This is then linearly transformed to the dimension of the downstream model.
 
 \subsection{Network architecture}
-We choose the Transformer architecture \cite{vaswani2017} rather than the more often used RNNs, because the nodes in the graph are not naturally ordered, and as we don't add the sinusoidal position encoding from the original Transformer model to the inputs, the outputs are invariant to the ordering of the input sequence. The Transformer was used for graph inputs by \cite{kondratyuk2019}, \TODO{WERE YOU THINKING OF THIS? They use a transformer based model for graph-based NLP parsing} but never to our knowledge in the context of molecular optimization. We use model dimension 512, 6 heads, head size 64, and 5 layers. 
+We choose the Transformer architecture \cite{vaswani2017} rather than the more often used RNNs, because the nodes in the graph are not naturally ordered, and as we don't add the sinusoidal position encoding from the original Transformer model to the inputs, the outputs are invariant to the ordering of the input sequence. The Transformer was used for graph inputs by \cite{kondratyuk2019}, \TODO{WERE YOU THINKING OF THIS? They use a transformer based model for graph-based NLP parsing} but never to our knowledge in the context of molecular optimization. We use model dimension 512, 6 heads, head size 64, and 5 layers.
 
 \subsection{Policy network and discriminator}
 We implement both a policy model and for some runs a discriminator\footnote{see \cite{guimaraes2017, sanchezlengeling2017, putin2018} for applications of discrimator based method, though with a sequential SMILES molecular representation} model using the above architecture. The policy model has two heads, one that supplies the logits for choosing the next nonterminal node to expand, and one that supplies the logits for the next rule to use on that node.
@@ -229,42 +229,59 @@ Note that batch advantage is especially effective in encouraging exploration whe
 \subsubsection{Record rewards}
 As a final way to encourage exploration, we keep a buffer of the 10 best rewards observed in the current simulation. In the goal-optimization benchmarks, if a new reward is bigger than the smallest of these, we add the respective log likelihood to the objective function for that iteration, to especially encourage such molecules
 \subsubsection{Training step}
-A training step for the generator consists of simply computing the objective function as above and doing one step of the Adam optimizer with a learning rate of 4e-5. 
+A training step for the generator consists of simply computing the objective function as above and doing one step of the Adam optimizer with a learning rate of 4e-5.
 
 For the discriminator, the key thing was to balance a quick reaction to innovations from the generator with long-term memory. To achieve that, we use the above mentioned buffers of size $b$, $10\cdot b$, and $100\cdot b$ last unique molecules, let's call them $buf_1$, $buf_{10}$, and $buf_{100}$. Then each batch of $b_g$ molecules fed to the generator consists of $0.5 b_g$ molecules from the training set, $0.25 b_g$ molecules from $buf_1$,  $0.125 b_g$ molecules from $buf_{10}$, and  $0.125 b_g$ molecules from $buf_{100}$. 
 
 \section{Results}\label{sec:results}
 \subsection{Comparison of distributions}
-To see whether the conditional priors are a better approximation of the training set distribution, we generate sets of 10000 random molecules from our grammar, in three versions: using equal rule probabilities; using unconditional probabilities (rule frequencies); and using conditional priors as discussed in Section~\ref{sec:freq}. We further train a generator/discriminator pair, using the probability output by the discriminator as a reward for the generator, with repetition penalty and batch advantage-weighted log likelihood as generator objective (no rewards for record values in this case as we're interested in distribution as a whole, not the outliers). 
+To see whether the conditional priors are a better approximation of the training set distribution, we generate sets of 10000 random molecules from our grammar, in three versions: using equal rule probabilities; using unconditional probabilities (rule frequencies); and using conditional priors as discussed in Section~\ref{sec:freq}. We further train a generator/discriminator pair, using the probability output by the discriminator as a reward for the generator, with repetition penalty and batch advantage-weighted log likelihood as generator objective (no rewards for record values in this case as we're interested in distribution as a whole, not the outliers).
 
 The results are in Table~\ref{tab:distr}. As we see, both the KL divergence and the Frechet ChemNet distance improve as we move from random, to unconditional, to conditional priors. These are further improved by training a generator/discriminator pair, which also greatly improves uniqueness. Finally, as expected the Validity benchmark is at 1.0 throughout, as all molecules are valid by construction.
 
 \subsection{Goal-optimization benchmarks}
-We first look at the goal-optimization benchmarks called 'trivial' by GuacaMol. Even though these are indeed not sufficient to measure a model's superiority for de novo drug design, they still provide an important baseline for any approach to satisfy. 
+We first look at the goal-optimization benchmarks called 'trivial' by GuacaMol. Even though these are indeed not sufficient to measure a model's superiority for de novo drug design, they still provide an important baseline for any approach to satisfy.
 Here we don't use a discriminator, do use batch advantage and repetition penalty, and also use the reward for record values as described in earlier sections.
 
-As Table~\ref{tab:guac-trivial} shows, we achieve competitive performance on all of these benchmarks, and notably succeed in doing so after merely hundreds of batches, each batch having size 15. In particular, we achieved the same top QED value as \CITE{You et al}. 
+As Table~\ref{tab:guac-trivial} shows, we achieve competitive performance on all of these benchmarks, and notably succeed in doing so after merely hundreds of batches, each batch having size 15. In particular, we achieved the same top QED value as \CITE{You et al}.
 
 \begin{table}
     \caption{GuacaMol `Trivial' Benchmark Results}
     \label{tab:guac-trivial}
     \centering
-    \begin{tabular}{llll}
+    \begin{tabular}{lllll}
         \toprule
-        Benchmark & GuacaMol best modelValue & PHG Result & Top Molecular Score \\
+        Benchmark & GuacaMol Best & PHG Result & Top Molecular Score & Steps to reach max \\
         \midrule
-        $\text{logP} = -1$ & 1 & 0.999969 & 0.9999997 \\
-        $\text{logP} = 8.0$ & 1 & 0.999873 & 0.99999997 \\
-        TPSA (target 150) & 1 & 0.999967 & 0.9999998 \\
-        CNS MPO & 1 & 1 & 1 \\
-        QED & 0.948 & 0.94589 & 0.9476 \\
-        C7H8N202 & 1 & 0.9896 & 1 \\
-        Pioglitazone MPO & 0.998 & 0.99741 & 0.999184 \\
+        $\text{logP} = -1$ & 1 & 0.999969 & 0.9999997 & 40 \\
+        $\text{logP} = 8.0$ & 1 & 0.999873 & 0.99999997 & 130 \\
+        TPSA (target 150) & 1 & 0.999967 & 0.9999998 & 40 \\
+        CNS MPO & 1 & 1 & 1 & 1 \\
+        QED & 0.948 & 0.94589 & 0.9476 & 1200 \\
+        C7H8N202 & 1 & 0.9896 & 1 & 130 \\
+        Pioglitazone MPO & 0.998 & 0.99741 & 0.999184 & 780 \\
         \bottomrule
     \end{tabular}
 \end{table}
 
-For continuity with prior literature, we also ran the penalized logP optimization as optimized by \CITE{Kusner et al, You et al 2018}, and many others. In this case we did use a discriminator as part of the penalty, to reward similarity to training set molecules. While our approach does't allow to directly specify maximum number of atoms, we achieved that by adding a term to the objective function penalizing number of atoms greater than a set limit. When we limit the number of atoms to 38, as in \CITE{You et al 2018}, we achieve a reward of 8.27 within 960 training steps, as always without pre-training. 
+\begin{table}
+    \caption{GuacaMol Distribution Benchmark Results. Compare with table 1.~ from \cite{brown2019}}
+    \label{tab:guac-dist}
+    \centering
+    \begin{tabular}{lllll}
+        \toprule
+        Benchmark & No priors & Unconditional priors & Conditional Priors & With Discriminator \\
+        \midrule
+        Validity & 1 & 1 & 1 & 1 \\
+        Uniqueness & 0.96 & 0.71 & 0.85 & 0.9987 \\
+        Novelty & 0.96 & 0.7 & 0.81 & 0.9946 \\
+        KL Divergence & 0.2 & 0.59 & 0.71 & 0.79 \\
+        Frechet ChemNet Distance & $2 \times 10^{-5}$ & 0.01 & 0.0531 & 0.118 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+For continuity with prior literature, we also ran the penalized logP optimization as optimized by \cite{kusner2017, you2018}, and many others. In this case we did use a discriminator as part of the penalty, to reward similarity to training set molecules. While our approach does't allow to directly specify maximum number of atoms, we achieved that by adding a term to the objective function penalizing number of atoms greater than a set limit. When we limit the number of atoms to 38, as in \CITE{You et al 2018}, we achieve a reward of 8.27 within 960 training steps, as always without pre-training.
 
 Experimenting with the number of atoms limit, we found that it was the determining factor in the maximum score achieved, thus we conjecture that the increase in the penalized score that \CITE{You et al} achieved (from between 5 and 6 to just under 8) was to a large extent due to a larger maximum number of atoms compared to earlier models.
 
