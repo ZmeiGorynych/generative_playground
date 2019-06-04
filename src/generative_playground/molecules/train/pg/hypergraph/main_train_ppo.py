@@ -2,7 +2,6 @@ import os, inspect
 from collections import deque
 import torch.optim as optim
 from torch.optim import lr_scheduler
-import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
@@ -23,12 +22,12 @@ from generative_playground.models.problem.policy import SoftmaxRandomSamplePolic
 from generative_playground.data_utils.blended_dataset import EvenlyBlendedDataset
 from generative_playground.codec.codec import get_codec
 from generative_playground.molecules.data_utils.zinc_utils import get_smiles_from_database
-from generative_playground.data_utils.data_sources import IterableTransform
+from generative_playground.data_utils.data_sources import IterableTransform, GeneratorToIterable
 from generative_playground.molecules.models.graph_discriminator import GraphDiscriminator
 from generative_playground.utils.gpu_utils import device
 
 
-def train_policy_gradient(molecules=True,
+def train_policy_gradient_ppo(molecules=True,
                           grammar=True,
                             smiles_source='ZINC',
                           EPOCHS=None,
@@ -197,8 +196,12 @@ def train_policy_gradient(molecules=True,
 
     anchor_model = None
 
+    from generative_playground.molecules.rdkit_utils.rdkit_utils import NormalizedScorer
+    import numpy as np
+    scorer = NormalizedScorer()
 
-
+    if reward_fun_off is None:
+        reward_fun_off = reward_fun_on
 
     # construct the loader to feed the discriminator
     def make_callback(data):
@@ -269,19 +272,7 @@ def train_policy_gradient(molecules=True,
 
         return fitter
 
-    class GeneratorToIterable:
-        def __init__(self, gen):
-            self.gen = gen
-            # we assume the generator is finite
-            self.len = 0
-            for _ in gen():
-                self.len+=1
 
-        def __len__(self):
-            return self.len
-
-        def __iter__(self):
-            return self.gen()
 
 
     def my_gen():

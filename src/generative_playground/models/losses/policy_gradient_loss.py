@@ -34,6 +34,8 @@ class PolicyGradientLoss(nn.Module):
 
         if 'logp' in model_out:
             total_logp = -model_out['logp']
+            if len(total_logp.shape) > 1:
+                total_logp = total_logp.sum(1)
         else:  # old-style outputs
             _, seq_len, _ = model_out['logits'].size()
             float_type = model_out['logits'].dtype

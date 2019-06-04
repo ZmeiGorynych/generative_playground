@@ -115,6 +115,22 @@ class TwinGenerator:
     def __len__(self):
         return len(self.iterable)
 
+
+class GeneratorToIterable:
+    def __init__(self, gen):
+        self.gen = gen
+        # we assume the generator is finite
+        self.len = 0
+        for _ in gen():
+            self.len+=1
+
+    def __len__(self):
+        return self.len
+
+    def __iter__(self):
+        return self.gen()
+
+
 class IterableTransform:
     '''
     Takes an iterable, eg a DataLoader, and returns another iterable that transforms the results

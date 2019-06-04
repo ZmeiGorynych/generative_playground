@@ -1,9 +1,9 @@
 import numpy as np
 import torch
+from math import floor
 
-from generative_playground.codec.hypergraph_grammar import HypergraphGrammar, HypergraphMaskGenerator
-from generative_playground.models.decoder.mask_gen import DoubleMaskGen
-from generative_playground.models.decoder.policy import SimplePolicy, SoftmaxRandomSamplePolicy
+from generative_playground.codec.hypergraph_grammar import HypergraphMaskGenerator
+from generative_playground.models.problem.policy import SoftmaxRandomSamplePolicy
 from generative_playground.models.decoder.stepper import Stepper
 from generative_playground.utils.gpu_utils import device
 from generative_playground.models.embedder.graph_embedder import GraphEmbedder
@@ -20,8 +20,7 @@ class GraphDecoderWithNodeSelection(Stepper):
                  rule_policy=SoftmaxRandomSamplePolicy()
                  ):
         super().__init__()
-        # self.mask_gen = mask_gen
-        self.node_policy = node_policy
+        # self.node_policy = node_policy
         self.rule_policy = rule_policy
         self.model = model
         self.output_shape = [None, self.model.output_shape['action'][-1]]  # a batch of logits to select next action
@@ -36,6 +35,34 @@ class GraphDecoderWithNodeSelection(Stepper):
         self.model.init_encoder_output(z)
 
     def forward(self, last_state):
+        """
+
+        :param last_state: self.mask_gen.graphs
+        :param node_mask:
+        :param full_logit_priors:
+        :return:
+        """
+        graphs, node_mask, full_logit_priors = last_state
+        model_out = self.model(graphs)
+        next_logits = model_out['action']  #batch x num_nodes x num_actions
+        batch_size = next_logits.size(0)
+        num_actions = next_logits.size(2)
+
+        # combine node masks and action prior/masks
+        full_priors = node_mask[:,:,None] + full_logit_priors
+        dtype = next_logits.dtype
+        full_priors_pytorch = torch.from_numpy(full_priors).to(device=device, dtype=dtype)
+
+        # apply policy - would need to make more elaborate if we want to have separate temperatures on node and rule selection
+        masked_logits = next_logits + full_priors_pytorch
+        next_action_ = self.rule_policy(masked_logits.view(batch_size, -1), full_priors_pytorch.view(batch_size, -1))
+        next_node = [floor(a.item() / num_actions) for a in next_action_]
+        next_action = [a.item() % num_actions for a in next_action_]
+        action_logp = self.rule_policy.logp
+
+        return (next_node, next_action), action_logp # will also want to return which node we picked, once we enable that
+
+    def old_forward(self, last_state):
         """
 
         :param last_state: self.mask_gen.graphs

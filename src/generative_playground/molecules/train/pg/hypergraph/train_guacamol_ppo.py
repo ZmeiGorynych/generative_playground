@@ -14,12 +14,12 @@ except:
 from generative_playground.molecules.rdkit_utils.rdkit_utils import num_atoms, num_aromatic_rings, NormalizedScorer
 # from generative_playground.models.problem.rl.DeepRL_wrappers import BodyAdapter, MyA2CAgent
 from generative_playground.molecules.model_settings import get_settings
-from generative_playground.molecules.train.pg.hypergraph.main_train_policy_gradient_minimal import train_policy_gradient
+from generative_playground.molecules.train.pg.hypergraph.main_train_ppo import train_policy_gradient_ppo
 from generative_playground.codec.hypergraph_grammar import GrammarInitializer
 from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring_functions, version_name_list
+import torch
 
-
-
+ppo_epochs = 10
 batch_size = 20 # 20
 drop_rate = 0.5
 molecules = True
@@ -39,7 +39,7 @@ gi = GrammarInitializer(grammar_cache)
 
 root_name = 'guacamol_temp_test' + ver + '_' + str(obj_num) + 'do 0.3 lr4e-5'
 max_steps = 50
-model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
+model, replayer, gen_fitter, disc_fitter = train_policy_gradient_ppo(molecules,
                                                        grammar,
                                                        EPOCHS=100,
                                                        BATCH_SIZE=batch_size,
@@ -61,6 +61,11 @@ model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
 # preload_file='policy_gradient_run.h5')
 
 while True:
-    next(gen_fitter)
-    # for _ in range(1):
+    with torch.no_grad:
+        runs = model()
+    replayer.update(runs)
+    for e in range(ppo_epochs):
+        next(gen_fitter)
+
+
     #     next(disc_fitter)

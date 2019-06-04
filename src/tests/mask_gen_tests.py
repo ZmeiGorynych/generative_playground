@@ -1,19 +1,12 @@
-import logging
 import random
 import numpy as np
 import os
 from unittest import TestCase
-from generative_playground.codec.hypergraph import to_mol, HyperGraph
-from generative_playground.codec.hypergraph_parser import hypergraph_parser, graph_from_graph_tree
-from generative_playground.codec.hypergraph_grammar import evaluate_rules, HypergraphGrammar, HypergraphMaskGenerator
-from rdkit.Chem import MolFromSmiles, AddHs, MolToSmiles, RemoveHs, Kekulize, BondType
-from generative_playground.codec.grammar_helper import grammar_eq, grammar_zinc, grammar_zinc_new
-from generative_playground.codec.grammar_mask_gen import GrammarMaskGenerator
-from generative_playground.codec.mask_gen_new_2 import GrammarMaskGeneratorNew
-from generative_playground.codec.grammar_codec import CFGrammarCodec, zinc_tokenizer, zinc_tokenizer_new, eq_tokenizer
+from generative_playground.codec.hypergraph_grammar import HypergraphGrammar, HypergraphMaskGenerator
+from rdkit.Chem import MolFromSmiles
 from generative_playground.codec.codec import get_codec
 from generative_playground.codec.hypergraph_grammar import GrammarInitializer
-from generative_playground.models.decoder.policy import SoftmaxRandomSamplePolicy
+from generative_playground.models.problem.policy import SoftmaxRandomSamplePolicy
 from generative_playground.utils.gpu_utils import device
 import torch
 

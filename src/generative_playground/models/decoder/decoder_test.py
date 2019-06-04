@@ -4,7 +4,7 @@ from torch import nn as nn
 from generative_playground.models.decoder.mask_gen import DummyMaskGenerator
 from generative_playground.utils.gpu_utils import to_gpu
 from generative_playground.models.decoder.decoders import OneStepDecoderContinuous, SimpleDiscreteDecoder
-from generative_playground.models.decoder.policy import SoftmaxRandomSamplePolicy
+from generative_playground.models.problem.policy import SoftmaxRandomSamplePolicy
 
 
 class DummyNNModel(nn.Module):

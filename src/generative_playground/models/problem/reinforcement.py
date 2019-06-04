@@ -3,7 +3,7 @@ from torch.autograd import Variable
 import torch.nn as nn
 from generative_playground.utils.gpu_utils import FloatTensor, to_gpu
 from generative_playground.models.decoder.decoders import SimpleDiscreteDecoder
-from generative_playground.models.decoder.policy import PolicyFromTarget
+from generative_playground.models.problem.policy import PolicyFromTarget
 import math
 
 # TODO: model already outputs values!

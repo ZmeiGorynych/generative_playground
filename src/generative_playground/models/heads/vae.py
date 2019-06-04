@@ -6,7 +6,7 @@ import generative_playground.models
 from generative_playground.codec.codec import get_codec
 from generative_playground.models.decoder.decoder import get_decoder
 
-from generative_playground.models.decoder.policy import PolicyFromTarget
+from generative_playground.models.problem.policy import PolicyFromTarget
 from generative_playground.models.heads.mean_variance_head import MeanVarianceSkewHead
 from generative_playground.molecules.model_settings import get_settings
 from generative_playground.models.encoder.encoder import get_encoder

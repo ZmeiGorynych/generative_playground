@@ -1,10 +1,8 @@
-import logging
-import random
 import numpy as np
 from unittest import TestCase
 import torch
 from generative_playground.utils.gpu_utils import device
-from generative_playground.models.decoder.policy import SoftmaxRandomSamplePolicy, MaxPolicy, PolicyFromTarget
+from generative_playground.models.problem.policy import SoftmaxRandomSamplePolicy, MaxPolicy, PolicyFromTarget
 
 logits = torch.Tensor([[-10., 1., -10.],[-10., 1., -10.]]).to(device=device, dtype=torch.float32)
 

@@ -19,7 +19,7 @@ from generative_playground.codec.hypergraph_grammar import GrammarInitializer
 from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring_functions, version_name_list
 import numpy as np
 
-batch_size = 15# 20
+batch_size = 2#15# 20
 drop_rate = 0.5
 molecules = True
 grammar_cache = 'hyper_grammar_guac_10k_with_clique_collapse.pickle'#'hyper_grammar.pickle'
@@ -30,7 +30,7 @@ reward_fun = lambda x: np.zeros((len(x),))
 # gi = GrammarInitializer(grammar_cache)
 
 
-root_name = 'distribution_discr_eps0.2'
+root_name = 'distribution_discr_eps0.2_tmp'
 max_steps = 45
 model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        grammar,
@@ -53,7 +53,7 @@ model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        smiles_save_file=root_name.replace(' ', '_') + '_smiles.zip',
                                                        on_policy_loss_type='advantage',
                                                        node_temperature_schedule=lambda x: 100,
-                                                       eps=0.2,
+                                                       eps=0.0,
                                                        priors='conditional')
 # preload_file='policy_gradient_run.h5')
 

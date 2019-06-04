@@ -1,7 +1,5 @@
 from generative_playground.codec.codec import get_codec
-from generative_playground.codec.hypergraph_grammar import HypergraphMaskGenerator
 from generative_playground.models.decoder.decoders import OneStepDecoderContinuous, SimpleDiscreteDecoderWithEnv
-from generative_playground.models.decoder.policy import SoftmaxRandomSamplePolicy
 from generative_playground.models.decoder.resnet_rnn import ResNetRNNDecoder
 from generative_playground.models.decoder.rnn import ResettingRNNDecoder, SimpleRNNDecoder
 from generative_playground.models.decoder.stepper import RandomDecoder
@@ -9,7 +7,6 @@ from generative_playground.models.decoder.graph_decoder import *
 
 from generative_playground.models.heads import MultipleOutputHead, MaskingHead
 from generative_playground.models.transformer.OneStepAttentionDecoder import SelfAttentionDecoderStep
-from generative_playground.molecules.model_settings import get_settings
 from generative_playground.utils.gpu_utils import to_gpu
 from generative_playground.models.decoder.decoders import DecoderWithEnvironmentNew
 from generative_playground.models.problem.rl.environment import GraphEnvironment

@@ -1,5 +1,6 @@
 import torch
 from torch import nn as nn
+import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.distributions import Gumbel
 import numpy as np
@@ -40,7 +41,7 @@ class SoftmaxRandomSamplePolicy(SimplePolicy):
     TODO: should probably switch that to something more like
     http://pytorch.org/docs/master/distributions.html
     '''
-    def __init__(self, temperature=1.0, bias=None, eps=0.0):
+    def __init__(self, temperature=1.0, eps=0.0):
         '''
 
         :param bias: a vector of log frequencies, to bias the sampling towards what we want
@@ -49,10 +50,6 @@ class SoftmaxRandomSamplePolicy(SimplePolicy):
         self.gumbel = Gumbel(loc=0, scale=1)
         self.temperature = torch.tensor(temperature, requires_grad=False)
         self.eps = eps
-        if bias is not None:
-            self.bias = torch.from_numpy(np.array(bias)).to(dtype=torch.float32, device=device).unsqueeze(0)
-        else:
-            self.bias = None
 
     def set_temperature(self, new_temperature):
         if self.temperature != new_temperature:
@@ -91,11 +88,11 @@ class SoftmaxRandomSamplePolicy(SimplePolicy):
         eff_logits = self.effective_logits(new_logits_t)
         x = self.gumbel.sample(logits.shape).to(device=device, dtype=eff_logits.dtype) + eff_logits
         _, out = torch.max(x, -1)
+        all_logp = F.log_softmax(eff_logits, dim=1)
+        self.logp = torch.cat([this_logp[this_ind:(this_ind+1)] for this_logp, this_ind in zip(all_logp, out)])
         return out
 
     def effective_logits(self, logits):
-        if self.bias is not None:
-            logits += self.bias
         return logits
 
 

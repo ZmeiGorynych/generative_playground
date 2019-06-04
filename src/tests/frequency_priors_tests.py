@@ -1,13 +1,10 @@
-import logging
-import random
-import numpy as np
 import torch
 import os
 from unittest import TestCase
-from generative_playground.codec.hypergraph_grammar import evaluate_rules, HypergraphGrammar, HypergraphMaskGenerator
+from generative_playground.codec.hypergraph_grammar import HypergraphGrammar
 from generative_playground.molecules.data_utils.zinc_utils import get_smiles_from_database
 from generative_playground.codec.codec import get_codec
-from generative_playground.models.decoder.policy import SoftmaxRandomSamplePolicy
+from generative_playground.models.problem.policy import SoftmaxRandomSamplePolicy
 from generative_playground.utils.gpu_utils import device
 
 

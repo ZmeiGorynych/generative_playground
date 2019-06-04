@@ -2,13 +2,14 @@ import torch
 from torch import nn as nn
 import numpy as np
 from generative_playground.models.decoder.stepper import Stepper
-from generative_playground.utils.gpu_utils import to_gpu #,FloatTensor, LongTensor
-from generative_playground.models.decoder.policy import SimplePolicy
+from generative_playground.utils.gpu_utils import to_gpu  # ,FloatTensor, LongTensor
+from generative_playground.models.problem.policy import SimplePolicy
+
 sanity_checks = False
 
 
 class OneStepDecoderContinuous(nn.Module):
-    def __init__(self,model):
+    def __init__(self, model):
         '''
         Wrapper for a continuous decoder that doesn't look at last action chosen, eg simple RNN
         :param model:
@@ -34,11 +35,12 @@ class OneStepDecoderContinuous(nn.Module):
         :return: a vector of logits over next actions
         '''
         if self.n < self.logits.shape[1]:
-            out = torch.squeeze(self.logits[:, self.n, :],1)
-            self.n +=1
+            out = torch.squeeze(self.logits[:, self.n, :], 1)
+            self.n += 1
             return out
         else:
             raise StopIteration()
+
 
 # TODO: split that in two decoders, with and without task
 class DecoderWithEnvironmentNew(nn.Module):
@@ -63,29 +65,35 @@ class DecoderWithEnvironmentNew(nn.Module):
         # initialize the decoding model
         self.stepper.init_encoder_output(z)
         last_state = self.task.reset()
+        env_outputs = [last_state]
+        actions = []
         out_logp = []
         out_rewards = []
         while True:
             try:
                 #  batch x num_actions
                 next_action, next_logp = self.stepper(last_state)
-                out_logp.append(next_logp)
-                last_state, rewards, done, info = self.task.step(to_numpy(next_action))
+                out_logp.append(next_logp.unsqueeze(1))
+                next_env_output = self.task.step(to_numpy(next_action))
+                last_state, rewards, done, info = next_env_output
+                actions.append(next_action)  #
+                env_outputs.append(next_env_output)
                 out_rewards.append(to_pytorch(rewards))
+
             except StopIteration as e:
                 break
             rewards = sum(out_rewards)
-            logp = sum(out_logp)
 
+        # TODO: store all outputs at each step
         out = {'rewards': rewards,
-               'logp':logp,
+               'actions': actions,
+               'env_outputs': env_outputs,
+               'logp': torch.cat(out_logp, dim=1),
                'graphs': last_state[0],
                'info': (info[0], to_pytorch(info[1]))}
 
-        # if hasattr(self.stepper,'mask_gen') and hasattr(self.stepper.mask_gen,'graphs'):
-        #     # TODO: this is very ad hoc, will be neater once mask_gen is moved into the environment
-        #     out['graphs'] = self.stepper.mask_gen.graphs
         return out
+
 
 def to_numpy(x):
     if type(x) == tuple:
@@ -98,6 +106,7 @@ def to_numpy(x):
         return x.detach().cpu().numpy()
     else:
         return x
+
 
 # TODO: split that in two decoders, with and without task
 class SimpleDiscreteDecoderWithEnv(nn.Module):
@@ -120,8 +129,8 @@ class SimpleDiscreteDecoderWithEnv(nn.Module):
         self.stepper = to_gpu(stepper)
         self.policy = policy
         self.task = task
-        self.bypass_actions = False # legacy
-        #self.mask_gen = mask_gen
+        self.bypass_actions = False  # legacy
+        # self.mask_gen = mask_gen
         self.output_shape = [None, None, self.stepper.output_shape[-1]]
         self.batch_size = batch_size
 
@@ -139,9 +148,9 @@ class SimpleDiscreteDecoderWithEnv(nn.Module):
         if self.task is not None:
             last_state = self.task.reset()
         elif z is not None:
-            last_state = [None]*len(z)
+            last_state = [None] * len(z)
         else:
-            last_state = [None]*self.batch_size
+            last_state = [None] * self.batch_size
 
         step = 0
         # as it's PyTorch, can determine max_len dynamically, by when the stepper raises StopIteration
@@ -153,7 +162,7 @@ class SimpleDiscreteDecoderWithEnv(nn.Module):
                 next_logits = self.stepper(last_state)
                 # check for NaNs in the logits
                 if sanity_checks:
-                    assert(all(next_logits.view(next_logits.numel())==next_logits.view(next_logits.numel())))
+                    assert (all(next_logits.view(next_logits.numel()) == next_logits.view(next_logits.numel())))
                 # #just in case we were returned a sequence of length 1 rather than a straight batch_size x num_actions
                 # next_logits = torch.squeeze(next_logits, 1)
                 # if self.mask_gen is not None:
@@ -171,13 +180,13 @@ class SimpleDiscreteDecoderWithEnv(nn.Module):
                     out_rewards.append(to_pytorch(rewards))
                     out_terminals.append(to_pytorch(terminals))
             except StopIteration as e:
-                #print(e)
+                # print(e)
                 break
-            out_actions_all = torch.cat([x.unsqueeze(1) for x in out_actions] , 1)
+            out_actions_all = torch.cat([x.unsqueeze(1) for x in out_actions], 1)
             out_logits_all = torch.cat([x.unsqueeze(1) for x in out_logits], 1)
 
-        out ={'actions': out_actions_all, 'logits': out_logits_all}
-        if hasattr(self.stepper,'mask_gen') and hasattr(self.stepper.mask_gen,'graphs'):
+        out = {'actions': out_actions_all, 'logits': out_logits_all}
+        if hasattr(self.stepper, 'mask_gen') and hasattr(self.stepper.mask_gen, 'graphs'):
             # TODO: this is very ad hoc, will be neater once mask_gen is moved into the environment
             out['graphs'] = self.stepper.mask_gen.graphs
         if self.task is not None:
@@ -185,8 +194,7 @@ class SimpleDiscreteDecoderWithEnv(nn.Module):
             out['terminals'] = torch.cat([x.unsqueeze(1) for x in out_terminals], 1)
             out['info'] = (info[0], to_pytorch(info[1]))
 
-        return out# out_actions_all, out_logits_all, out_rewards_all, out_terminals_all, (info[0], to_pytorch(info[1]))
-
+        return out  # out_actions_all, out_logits_all, out_rewards_all, out_terminals_all, (info[0], to_pytorch(info[1]))
 
 
 def to_pytorch(x):

@@ -6,7 +6,7 @@ import numpy as np
 from random import randint
 import torch.nn as nn
 
-from generative_playground.models.decoder.policy import PolicyFromTarget
+from generative_playground.models.problem.policy import PolicyFromTarget
 
 from generative_playground.models.losses.variational_log_loss import VariationalLoss
 from generative_playground.utils.fit import fit
