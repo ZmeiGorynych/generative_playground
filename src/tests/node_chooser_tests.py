@@ -58,3 +58,4 @@ class TestEnvironment(TestCase):
         out = decoder()
         data = QLearningDataset()
         data.update_data(out)
+        print('done!')

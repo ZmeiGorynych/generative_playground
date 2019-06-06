@@ -65,7 +65,7 @@ class DecoderWithEnvironmentNew(nn.Module):
         # initialize the decoding model
         self.stepper.init_encoder_output(z)
         last_state = self.task.reset()
-        env_outputs = [last_state]
+        env_outputs = [(last_state, None, None, None) ]
         actions = []
         out_logp = []
         out_rewards = []

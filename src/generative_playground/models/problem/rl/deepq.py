@@ -1,19 +1,31 @@
 from collections import deque
 import torch.nn as nn
 import torch
+import numpy as np
+from generative_playground.codec.hypergraph import HyperGraph
+
+def slice(x, b):
+    out = [xx[b] for xx in x]
+    assert len(out) == 3
+    assert isinstance(out[0], HyperGraph)
+    assert isinstance(out[1], np.ndarray)
+    assert isinstance(out[2], np.ndarray)
 
 class QLearningDataset(deque):
     def update_data(self, new_data):
-        batch_size, num_steps, _ = new_data['rewards'].shape
-        for b in range(batch_size):
-            for s in range(num_steps):
+        batch_size, num_steps = new_data['rewards'].shape
+        for s in range(num_steps):
+            for b in range(batch_size):
                 # TODO check for padding
-                old_state = new_data['env_outputs'][s][0][b]
-                new_state = new_data['env_outputs'][s+1][0][b]
+                old_state = new_data['env_outputs'][s][0]
+                new_state = new_data['env_outputs'][s+1][0]
                 reward = new_data['rewards'][b,s]
-                action = [new_data['actions'][s][0][b], new_data['actions'][s][1][b]]
-                new_mask = new_data['env_outputs'][s+1][2][b] > -1e4 # ones are the good ones
-                self.data.append((old_state, action, reward, new_state, new_mask))
+                action = new_data['actions'][s][b]
+                exp_tuple =(slice(old_state,b),
+                             action,
+                             reward,
+                             slice(new_state,b))
+                self.append(exp_tuple)
 
 
 class DeepQModelWrapper(nn.Module):
