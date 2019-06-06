@@ -44,7 +44,7 @@ def fit_rl(train_gen=None, # an iterable providing training data
         if scheduler is not None:
             scheduler.step()
         for inputs in train_gen:
-            outputs = model(inputs)
+            outputs = model(inputs) # we assume model passes through the inputs - is that a nice assumption to make?
             loss = loss_fn(outputs)
             nice_params = filter(lambda p: p.requires_grad, model.parameters())
             if anchor_model is not None:

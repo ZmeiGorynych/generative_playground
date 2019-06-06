@@ -356,7 +356,8 @@ class HypergraphMaskGenerator:
         elif self.priors == 'conditional':
             log_freqs = self.get_log_conditional_frequencies()
             full_logit_priors += log_freqs
-        return self.graphs, -1e5*(1-np.array(next_node)), full_logit_priors
+        node_priors = -1e5*(1-np.array(next_node))
+        return self.graphs, node_priors, full_logit_priors + node_priors[:, :, None] # already add in the node priors
 
     def get_log_conditional_frequencies(self):
         freqs = -3*np.ones((len(self.graphs),
@@ -419,8 +420,15 @@ class HypergraphMaskGenerator:
         if self.priors is True:
             out += self.grammar.get_log_frequencies()
         elif self.priors == 'conditional': # TODO this bit is broken, needs fixing
-            raise NotImplementedError()
-            out += self.get_log_conditional_frequencies()
+            all_cond_freqs = self.get_log_conditional_frequencies()
+            if self.graphs[0] is None: # first step
+                out += all_cond_freqs[:,0,:]
+            else:
+                cf = []
+                for g, (graph, expand_loc) in enumerate(zip(self.graphs, self.next_expand_location)):
+                    loc = graph.id_to_index(expand_loc)
+                    cf.append(all_cond_freqs[g:g+1,loc,:])
+                out += np.concatenate(cf, axis=0)
         return out
 
     def valid_node_mask(self):

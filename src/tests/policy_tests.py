@@ -12,16 +12,6 @@ class TestStart(TestCase):
         ind = policy(logits)
         assert len(ind) == 2
 
-    def test_softmax_random_policy_with_bias(self):
-        policy = SoftmaxRandomSamplePolicy(bias=np.array([10, 0, 0]))
-        ind = policy(logits)
-        assert len(ind) == 2
-
-    def test_softmax_random_policy_with_list_bias(self):
-        policy = SoftmaxRandomSamplePolicy(bias=[10, 0, 0])
-        ind = policy(logits)
-        assert len(ind) == 2
-
     def test_max_policy(self):
         policy = MaxPolicy()
         ind = policy(logits)

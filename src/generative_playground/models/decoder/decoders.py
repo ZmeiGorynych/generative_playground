@@ -73,19 +73,17 @@ class DecoderWithEnvironmentNew(nn.Module):
             try:
                 #  batch x num_actions
                 next_action, next_logp = self.stepper(last_state)
-                out_logp.append(next_logp.unsqueeze(1))
+                out_logp.append(to_pytorch(next_logp).unsqueeze(1))
                 next_env_output = self.task.step(to_numpy(next_action))
                 last_state, rewards, done, info = next_env_output
                 actions.append(next_action)  #
                 env_outputs.append(next_env_output)
-                out_rewards.append(to_pytorch(rewards))
+                out_rewards.append(to_pytorch(rewards).unsqueeze(1))
 
             except StopIteration as e:
                 break
-            rewards = sum(out_rewards)
 
-        # TODO: store all outputs at each step
-        out = {'rewards': rewards,
+        out = {'rewards':  torch.cat(out_rewards, dim=1),
                'actions': actions,
                'env_outputs': env_outputs,
                'logp': torch.cat(out_logp, dim=1),
@@ -196,7 +194,7 @@ class SimpleDiscreteDecoderWithEnv(nn.Module):
 
         return out  # out_actions_all, out_logits_all, out_rewards_all, out_terminals_all, (info[0], to_pytorch(info[1]))
 
-
+# TODO: make this work with half precision
 def to_pytorch(x):
     if 'ndarray' in str(type(x)):
         if 'bool' in str(type(x[0])):

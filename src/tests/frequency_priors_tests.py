@@ -22,7 +22,7 @@ class TestStart(TestCase):
         mask_gen2 = get_codec(molecules, grammar, 30).mask_gen
         mask_gen1.priors = False
         mask_gen2.priors = True
-        policy1 = SoftmaxRandomSamplePolicy(bias=mask_gen1.grammar.get_log_frequencies())
+        policy1 = SoftmaxRandomSamplePolicy()
         policy2 = SoftmaxRandomSamplePolicy()
         lp = []
         for mg in [mask_gen1,mask_gen2]:
@@ -36,4 +36,5 @@ class TestStart(TestCase):
         for this_lp, policy in zip(lp, [policy1, policy2]):
             eff_logits.append(policy.effective_logits(dummy_model_output))
 
-        assert torch.max((eff_logits[0] -eff_logits[1]).abs()) < 1e-6
+        # policies no longer support a 'bias' in-arg, so this is not relevant
+        # assert torch.max((eff_logits[0] -eff_logits[1]).abs()) < 1e-6

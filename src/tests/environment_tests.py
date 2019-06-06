@@ -63,7 +63,7 @@ class Environment(TestCase):
         dummy_stepper.output_shape = [None, None, None]
         dummy_stepper.init_encoder_output = lambda x: None
 
-        decoder = DecoderWithEnvironmentNew(dummy_stepper, env, batch_size=batch_size)
+        decoder = DecoderWithEnvironmentNew(dummy_stepper, env)
         out = decoder()
         print('done!')
 
