@@ -11,7 +11,8 @@ from generative_playground.models.problem.rl.environment import GraphEnvironment
 from generative_playground.models.decoder.graph_decoder import GraphEncoder, GraphDecoderWithNodeSelection
 from generative_playground.models.heads.multiple_output_head import MultipleOutputHead
 from generative_playground.models.losses.policy_gradient_loss import PolicyGradientLoss
-
+from generative_playground.molecules.models.graph_discriminator import GraphTransformerModel
+from generative_playground.models.problem.rl.deepq import *
 
 def make_grammar():
     tmp_file = 'tmp2.pickle'
@@ -33,30 +34,17 @@ def make_environment(grammar, batch_size=2):
                            batch_size=batch_size)
     return env
 
-
-def make_model(grammar, output_spec=None):
-    encoder = GraphEncoder(grammar=grammar,
-                           d_model=512,
-                           drop_rate=0.0,
-                           model_type='transformer')
-    model = MultipleOutputHead(model=encoder,
-                               output_spec=output_spec,  # to select the action for chosen node
-                               drop_rate=0.0)
-    # don't support using this model in VAE-style models yet
-    model.init_encoder_output = lambda x: None
+def make_decoder(grammar, output_spec):
+    model = GraphTransformerModel(grammar, output_spec, drop_rate=0.0, d_model=512)
     stepper = GraphDecoderWithNodeSelection(model)
-    return stepper
-
-def make_decoder(output_spec):
-    grammar = make_grammar()
-    stepper = make_model(grammar, output_spec)
     env = make_environment(grammar, batch_size=2)
     decoder = DecoderWithEnvironmentNew(stepper, env)
     return decoder
 
-class Environment(TestCase):
+class TestEnvironment(TestCase):
     def test_decoder_with_environment_new(self):
-        decoder = make_decoder(output_spec={'node': 1,  # to be used to select next node to expand
+
+        decoder = make_decoder(grammar, output_spec={'node': 1,  # to be used to select next node to expand
                                        'action': len(grammar)})
         out = decoder()
         loss = PolicyGradientLoss(loss_type='advantage_record_mean_best')
@@ -65,6 +53,8 @@ class Environment(TestCase):
         print('done!')
 
     def test_deepq_experience_creation(self):
-        decoder = make_decoder(output_spec={'node': 1,  # to be used to select next node to expand
+        decoder = make_decoder(grammar, output_spec={'node': 1,  # to be used to select next node to expand
                                        'action': len(grammar)})
         out = decoder()
+        data = QLearningDataset()
+        data.update_data(out)
