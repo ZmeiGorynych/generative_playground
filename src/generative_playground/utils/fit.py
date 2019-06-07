@@ -29,11 +29,11 @@ def fit(train_gen=None,
         loss_fn=None,
         batches_to_valid=9,
         grad_clip=5,
-        metric_monitor=None,  # TODO: legacy, remove this in upstream code
-        checkpointer=None,
+        # metric_monitor=None,  # TODO: legacy, remove this in upstream code
+        # checkpointer=None,
         callbacks=[]
         ):
-    callbacks += [metric_monitor]
+    # callbacks += [metric_monitor]
     print('setting up fit...')
     print('Number of model parameters:', count_parameters(model))
 
@@ -66,7 +66,8 @@ def fit(train_gen=None,
 
             # get the next pair (inputs, targets)
             try:
-                inputs_, targets_ = next(data_iter)
+                # inputs_, targets_ = next(data_iter)
+                inputs = next(data_iter)
             except StopIteration:
                 # make sure we get all data from both iterators
                 done[train] = True
@@ -75,10 +76,10 @@ def fit(train_gen=None,
                 else:
                     continue
 
-            inputs = inputs_;  # to_variable(inputs_)
-            targets = targets_;  # to_variable(targets_)
+            # inputs = inputs_;  # to_variable(inputs_)
+            # targets = targets_;  # to_variable(targets_)
             outputs = model(inputs)
-            loss = loss_fn(outputs, targets)
+            loss = loss_fn(outputs)#, targets)
             this_loss = loss.data.item()
             if train:
                 optimizer.zero_grad()
@@ -88,21 +89,16 @@ def fit(train_gen=None,
                     torch.nn.utils.clip_grad_norm_(nice_params, grad_clip)
                 optimizer.step()
             else:
+                pass
                 # TODO: refactor this so the scheduler is part of checkpointer, to fit the
-                # general callback pattern?
-                avg_loss = checkpointer(None, model, outputs, loss_fn, loss)
-                if step_scheduler_after_val and avg_loss is not None:
-                    scheduler.step(avg_loss)
+                # # general callback pattern?
+                # avg_loss = checkpointer(None, model, outputs, loss_fn, loss)
+                # if step_scheduler_after_val and avg_loss is not None:
+                #     scheduler.step(avg_loss)
 
             for callback in callbacks:
                 if callback is not None:
                     callback(inputs, model, outputs, loss_fn, loss)
-            # if metric_monitor is not None:
-            #     metric_monitor(train,
-            #                    this_loss,
-            #                    metrics=loss_fn.metrics if hasattr(loss_fn, 'metrics') else None,
-            #                    inputs=inputs,
-            #                    model_out=outputs,
-            #                    targets=targets)
+
             if train:
                 yield this_loss

@@ -6,10 +6,12 @@ class Checkpointer:
                  valid_batches_to_checkpoint=1,
                  save_path=None,
                  save_always=False,
+                 verbose=0
                  ):
         self.valid_batches_to_checkpoint = valid_batches_to_checkpoint
         self.save_path = save_path
         self.save_always = save_always
+        self.verbose = verbose
         self.val_count = 0
         self.cum_val_loss = 0
         self.best_valid_loss = float('inf')
@@ -17,6 +19,8 @@ class Checkpointer:
     def __call__(self, inputs, model, outputs, loss_fn, loss):#val_loss, model):
         print('calling checkpointer...')
         val_loss = loss.data.item()
+        if self.verbose > 0:
+            print('this loss:' + str(val_loss))
         self.cum_val_loss += val_loss
         self.val_count += 1
         # after enough validation batches, see if we want to save the weights

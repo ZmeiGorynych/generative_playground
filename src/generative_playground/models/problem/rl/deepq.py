@@ -1,5 +1,6 @@
 from collections import deque
 import torch.nn as nn
+import torch.nn.functional as F
 import torch
 import numpy as np
 from generative_playground.codec.hypergraph import HyperGraph
@@ -22,7 +23,7 @@ class QLearningDataset(deque):
                 old_state = new_data['env_outputs'][s][0]
                 new_state = new_data['env_outputs'][s+1][0]
                 reward = new_data['rewards'][b:b+1,s]
-                action = new_data['actions'][s][b]
+                action = [new_data['actions'][s][0][b], new_data['actions'][s][1][b]]
                 exp_tuple =(slice(old_state,b),
                              action,
                              reward,
@@ -30,9 +31,8 @@ class QLearningDataset(deque):
                 self.append(exp_tuple)
 
 def pad_numpy(x, max_len, pad_value):
-    assert len(x) <= max_len, "Input too long for padding!"
-    if len(x) == max_len:
-        return x
+    if len(x) >= max_len: # sometimes it's been padded too much as part of its batch, need to trim that
+        return x[:max_len]
     else:
         return np.concatenate([x, pad_value*np.ones([max_len-len(x),*x.shape[1:]])], axis=0)
 
@@ -57,22 +57,24 @@ def collate_experiences(batch):
 class DeepQModelWrapper(nn.Module):
     def __init__(self, model, gamma=1.0):
         super().__init__()
-        self.model = model # the value prediction model, returns an array of exp value for node x rule choice
+        # the value prediction model, returns an array of exp value for node x rule choice
+        # we interpret its output as logits to feed to a tanh, assuming the actual values are between -1 and 1
+        self.model = model
         self.gamma = gamma
 
     def forward(self, inputs):
+
         old_state, actions, reward, new_state = inputs
         # make the target
-        new_values = self.model(new_state[0])['action'].detach()
+        new_values = F.tanh(self.model(new_state[0])['action'].detach())
         new_mask = (torch.from_numpy(new_state[2]) > -1e4).to(dtype=reward[0].dtype,
                                                               device=reward[0].device)
-        # TODO: the below two lines are the only ones here that would need modifying for distributional rl
         post_value = (new_values*new_mask).max(dim=2)[0].max(dim=1)[0]
         target = reward + self.gamma * post_value
 
         # evaluate the model prediction for the pre-determined action
-        model_out = self.model(old_state[0])
-        model_selected = torch.stack([model_out['action'][b,a1,a2] for b, (a1,a2) in enumerate(actions)])
+        model_out = F.tanh(self.model(old_state[0])['action'])
+        model_selected = torch.stack([model_out[b,a1,a2] for b, (a1,a2) in enumerate(actions)])
         return {'out': model_selected, 'target': target}
 
 

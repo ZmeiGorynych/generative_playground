@@ -19,7 +19,7 @@ from generative_playground.codec.hypergraph_grammar import GrammarInitializer
 from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring_functions, version_name_list
 import torch
 
-batch_size = 3 # 20
+batch_size = 5 # 20
 drop_rate = 0.3
 molecules = True
 grammar_cache = 'hyper_grammar_guac_10k.pickle'
@@ -35,17 +35,13 @@ gi = GrammarInitializer(grammar_cache)
 
 root_name = 'guacamol_deepq' + ver + '_' + str(obj_num) + 'do 0.3 lr4e-5'
 max_steps = 50
-# sim_model, q_dataset, model_fitter \
-model, model_fitter = train_deepq(molecules,
+sim_model, q_dataset, model_fitter = train_deepq(molecules,
                                                        grammar,
                                                        EPOCHS=100,
                                                        BATCH_SIZE=batch_size,
                                                        reward_fun_on=reward_fun,
                                                        max_steps=max_steps,
                                                        lr_on=4e-5,
-                                                       # lr_discrim=5e-4,
-                                                       # discrim_wt=0.0,
-                                                       # p_thresh=-10,
                                                        drop_rate=drop_rate,
                                                        reward_sm=0.0,
                                                        decoder_type='attn_graph_node',  #'rnn_graph',# 'attention',
@@ -54,14 +50,14 @@ model, model_fitter = train_deepq(molecules,
                                                        save_file_root_name=root_name,
                                                        # preload_file_root_name='guacamol_ar_emb_node_rpev2_0lr2e-5',#'guacamol_ar_nodev2_0lr2e-5',#root_name,
                                                        smiles_save_file=None,  # 'pg_smiles_hg1.h5',
-                                                       # on_policy_loss_type='advantage_record'
-                                                 )
+                                                 eps=0.5)
 # preload_file='policy_gradient_run.h5')
 
 while True:
-    # with torch.no_grad:
-    #     runs = sim_model()
-    # q_dataset.update_data(runs)
+    with torch.no_grad():
+        runs = sim_model()
+    print('best reward in run:' + str(runs['rewards'].max().item()))
+    q_dataset.update_data(runs)
     next(model_fitter)
 
 

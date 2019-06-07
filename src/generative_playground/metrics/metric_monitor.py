@@ -97,6 +97,16 @@ class MetricPlotter:
                             'opts':{'legend': [key for key, val in metrics.items()]},
                                     'smooth': self.smooth_weight}
 
+            # if 'rewards' in outputs:
+            #     rewards = outputs['rewards']
+            #     if 'tensor' in str(type(rewards)):
+            #         rewards = rewards.cpu().detach().numpy()
+            #     all_metrics['reward'] = {'type': 'line',
+            #                 'X': np.array([self.plot_counter]),
+            #                 'Y': np.array([max(rewards)]),
+            #                              'opts':{'legend':['max']},
+            #                     'smooth':self.smooth_weight}
+
             if self.extra_metric_fun is not None:
                 all_metrics.update(self.extra_metric_fun(inputs, targets, model_out, train, self.plot_counter))
 

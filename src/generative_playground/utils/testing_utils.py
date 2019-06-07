@@ -23,7 +23,7 @@ def make_grammar():
 def make_decoder(grammar, output_spec):
     model = GraphTransformerModel(grammar, output_spec, drop_rate=0.0, d_model=512)
     stepper = GraphDecoderWithNodeSelection(model)
-    env = make_environment(grammar, batch_size=2)
+    env = make_environment(grammar, batch_size=3)
     decoder = DecoderWithEnvironmentNew(stepper, env)
     return decoder
 
