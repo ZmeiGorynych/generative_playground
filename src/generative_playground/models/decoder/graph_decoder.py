@@ -17,13 +17,16 @@ class GraphDecoderWithNodeSelection(Stepper):
     def __init__(self,
                  model,
                  # node_policy=SoftmaxRandomSamplePolicy(),
-                 rule_policy=SoftmaxRandomSamplePolicy()
+                 rule_policy=SoftmaxRandomSamplePolicy(),
+                 detach_model_output=False
                  ):
         super().__init__()
         # self.node_policy = node_policy
         self.rule_policy = rule_policy
         self.model = model
+        self.detach_model_output = detach_model_output
         self.output_shape = [None, self.model.output_shape['action'][-1]]  # a batch of logits to select next action
+
 
     def init_encoder_output(self, z):
         '''
@@ -45,6 +48,8 @@ class GraphDecoderWithNodeSelection(Stepper):
         graphs, node_mask, full_logit_priors = last_state
         model_out = self.model(graphs)
         next_logits = model_out['action']  #batch x num_nodes x num_actions        batch_size = next_logits.size(0)
+        if self.detach_model_output:
+            next_logits = next_logits.detach()
         num_actions = next_logits.size(2)
 
         # combine node masks and action prior/masks

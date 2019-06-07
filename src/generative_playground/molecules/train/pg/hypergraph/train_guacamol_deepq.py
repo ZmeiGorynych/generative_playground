@@ -19,7 +19,7 @@ from generative_playground.codec.hypergraph_grammar import GrammarInitializer
 from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring_functions, version_name_list
 import torch
 
-batch_size = 10 # 20
+batch_size = 30 # 20
 drop_rate = 0.3
 molecules = True
 grammar_cache = 'hyper_grammar_guac_10k.pickle'
@@ -57,7 +57,8 @@ explore, model_fitter = train_deepq(molecules,
 
 while True:
     explore()
-    next(model_fitter)
+    for _ in range(3):
+        next(model_fitter)
 
 
 
