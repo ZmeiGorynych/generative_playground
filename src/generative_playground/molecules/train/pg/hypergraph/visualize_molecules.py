@@ -39,8 +39,12 @@ def model_process_fun(model_out, visdom, n):
                       'line',
                       X=np.array([n]),
                       Y=np.array([ [x for x in norm_scores[0]] + [norm_scores[0].sum()] + [scores[0].sum()] + [
-                          desc.CalcNumAromaticRings(mol)] + [total_rewards[best_ind].item()]]),
-                      opts={'legend': ['logP', 'SA', 'cycle', 'norm_reward', 'reward', 'Aromatic rings','eff_reward']})
+                          desc.CalcNumAromaticRings(mol)] ]),
+                      opts={'legend': ['logP', 'SA', 'cycle', 'norm_reward', 'reward', 'Aromatic rings']})
+        visdom.append('reward',
+                      'line',
+                      X=np.array([n]),
+                      Y=np.array([total_rewards[best_ind].item()]))
         visdom.append('fraction valid',
                       'line',
                       X=np.array([n]),

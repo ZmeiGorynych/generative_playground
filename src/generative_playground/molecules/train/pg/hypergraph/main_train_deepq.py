@@ -165,7 +165,7 @@ def train_deepq(molecules=True,
     experience_data = QLearningDataset(maxlen=int(1e6))
     experience_data.update_data(decoder()) #need this as the DataLoader constructor won't accept an empty dataset
     experience_loader = DataLoader(dataset=experience_data,
-                        batch_size=BATCH_SIZE*10, # we're dealing with single slices here, can afford this
+                        batch_size=BATCH_SIZE*20, # we're dealing with single slices here, can afford this
                         shuffle=True,
                         collate_fn=collate_experiences)
 
@@ -175,9 +175,24 @@ def train_deepq(molecules=True,
                         DeepQLoss(),  # last_reward_wgt=reward_sm),
                         experience_loader,
                             full_path(gen_save_file),
-                            plot_prefix + 'on-policy',
-                            model_process_fun=model_process_fun,
+                            plot_prefix + 'deepq',
+                            model_process_fun=None,#model_process_fun,
                             lr=lr_on,
                             extra_callbacks=gen_extra_callbacks)
 
-    return decoder, experience_data, fitter
+
+    explore_metric_monitor = MetricPlotter(plot_prefix="",
+                                   loss_display_cap=float('inf'),
+                                   dashboard_name=dashboard,
+                                   plot_ignore_initial=-1,
+                                   process_model_fun=model_process_fun,
+                                   smooth_weight=reward_sm)
+    def explore():
+        with torch.no_grad():
+            runs = decoder()
+        print('best reward in run:' + str(runs['rewards'].max().item()))
+        experience_data.update_data(runs)
+        explore_metric_monitor(None, decoder, runs, {}, torch.tensor(0.0))
+
+
+    return explore, fitter
