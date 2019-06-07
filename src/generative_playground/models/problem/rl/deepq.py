@@ -66,6 +66,7 @@ class DeepQModelWrapper(nn.Module):
         new_values = self.model(new_state[0])['action'].detach()
         new_mask = (torch.from_numpy(new_state[2]) > -1e4).to(dtype=reward[0].dtype,
                                                               device=reward[0].device)
+        # TODO: the below two lines are the only ones here that would need modifying for distributional rl
         post_value = (new_values*new_mask).max(dim=2)[0].max(dim=1)[0]
         target = reward + self.gamma * post_value
 
@@ -81,5 +82,6 @@ class DeepQLoss(nn.Module):
         self.loss = nn.MSELoss()
 
     def forward(self, outputs):
+        # TODO: here we'd have the Wasserstein penalty for distribution targets
         return self.loss(outputs['out'], outputs['target'])
 

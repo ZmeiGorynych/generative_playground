@@ -16,7 +16,7 @@ import torch.nn.functional as F
 class GraphDecoderWithNodeSelection(Stepper):
     def __init__(self,
                  model,
-                 node_policy=SoftmaxRandomSamplePolicy(),
+                 # node_policy=SoftmaxRandomSamplePolicy(),
                  rule_policy=SoftmaxRandomSamplePolicy()
                  ):
         super().__init__()
