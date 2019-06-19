@@ -169,7 +169,7 @@ class HypergraphGrammar(GenericCodec):
 
             self._rule_term_dist_deltas.append(rule_term_dist_delta)
 
-        self._rule_term_dist_deltas = tuple(self._rule_term_dist_deltas)  # make it immutable
+        self._rule_term_dist_deltas = np.array(self._rule_term_dist_deltas)
 
         assert min(self._rule_term_dist_deltas[1:]) >= 0
         assert len(self._rule_term_dist_deltas) == len(self.rules)
@@ -183,12 +183,14 @@ class HypergraphGrammar(GenericCodec):
             return sum([self.terminal_distance_by_parent[str(child)] for child in graph.children()])
 
     def get_mask(self, next_rule_string, max_term_dist):
-        out = []
-        for i, rule in enumerate(self.rules):
-            if i in self.id_by_parent[next_rule_string] and self.rule_term_dist_deltas[i] <= max_term_dist:
-                out.append(1)
-            else:
-                out.append(0)
+        out = np.zeros((len(self)))
+        out[self.id_by_parent[next_rule_string]] = 1
+        out[self.rule_term_dist_deltas > max_term_dist] = 0
+        # for i, rule in enumerate(self.rules):
+        #     if i in self.id_by_parent[next_rule_string] and self.rule_term_dist_deltas[i] <= max_term_dist:
+        #         out.append(1)
+        #     else:
+        #         out.append(0)
         assert any(out), "Mask must allow at least one rule"
         return out
 

@@ -165,7 +165,7 @@ def train_deepq(molecules=True,
     experience_data = QLearningDataset(maxlen=int(1e6))
     experience_data.update_data(decoder()) #need this as the DataLoader constructor won't accept an empty dataset
     experience_loader = DataLoader(dataset=experience_data,
-                        batch_size=BATCH_SIZE*10, # we're dealing with single slices here, can afford this
+                        batch_size=BATCH_SIZE, # we're dealing with single slices here, can afford this
                         shuffle=True,
                         collate_fn=collate_experiences)
 

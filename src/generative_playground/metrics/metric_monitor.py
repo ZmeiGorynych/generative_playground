@@ -42,6 +42,9 @@ class MetricPlotter:
                 self.vis = Dashboard(dashboard_name,
                                      call_every=10 if frequent_calls else 1)
                 self.have_visdom = True
+            else:
+                self.vis = None
+                self.have_visdom = False
         except:
             self.have_visdom = False
             self.vis = None

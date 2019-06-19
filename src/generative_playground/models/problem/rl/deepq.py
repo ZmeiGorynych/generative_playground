@@ -1,9 +1,12 @@
 from collections import deque
+import math
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
 import numpy as np
 from generative_playground.codec.hypergraph import HyperGraph
+from generative_playground.models.losses.wasserstein_loss import WassersteinLoss
+from generative_playground.models.discrete_distribution_utils import thompson_sampling_aggregate, to_bins
 
 def slice(x, b):
     out = [xx[b] for xx in x]
@@ -70,6 +73,7 @@ class DeepQModelWrapper(nn.Module):
         new_mask = (torch.from_numpy(new_state[2]) > -1e4).to(dtype=reward[0].dtype,
                                                               device=reward[0].device)
         post_value = (new_values*new_mask).max(dim=2)[0].max(dim=1)[0]
+        # TODO: in our case, if terminal use reward, only otherwise use post_value
         target = reward + self.gamma * post_value
 
         # evaluate the model prediction for the pre-determined action
@@ -87,3 +91,40 @@ class DeepQLoss(nn.Module):
         # TODO: here we'd have the Wasserstein penalty for distribution targets
         return self.loss(outputs['out'], outputs['target'])
 
+class DistributionaDeepQModelWrapper(nn.Module):
+    def __init__(self, model, num_bins, gamma=1.0):
+        super().__init__()
+        # the value prediction model, returns an array of exp value for node x rule choice
+        # we interpret its output as logits to feed to a tanh, assuming the actual values are between -1 and 1
+        self.model = model
+        self.gamma = gamma
+        self.num_bins = num_bins
+
+    def forward(self, inputs):
+        old_state, actions, reward, new_state = inputs
+        # evaluate the model prediction for the pre-determined action
+        model_out = F.softmax(self.model(old_state[0])['action'], dim=2)
+        model_selected = torch.cat([model_out[b,a1,a2,:] for b, (a1,a2) in enumerate(actions)])
+        new_values = F.softmax(self.model(new_state[0])['action'].detach(), dim=2)
+        new_mask = (torch.from_numpy(new_state[2]) > -1e4).to(dtype=reward[0].dtype,
+                                                              device=reward[0].device)
+        aggr_targets = thompson_sampling_aggregate(new_values, new_mask)
+        # make the target
+        target = torch.zeros_like(model_selected)
+        for b in range(len(target)):
+            if reward[b] > 0:
+                ind = math.ceil(reward.item() * (self.num_bins - 1))
+                target[b,ind] = 1
+            else:
+                target[b,:] = self.gamma*aggr_targets[b, :]
+
+        return {'out': model_selected, 'target': target}
+
+
+class DistributionalDeepQWassersteinLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.loss = WassersteinLoss()
+
+    def forward(self, outputs):
+        return self.loss(outputs['out'], outputs['target'])
