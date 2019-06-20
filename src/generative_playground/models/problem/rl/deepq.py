@@ -92,12 +92,11 @@ class DeepQLoss(nn.Module):
         return self.loss(outputs['out'], outputs['target'])
 
 class DistributionaDeepQModelWrapper(nn.Module):
-    def __init__(self, model, num_bins, gamma=1.0):
+    def __init__(self, model, num_bins):
         super().__init__()
         # the value prediction model, returns an array of exp value for node x rule choice
         # we interpret its output as logits to feed to a tanh, assuming the actual values are between -1 and 1
         self.model = model
-        self.gamma = gamma
         self.num_bins = num_bins
 
     def forward(self, inputs):
@@ -116,7 +115,7 @@ class DistributionaDeepQModelWrapper(nn.Module):
                 ind = math.ceil(reward.item() * (self.num_bins - 1))
                 target[b,ind] = 1
             else:
-                target[b,:] = self.gamma*aggr_targets[b, :]
+                target[b,:] = aggr_targets[b, :]
 
         return {'out': model_selected, 'target': target}
 
