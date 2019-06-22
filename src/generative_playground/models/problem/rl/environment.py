@@ -2,6 +2,7 @@ import numpy as np
 from generative_playground.codec.codec import get_codec
 from generative_playground.molecules.model_settings import get_settings
 from rdkit import Chem
+from math import floor
 
 class GraphEnvironment:
     def __init__(self,
@@ -37,11 +38,12 @@ class GraphEnvironment:
     def step(self, full_action):
         '''
         Convention says environment outputs np.arrays
-        :param action: LongTensor(batch_size), or np.array(batch_sizelast discrete action chosen
+        :param rule_action: LongTensor(batch_size), or np.array(batch_size) of ints last discrete rule_action chosen
         :return:
         '''
-        node_action, rule_action = full_action
-        next_state = self.mask_gen.step(full_action)
+        node_action = [floor(a.item() / self.action_dim) for a in full_action]
+        rule_action = [a.item() % self.action_dim for a in full_action]
+        next_state = self.mask_gen.step((node_action, rule_action))
         graphs, node_mask, full_logit_priors = next_state
         # TODO: the rest here is just bookkeeping + reward calculation
         if self.mask_gen.t < self._max_episode_steps:

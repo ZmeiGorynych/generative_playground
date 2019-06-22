@@ -6,7 +6,7 @@ import torch
 import numpy as np
 from generative_playground.codec.hypergraph import HyperGraph
 from generative_playground.models.losses.wasserstein_loss import WassersteinLoss
-from generative_playground.models.discrete_distribution_utils import thompson_sampling_aggregate, to_bins
+# from generative_playground.models.discrete_distribution_utils import thompson_sampling_aggregate, to_bins
 
 def slice(x, b):
     out = [xx[b] for xx in x]
@@ -26,7 +26,7 @@ class QLearningDataset(deque):
                 old_state = new_data['env_outputs'][s][0]
                 new_state = new_data['env_outputs'][s+1][0]
                 reward = new_data['rewards'][b:b+1,s]
-                action = [new_data['actions'][s][0][b], new_data['actions'][s][1][b]]
+                action = new_data['actions'][s][b]
                 exp_tuple =(slice(old_state,b),
                              action,
                              reward,
@@ -78,7 +78,8 @@ class DeepQModelWrapper(nn.Module):
 
         # evaluate the model prediction for the pre-determined action
         model_out = F.tanh(self.model(old_state[0])['action'])
-        model_selected = torch.stack([model_out[b,a1,a2] for b, (a1,a2) in enumerate(actions)])
+        batch_size = model_out.size(0)
+        model_selected = torch.stack([model_out.view(batch_size, -1)[b, a] for b, a in enumerate(actions)])
         return {'out': model_selected, 'target': target}
 
 
@@ -105,8 +106,12 @@ class DistributionaDeepQModelWrapper(nn.Module):
         model_out = F.softmax(self.model(old_state[0])['action'], dim=2)
         model_selected = torch.cat([model_out[b,a1,a2,:] for b, (a1,a2) in enumerate(actions)])
         new_values = F.softmax(self.model(new_state[0])['action'].detach(), dim=2)
-        new_mask = (torch.from_numpy(new_state[2]) > -1e4).to(dtype=reward[0].dtype,
-                                                              device=reward[0].device)
+        new_mask = (torch.from_numpy(new_state[2]) > -1e4).to(dtype=reward[0].dtype)
+
+        #TODO: plug in the real thing                                                      device=reward[0].device)
+        def thompson_sampling_aggregate(*args):
+            pass
+
         aggr_targets = thompson_sampling_aggregate(new_values, new_mask)
         # make the target
         target = torch.zeros_like(model_selected)

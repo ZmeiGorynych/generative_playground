@@ -61,10 +61,10 @@ class GraphDecoderWithNodeSelection(Stepper):
         masked_logits = next_logits + full_priors_pytorch
         batch_size = len(masked_logits)
         next_action_ = self.rule_policy(masked_logits.view(batch_size, -1), full_priors_pytorch.view(batch_size, -1))
-        next_node = [floor(a.item() / num_actions) for a in next_action_]
-        next_action = [a.item() % num_actions for a in next_action_]
+        # next_node = [floor(a.item() / num_actions) for a in next_action_]
+        # next_action = [a.item() % num_actions for a in next_action_]
         action_logp = self.rule_policy.logp
-        return (next_node, next_action), action_logp # will also want to return which node we picked, once we enable that
+        return next_action_, action_logp #(next_node, next_action), action_logp # will also want to return which node we picked, once we enable that
 
     def old_forward(self, last_state):
         """
