@@ -6,7 +6,7 @@ import torch
 import numpy as np
 from generative_playground.codec.hypergraph import HyperGraph
 from generative_playground.models.losses.wasserstein_loss import WassersteinLoss
-# from generative_playground.models.discrete_distribution_utils import thompson_sampling_aggregate, to_bins
+from generative_playground.models.discrete_distribution_utils import *
 
 def slice(x, b):
     out = [xx[b] for xx in x]
@@ -99,26 +99,31 @@ class DistributionaDeepQModelWrapper(nn.Module):
         # we interpret its output as logits to feed to a tanh, assuming the actual values are between -1 and 1
         self.model = model
         self.num_bins = num_bins
+        self.prob_calc = SoftmaxPolicyProbsFromDistributions() # TODO: plug in thompson probs instead
 
     def forward(self, inputs):
         old_state, actions, reward, new_state = inputs
         # evaluate the model prediction for the pre-determined action
-        model_out = F.softmax(self.model(old_state[0])['action'], dim=2)
-        model_selected = torch.cat([model_out[b,a1,a2,:] for b, (a1,a2) in enumerate(actions)])
-        new_values = F.softmax(self.model(new_state[0])['action'].detach(), dim=2)
+        model_out = self.model(old_state[0])['action']
+        old_mask = (torch.from_numpy(new_state[2]) > -1e4).to(dtype=reward[0].dtype)
+        model_out = F.softmax(model_out*old_mask, dim=2)
+        model_selected = torch.cat([model_out[b:(b+1),a,:] for b, a in enumerate(actions)]) # batch x bins
+
+        # now calculate the targets
+        new_values = self.model(new_state[0])['action'].detach()# batch x action x bins
+        new_values =F.softmax(new_values, dim=2)
         new_mask = (torch.from_numpy(new_state[2]) > -1e4).to(dtype=reward[0].dtype)
+        new_values = new_values*new_mask
 
-        #TODO: plug in the real thing                                                      device=reward[0].device)
-        def thompson_sampling_aggregate(*args):
-            pass
+        policy_probs = self.prob_calc(new_values)
+        # TODO: how to do masking properly here?
+        aggr_targets = aggregate_distributions_by_policy(new_values, policy_probs)
 
-        aggr_targets = thompson_sampling_aggregate(new_values, new_mask)
         # make the target
         target = torch.zeros_like(model_selected)
         for b in range(len(target)):
-            if reward[b] > 0:
-                ind = math.ceil(reward.item() * (self.num_bins - 1))
-                target[b,ind] = 1
+            if reward[b] > 0: # TODO: check for whether it's a terminal state instead
+                target[b,:] = to_bins(reward[b], len(target[b,:]), target[b,:])
             else:
                 target[b,:] = aggr_targets[b, :]
 

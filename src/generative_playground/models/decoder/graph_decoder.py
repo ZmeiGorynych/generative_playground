@@ -47,60 +47,54 @@ class GraphDecoderWithNodeSelection(Stepper):
         """
         graphs, node_mask, full_logit_priors = last_state
         model_out = self.model(graphs)
-        next_logits = model_out['action']  #batch x num_nodes x num_actions        batch_size = next_logits.size(0)
+        next_logits = model_out['action_p_logits']  #batch x num_nodes x num_actions
         if self.detach_model_output:
             next_logits = next_logits.detach()
-        num_actions = next_logits.size(2)
 
         # combine node masks and action prior/masks
-        # full_priors = node_mask[:,:,None] + full_logit_priors
-        dtype = next_logits.dtype
-        full_priors_pytorch = torch.from_numpy(full_logit_priors).to(device=device, dtype=dtype)
+        masked_logits, used_priors = self.model.handle_priors(next_logits, full_logit_priors)
 
         # apply policy - would need to make more elaborate if we want to have separate temperatures on node and rule selection
-        masked_logits = next_logits + full_priors_pytorch
-        batch_size = len(masked_logits)
-        next_action_ = self.rule_policy(masked_logits.view(batch_size, -1), full_priors_pytorch.view(batch_size, -1))
-        # next_node = [floor(a.item() / num_actions) for a in next_action_]
-        # next_action = [a.item() % num_actions for a in next_action_]
+        next_action_ = self.rule_policy(masked_logits, used_priors)
         action_logp = self.rule_policy.logp
+
         return next_action_, action_logp #(next_node, next_action), action_logp # will also want to return which node we picked, once we enable that
 
-    def old_forward(self, last_state):
-        """
-
-        :param last_state: self.mask_gen.graphs
-        :param node_mask:
-        :param full_logit_priors:
-        :return:
-        """
-        graphs, node_mask, full_logit_priors = last_state
-
-        model_out = self.model(graphs)  # batch x num_nodes, batch x num_nodes x num_actions
-
-        node_logits = model_out['node'].squeeze(2)
-        dtype = node_logits.dtype
-        node_logits += torch.from_numpy(node_mask).to(device=device, dtype=dtype) # batch x max_num_nodes
-        next_node = self.node_policy(node_logits)
-        node_selection_logp = torch.cat([F.log_softmax(node_logits, dim=1)[b, node:(node+1)] for b, node in enumerate(next_node)])
-
-        # and now choose the next logits for the appropriate nodes
-        next_logits = model_out['action']
-        next_logits_compact = torch.cat([next_logits[b, node, :].unsqueeze(0) for b, node in enumerate(next_node)],
-                                        dim=0)
-        # now that we know which nodes we're going to expand, can generate action masks: the logit priors also include masking
-        full_logit_priors_pytorch = torch.from_numpy(full_logit_priors).to(device=device, dtype=dtype)
-        logit_priors_pytorch = torch.cat([full_logit_priors_pytorch[b, node, :].unsqueeze(0)
-                                          for b, node in enumerate(next_node)],
-                                        dim=0)
-
-        masked_logits = next_logits_compact + logit_priors_pytorch
-        next_action = self.rule_policy(masked_logits, logit_priors_pytorch)
-        action_logp = torch.cat([F.log_softmax(masked_logits, dim=1)[a, action:(action+1)] for a, action in enumerate(next_action)], dim=0)
-
-        # we only care about the logits for the logP, right?
-
-        return (next_node, next_action), action_logp + node_selection_logp # will also want to return which node we picked, once we enable that
+    # def old_forward(self, last_state):
+    #     """
+    #
+    #     :param last_state: self.mask_gen.graphs
+    #     :param node_mask:
+    #     :param full_logit_priors:
+    #     :return:
+    #     """
+    #     graphs, node_mask, full_logit_priors = last_state
+    #
+    #     model_out = self.model(graphs)  # batch x num_nodes, batch x num_nodes x num_actions
+    #
+    #     node_logits = model_out['node'].squeeze(2)
+    #     dtype = node_logits.dtype
+    #     node_logits += torch.from_numpy(node_mask).to(device=device, dtype=dtype) # batch x max_num_nodes
+    #     next_node = self.node_policy(node_logits)
+    #     node_selection_logp = torch.cat([F.log_softmax(node_logits, dim=1)[b, node:(node+1)] for b, node in enumerate(next_node)])
+    #
+    #     # and now choose the next logits for the appropriate nodes
+    #     next_logits = model_out['action']
+    #     next_logits_compact = torch.cat([next_logits[b, node, :].unsqueeze(0) for b, node in enumerate(next_node)],
+    #                                     dim=0)
+    #     # now that we know which nodes we're going to expand, can generate action masks: the logit priors also include masking
+    #     full_logit_priors_pytorch = torch.from_numpy(full_logit_priors).to(device=device, dtype=dtype)
+    #     logit_priors_pytorch = torch.cat([full_logit_priors_pytorch[b, node, :].unsqueeze(0)
+    #                                       for b, node in enumerate(next_node)],
+    #                                     dim=0)
+    #
+    #     masked_logits = next_logits_compact + logit_priors_pytorch
+    #     next_action = self.rule_policy(masked_logits, logit_priors_pytorch)
+    #     action_logp = torch.cat([F.log_softmax(masked_logits, dim=1)[a, action:(action+1)] for a, action in enumerate(next_action)], dim=0)
+    #
+    #     # we only care about the logits for the logP, right?
+    #
+    #     return (next_node, next_action), action_logp + node_selection_logp # will also want to return which node we picked, once we enable that
 
 class GraphDecoder(Stepper):
     def __init__(self,

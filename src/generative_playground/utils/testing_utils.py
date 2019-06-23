@@ -4,7 +4,7 @@ from generative_playground.codec.hypergraph_grammar import GrammarInitializer, H
 from generative_playground.models.decoder.decoders import DecoderWithEnvironmentNew
 from generative_playground.models.decoder.graph_decoder import GraphDecoderWithNodeSelection
 from generative_playground.models.problem.rl.environment import GraphEnvironment
-from generative_playground.molecules.models.graph_discriminator import GraphTransformerModel
+from generative_playground.molecules.models.graph_models import GraphTransformerModel
 
 
 

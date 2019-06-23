@@ -92,14 +92,15 @@ def aggregate_distributions_by_policy(ps, policy_p):
 
     return weighted_ps
 
-def to_bins(reward, num_bins):
+def to_bins(reward, num_bins, out=None):
     """
     Turns a float reward value between 0 and 1 into a histogram
     :param reward:  float
     :param num_bins: long
     :return: num_bins floats
     """
-    out = torch.zeros(num_bins, device=reward.device, dtype=reward.dtype)
+    if out is None:
+        out = torch.zeros(num_bins, device=reward.device, dtype=reward.dtype)
     reward = max(0, min(reward.item(), 1))
     ind = math.floor(reward*(num_bins-1))
     out[ind] = 1

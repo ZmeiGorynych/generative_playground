@@ -23,7 +23,7 @@ from generative_playground.data_utils.blended_dataset import EvenlyBlendedDatase
 from generative_playground.codec.codec import get_codec
 from generative_playground.molecules.data_utils.zinc_utils import get_smiles_from_database
 from generative_playground.data_utils.data_sources import IterableTransform, GeneratorToIterable
-from generative_playground.molecules.models.graph_discriminator import GraphDiscriminator
+from generative_playground.molecules.models.graph_models import GraphDiscriminator
 from generative_playground.utils.gpu_utils import device
 
 
