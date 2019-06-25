@@ -99,30 +99,25 @@ class DistributionaDeepQModelWrapper(nn.Module):
         # we interpret its output as logits to feed to a tanh, assuming the actual values are between -1 and 1
         self.model = model
         self.num_bins = num_bins
-        self.prob_calc = SoftmaxPolicyProbsFromDistributions() # TODO: plug in thompson probs instead
+        # self.prob_calc = SoftmaxPolicyProbsFromDistributions() # TODO: plug in thompson probs instead
 
     def forward(self, inputs):
         old_state, actions, reward, new_state = inputs
-        # evaluate the model prediction for the pre-determined action
-        model_out = self.model(old_state[0])['action']
-        old_mask = (torch.from_numpy(new_state[2]) > -1e4).to(dtype=reward[0].dtype)
-        model_out = F.softmax(model_out*old_mask, dim=2)
+        # evaluate the model distribution prediction for the pre-determined action
+        model_out = self.model(old_state[0])['action_distrs']
         model_selected = torch.cat([model_out[b:(b+1),a,:] for b, a in enumerate(actions)]) # batch x bins
 
         # now calculate the targets
-        new_values = self.model(new_state[0])['action'].detach()# batch x action x bins
-        new_values =F.softmax(new_values, dim=2)
-        new_mask = (torch.from_numpy(new_state[2]) > -1e4).to(dtype=reward[0].dtype)
-        new_values = new_values*new_mask
-
-        policy_probs = self.prob_calc(new_values)
-        # TODO: how to do masking properly here?
-        aggr_targets = aggregate_distributions_by_policy(new_values, policy_probs)
+        new_out = self.model(new_state[0])
+        new_values = new_out['action_distrs'].detach()# batch x action x bins
+        policy_logits = new_out['action_p_logits'].detach()
+        masked_policy_logits, _ = self.model.handle_priors(policy_logits, new_state[2])
+        aggr_targets = aggregate_distributions_by_policy_logits(new_values, masked_policy_logits)
 
         # make the target
         target = torch.zeros_like(model_selected)
         for b in range(len(target)):
-            if reward[b] > 0: # TODO: check for whether it's a terminal state instead
+            if reward[b] > 0:  # TODO: check for whether it's a terminal state instead
                 target[b,:] = to_bins(reward[b], len(target[b,:]), target[b,:])
             else:
                 target[b,:] = aggr_targets[b, :]

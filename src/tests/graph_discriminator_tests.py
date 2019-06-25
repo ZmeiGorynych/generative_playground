@@ -11,7 +11,7 @@ from generative_playground.models.decoder.graph_decoder import GraphEncoder
 from generative_playground.codec.codec import get_codec
 from generative_playground.models.heads.attention_aggregating_head import *
 from generative_playground.models.heads.multiple_output_head import MultipleOutputHead
-from generative_playground.molecules.models.graph_discriminator import GraphDiscriminator
+from generative_playground.molecules.models.graph_models import GraphDiscriminator
 
 # create a grammar from scratch # TODO: later, want to load a cached grammar instead
 tmp_file = 'tmp.pickle'

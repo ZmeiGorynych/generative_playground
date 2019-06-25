@@ -68,6 +68,10 @@ class CalcExpectedValue(nn.Module):
             self.w[i] = (i+0.5)/(n-1)
         self.w[-1] = 1
 
+def aggregate_distributions_by_policy_logits(ps, policy_logits):
+    policy_p = F.softmax(policy_logits, dim=1)
+    out =aggregate_distributions_by_policy(ps, policy_p)
+    return out
 
 def aggregate_distributions_by_policy(ps, policy_p):
     """

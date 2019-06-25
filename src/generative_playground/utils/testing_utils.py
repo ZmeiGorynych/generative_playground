@@ -8,8 +8,7 @@ from generative_playground.molecules.models.graph_models import GraphTransformer
 
 
 
-def make_grammar():
-    tmp_file = 'tmp2.pickle'
+def make_grammar(tmp_file = 'tmp2.pickle'):
     gi = GrammarInitializer(tmp_file)
     gi.delete_cache()
     # now create a clean new one

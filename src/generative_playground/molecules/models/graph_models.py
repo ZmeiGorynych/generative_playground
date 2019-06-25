@@ -110,8 +110,16 @@ class DistributionPerNodeRuleTransform(nn.Module):
         self.model = model
         self.num_bins = num_bins
         self.T = T
-        self.exp_value = CalcExpectedValue()
+        self.exp_value = CalcExpectedValue() # TODO: replace with Thompson later
         self.output_shape = model.output_shape # TODO: fix!
+
+    def action_logits_to_action_prob_logits(self, action_logits):
+        assert len(action_logits.size()) == 3
+        # convert probability logits to probability distributions per action
+        action_probs = F.softmax(action_logits, dim=2)
+        # and calculate their exp values, later to be replaced by log Thompson probabilities
+        action_p_logits = self.exp_value(action_probs/ self.T)
+        return {'action_p_logits': action_p_logits, 'action_distrs': action_probs}
 
     def handle_priors(self, next_logits, full_logit_priors):
         dtype = next_logits.dtype
@@ -125,6 +133,6 @@ class DistributionPerNodeRuleTransform(nn.Module):
         pre_out = self.model(x)
         batch_size = len(pre_out['action'])
         pre_out['action'] = pre_out['action'].view(batch_size, -1, self.num_bins) # normalize to batch x (node*rules) x bins
-        pre_out['action_p_logits'] = self.exp_value(pre_out['action']) / self.T
-
+        extras = self.action_logits_to_action_prob_logits(pre_out['action'])
+        pre_out.update(extras)
         return pre_out

@@ -115,4 +115,18 @@ class TestDecoders(TestCase):
         out = self.generic_decoder_test(decoder_type, grammar)
         print('success!')
 
+    def test_graph_transformer_distr_decoder(self):
+        decoder_type = 'attn_graph_distr'
+        grammar = 'hypergraph:' + tmp_file
+        print("testing ", decoder_type, grammar)
+        out = self.generic_decoder_test(decoder_type, grammar)
+        print('success!')
+
+    def test_graph_rnn_distr_decoder(self):
+        decoder_type = 'rnn_graph_distr'
+        grammar = 'hypergraph:' + tmp_file
+        print("testing ", decoder_type, grammar)
+        out = self.generic_decoder_test(decoder_type, grammar)
+        print('success!')
+
     # TODO: 'action_resnet' decoder is broken, maybe want to fix some day
