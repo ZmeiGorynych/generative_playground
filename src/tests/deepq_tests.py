@@ -59,7 +59,7 @@ class TestDeepQ(TestCase):
 
         # Now let's load it and evaluate the policy model on it
         value_model = decoder.stepper.model
-        deepq_wrap = DistributionaDeepQModelWrapper(value_model, num_bins=50)
+        deepq_wrap = DistributionaDeepQModelWrapper(value_model)
         loader = DataLoader(dataset=data,
                             batch_size=3,
                             shuffle=True,
@@ -69,7 +69,7 @@ class TestDeepQ(TestCase):
             deepq_out = deepq_wrap(data_batch)
             break
 
-        loss = DeepQLoss()
+        loss = DistributionalDeepQWassersteinLoss()
         this_loss = loss(deepq_out)
         this_loss.backward()
         print('done!')

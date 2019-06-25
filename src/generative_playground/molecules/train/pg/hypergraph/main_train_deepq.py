@@ -26,8 +26,7 @@ from generative_playground.molecules.data_utils.zinc_utils import get_smiles_fro
 from generative_playground.data_utils.data_sources import IterableTransform, GeneratorToIterable
 from generative_playground.molecules.models.graph_models import GraphDiscriminator
 from generative_playground.utils.gpu_utils import device
-from generative_playground.models.problem.rl.deepq import QLearningDataset, DeepQModelWrapper, DeepQLoss, collate_experiences
-
+from generative_playground.models.problem.rl.deepq import *
 
 def train_deepq(molecules=True,
                 grammar=True,
@@ -168,11 +167,15 @@ def train_deepq(molecules=True,
                         batch_size=BATCH_SIZE, # we're dealing with single slices here, can afford this
                         shuffle=True,
                         collate_fn=collate_experiences)
-
-    deepq_model = DeepQModelWrapper(decoder.stepper.model)
+    if 'node' in decoder_type:
+        deepq_model = DeepQModelWrapper(decoder.stepper.model)
+        deepq_loss = DeepQLoss()
+    elif 'distr' in decoder_type:
+        deepq_model = DistributionaDeepQModelWrapper(decoder.stepper.model)
+        deepq_loss = DistributionalDeepQWassersteinLoss()
 
     fitter = get_fitter(deepq_model,
-                        DeepQLoss(),  # last_reward_wgt=reward_sm),
+                        deepq_loss,  # last_reward_wgt=reward_sm),
                         experience_loader,
                             full_path(gen_save_file),
                             plot_prefix + 'deepq',

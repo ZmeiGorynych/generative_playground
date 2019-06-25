@@ -72,18 +72,19 @@ class SoftmaxRandomSamplePolicy(SimplePolicy):
         else:
             new_logits = logits
 
-        if self.temperature.dtype != logits.dtype or self.temperature.device != logits.device:
-            self.temperature = torch.tensor(self.temperature,
-                                            dtype=logits.dtype,
-                                            device=logits.device,
-                                            requires_grad=False)
+        # if self.temperature.dtype != logits.dtype or self.temperature.device != logits.device:
+        #     self.temperature = torch.tensor(self.temperature,
+        #                                     dtype=logits.dtype,
+        #                                     device=logits.device,
+        #                                     requires_grad=False)
 
 
-        # temperature is applied to model only, not priors!
-        if priors is None:
-            new_logits_t = new_logits/self.temperature
-        else:
-            new_logits_t = ((new_logits-priors) / self.temperature) + priors
+        # # temperature is applied to model only, not priors!
+        # if priors is None:
+        #     new_logits_t = new_logits/self.temperature
+        # else:
+        #     new_logits_t = ((new_logits-priors) / self.temperature) + priors
+        new_logits_t = new_logits
 
         eff_logits = self.effective_logits(new_logits_t)
         x = self.gumbel.sample(logits.shape).to(device=device, dtype=eff_logits.dtype) + eff_logits

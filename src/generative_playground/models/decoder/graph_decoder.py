@@ -46,14 +46,12 @@ class GraphDecoderWithNodeSelection(Stepper):
         :return:
         """
         graphs, node_mask, full_logit_priors = last_state
-        model_out = self.model(graphs)
-        next_logits = model_out['action_p_logits']  #batch x num_nodes x num_actions
+        model_out = self.model(graphs, full_logit_priors)
+        masked_logits = model_out['masked_policy_logits']
+        used_priors = model_out['used_priors']
         if self.detach_model_output:
-            next_logits = next_logits.detach()
-
-        # combine node masks and action prior/masks
-        masked_logits, used_priors = self.model.handle_priors(next_logits, full_logit_priors)
-
+            masked_logits = masked_logits.detach()
+            used_priors = used_priors.detach()
         # apply policy - would need to make more elaborate if we want to have separate temperatures on node and rule selection
         next_action_ = self.rule_policy(masked_logits, used_priors)
         action_logp = self.rule_policy.logp

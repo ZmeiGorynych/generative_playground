@@ -66,10 +66,10 @@ class DeepQModelWrapper(nn.Module):
         self.gamma = gamma
 
     def forward(self, inputs):
-
+        # TODO: review, does this correspond to the new way of doing things?
         old_state, actions, reward, new_state = inputs
         # make the target
-        new_values = F.tanh(self.model(new_state[0])['action'].detach())
+        new_values = F.tanh(self.model(new_state[0], new_state[2])['action'].detach())
         new_mask = (torch.from_numpy(new_state[2]) > -1e4).to(dtype=reward[0].dtype,
                                                               device=reward[0].device)
         post_value = (new_values*new_mask).max(dim=2)[0].max(dim=1)[0]
@@ -77,7 +77,7 @@ class DeepQModelWrapper(nn.Module):
         target = reward + self.gamma * post_value
 
         # evaluate the model prediction for the pre-determined action
-        model_out = F.tanh(self.model(old_state[0])['action'])
+        model_out = F.tanh(self.model(old_state[0], old_state[2])['action'])
         batch_size = model_out.size(0)
         model_selected = torch.stack([model_out.view(batch_size, -1)[b, a] for b, a in enumerate(actions)])
         return {'out': model_selected, 'target': target}
@@ -93,25 +93,23 @@ class DeepQLoss(nn.Module):
         return self.loss(outputs['out'], outputs['target'])
 
 class DistributionaDeepQModelWrapper(nn.Module):
-    def __init__(self, model, num_bins):
+    def __init__(self, model):
         super().__init__()
         # the value prediction model, returns an array of exp value for node x rule choice
         # we interpret its output as logits to feed to a tanh, assuming the actual values are between -1 and 1
         self.model = model
-        self.num_bins = num_bins
         # self.prob_calc = SoftmaxPolicyProbsFromDistributions() # TODO: plug in thompson probs instead
 
     def forward(self, inputs):
         old_state, actions, reward, new_state = inputs
         # evaluate the model distribution prediction for the pre-determined action
-        model_out = self.model(old_state[0])['action_distrs']
+        model_out = self.model(old_state[0], old_state[2])['action_distrs']
         model_selected = torch.cat([model_out[b:(b+1),a,:] for b, a in enumerate(actions)]) # batch x bins
 
         # now calculate the targets
-        new_out = self.model(new_state[0])
+        new_out = self.model(new_state[0], new_state[2])
         new_values = new_out['action_distrs'].detach()# batch x action x bins
-        policy_logits = new_out['action_p_logits'].detach()
-        masked_policy_logits, _ = self.model.handle_priors(policy_logits, new_state[2])
+        masked_policy_logits = new_out['masked_policy_logits'].detach()
         aggr_targets = aggregate_distributions_by_policy_logits(new_values, masked_policy_logits)
 
         # make the target
