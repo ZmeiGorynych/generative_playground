@@ -8,7 +8,7 @@ from generative_playground.models.decoder.graph_decoder import GraphEncoder
 from generative_playground.codec.codec import get_codec
 from generative_playground.models.heads.attention_aggregating_head import *
 from generative_playground.models.heads.multiple_output_head import MultipleOutputHead
-from generative_playground.models.discrete_distribution_utils import CalcExpectedValue
+from generative_playground.models.discrete_distribution_utils import CalcExpectedValue, thompson_probabilities
 
 class GraphDiscriminator(nn.Module):
     def __init__(self, grammar, drop_rate=0.0, d_model=512):
@@ -81,7 +81,7 @@ def get_graph_model(codec, drop_rate, model_type, output_type='values', num_bins
                                                 'action': codec.feature_len()*num_bins},  # to select the action for chosen node
                                    drop_rate=drop_rate)
 
-        model = DistributionPerNodeRuleTransformSoftmax(model, num_bins=num_bins, T=0.1)
+        model = DistributionPerNodeRuleTransformSoftmax(model, num_bins=num_bins)
 
     model.init_encoder_output = lambda x: None
     return model
@@ -114,53 +114,50 @@ class DistributionPerNodeRuleTransformParent(nn.Module):
         self.num_bins = num_bins
         self.output_shape = model.output_shape # TODO: fix!
 
-    def action_logits_to_action_prob_logits(self, action_logits):
+    def action_distrs_to_action_prob_logits(self, action_distrs, mask):
         raise NotImplementedError
 
-    def handle_priors(self, next_logits, full_logit_priors):
-        dtype = next_logits.dtype
-        batch_size = len(next_logits)
-        full_priors_pytorch = torch.from_numpy(full_logit_priors).to(device=device, dtype=dtype).view(batch_size, -1)
-        out_logits = next_logits
-        out_logits[full_priors_pytorch < -1e3] = -1e5
-        return next_logits, full_priors_pytorch
+    def numpy_priors_to_mask(self, full_logit_priors, dtype, device):
+        batch_size = len(full_logit_priors)
+        pytorch_priors = torch.from_numpy(full_logit_priors).to(device=device, dtype=dtype).view(batch_size, -1)
+        return pytorch_priors
 
     def forward(self, x, full_logit_priors):
-        pre_out = self.model(x, )
+        pre_out = self.model(x)
         batch_size = len(pre_out['action'])
         pre_out['action'] = pre_out['action'].view(batch_size, -1, self.num_bins) # normalize to batch x (node*rules) x bins
-        extras = self.action_logits_to_action_prob_logits(pre_out['action'])
-        pre_out.update(extras)
-        masked_logits, used_priors = self.handle_priors(pre_out['action_p_logits'], full_logit_priors)
-        pre_out['masked_policy_logits'] = masked_logits
-        pre_out['used_priors'] = used_priors
+        pre_out['action_distrs'] = F.softmax(pre_out['action'], dim=2) # actual probability distrs
+        # this is the specific bit
+        pre_out['used_priors'] = self.numpy_priors_to_mask(full_logit_priors,
+                                                           pre_out['action'].dtype,
+                                                           pre_out['action'].device)
+
+        pre_out['masked_policy_logits'] = self.action_distrs_to_action_prob_logits(pre_out['action_distrs'],
+                                                                                     pre_out['used_priors']>-1e3)
         return pre_out
 
 class DistributionPerNodeRuleTransformSoftmax(DistributionPerNodeRuleTransformParent):
-    def __init__(self, model, num_bins, T=1):
+    def __init__(self, model, num_bins, T=10):
         super().__init__(model, num_bins)
         self.T = T
         self.exp_value = CalcExpectedValue()
 
-    def action_logits_to_action_prob_logits(self, action_logits):
-        assert len(action_logits.size()) == 3
-        # convert probability logits to probability distributions per action
-        action_probs = F.softmax(action_logits, dim=2)
+    def action_distrs_to_action_prob_logits(self, action_distrs, mask):
         # and calculate their expected values, later to be replaced by log Thompson probabilities
-        action_p_logits = self.exp_value(action_probs/self.T)
-        return {'action_p_logits': action_p_logits, 'action_distrs': action_probs}
+        action_p_logits = self.exp_value(action_distrs) / self.T
+        action_p_logits[mask==0] = -1e5
+        return action_p_logits
 
 class DistributionPerNodeRuleTransformThompson(DistributionPerNodeRuleTransformParent):
     def __init__(self, model, num_bins):
         super().__init__(model, num_bins)
 
-    def action_logits_to_action_prob_logits(self, action_logits):
-        assert len(action_logits.size()) == 3
-        # convert probability logits to probability distributions per action
-        action_probs = F.softmax(action_logits, dim=2)
-        # and calculate their exp values, later to be replaced by log Thompson probabilities
-        action_p_logits = self.exp_value(action_probs/self.T)
-        return {'action_p_logits': action_p_logits, 'action_distrs': action_probs}
+    def action_distrs_to_action_prob_logits(self, action_distrs, mask):
+        # and calculate their log Thompson probabilities
+        action_p_logits = torch.log(thompson_probabilities(action_distrs, mask) + 1e-5)
+        action_p_logits[mask == 0] = -1e5
+        return action_p_logits
+
 
 
 
