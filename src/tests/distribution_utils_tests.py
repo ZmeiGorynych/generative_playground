@@ -42,8 +42,9 @@ class TestStart(TestCase):
         assert len(out.size()) == 2
 
     def test_thompson_policy_probs(self):
-        probs = F.softmax(torch.randn(10, 5, 5000), dim=-1)
+        probs = F.softmax(torch.randn(10, 5, 50), dim=-1)
         mask = torch.ones(10,5)
         mask[:,3] = 0 # let's mask one prob out
+        mask = mask > 0
         thompson_probs = thompson_probabilities(probs, mask)
         assert len(thompson_probs.size()) == 2

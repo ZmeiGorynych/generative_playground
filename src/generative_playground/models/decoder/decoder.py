@@ -150,7 +150,8 @@ def get_node_decoder(grammar,
                      rule_policy=None,
                      reward_fun=lambda x: -1 * np.ones(len(x)),
                      batch_size=None,
-                     priors='conditional'):
+                     priors='conditional',
+                     bins=10):
 
     codec = get_codec(True, grammar, max_seq_length)
     assert 'hypergraph' in grammar, "Only the hypergraph grammar can be used with attn_graph decoder type"
@@ -160,11 +161,14 @@ def get_node_decoder(grammar,
         model_type = 'rnn'
 
     if 'distr' in decoder_type:
-        output_type = 'distributions'
+        if 'softmax' in decoder_type:
+            output_type = 'distributions_softmax'
+        else:
+            output_type = 'distributions_thompson'
     else:
         output_type = 'values'
 
-    model = get_graph_model(codec, drop_rate, model_type, output_type)
+    model = get_graph_model(codec, drop_rate, model_type, output_type, num_bins=bins)
     # encoder = GraphEncoder(grammar=codec.grammar,
     #                        d_model=512,
     #                        drop_rate=drop_rate,

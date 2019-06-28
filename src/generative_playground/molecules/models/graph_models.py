@@ -75,14 +75,15 @@ def get_graph_model(codec, drop_rate, model_type, output_type='values', num_bins
                                                 'action': codec.feature_len()},  # to select the action for chosen node
                                    drop_rate=drop_rate)
         model = OneValuePerNodeRuleTransform(model)
-    elif output_type == 'distributions':
+    elif 'distributions' in output_type:
         model = MultipleOutputHead(model=encoder,
                                    output_spec={'node': 1,  # to be used to select next node to expand
                                                 'action': codec.feature_len()*num_bins},  # to select the action for chosen node
                                    drop_rate=drop_rate)
-
-        model = DistributionPerNodeRuleTransformSoftmax(model, num_bins=num_bins)
-
+        if 'thompson' in output_type:
+            model = DistributionPerNodeRuleTransformThompson(model, num_bins=num_bins)
+        elif 'softmax' in output_type:
+            model = DistributionPerNodeRuleTransformSoftmax(model, num_bins=num_bins, T=10)
     model.init_encoder_output = lambda x: None
     return model
 

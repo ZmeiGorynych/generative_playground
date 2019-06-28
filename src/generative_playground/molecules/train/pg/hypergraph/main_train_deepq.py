@@ -34,7 +34,6 @@ def train_deepq(molecules=True,
                 EPOCHS=None,
                 BATCH_SIZE=None,
                 reward_fun_on=None,
-                reward_fun_off=None,
                 max_steps=277,
                 lr_on=2e-4,
                 lr_discrim=1e-4,
@@ -56,6 +55,7 @@ def train_deepq(molecules=True,
                 priors='conditional',
                 rule_temperature_schedule=lambda x: 0.01,
                 eps=0.0,
+                bins=10,
                 half_float=False):
     root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     root_location = root_location + '/../../'
@@ -80,7 +80,8 @@ def train_deepq(molecules=True,
                                         rule_policy,
                                         reward_fun_on,
                                         BATCH_SIZE,
-                                        priors)
+                                        priors,
+                                        bins=bins)
 
     decoder.stepper.detach_model_output = True
 
@@ -135,8 +136,7 @@ def train_deepq(molecules=True,
                                     save_always=True,
                                     verbose=1)
 
-        fitter = fit(train_gen=train_gen,
-                     valid_gen=train_gen,
+        fitter = fit_rl(train_gen=train_gen,
                         model=model,
                         optimizer=optimizer,
                         scheduler=scheduler,

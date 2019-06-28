@@ -13,29 +13,27 @@ def thompson_probabilities(ps, mask):
     """
 
     batch_size, actions, bins = ps.shape
-    out = torch.zeros(batch_size, actions, dtype=ps.dtype, device=ps.device)
     assert all(ps.view(-1)>=0), "Probabilities must be non-negative"
+    out = torch.zeros(batch_size, actions, dtype=ps.dtype, device=ps.device)
     for b in range(batch_size):
-        for a in range(actions):
-            if mask[b,a]:
-                assert (ps[b,a,:].sum() - 1).abs() < eps, "Probabilities for allowed actions must sum up to 1"
+        out[b, mask[b,:]] = thompson_probabilities_one_slice(ps[b,mask[b,:]])
+    return out
 
-    regularizer = torch.zeros_like(ps)
-    regularizer[:,:,0] = 1e-5 # to make sure all cdfs are strictly positive
-    reg_ps = ps + regularizer
-    cdfs = reg_ps.cumsum(dim=2)
-    for b in range(batch_size):
-        for a in range(actions):
-            if not mask[b,a]:
-                cdfs[b,a,:] = 1
+def thompson_probabilities_one_slice(ps):
+    '''
+    Calculate thompson probabilities for one slice, that's already been masked
+    :param ps: actions x bins floats
+    :return: actions floats
+    '''
+    cdfs = ps.cumsum(dim=1) + 1e-5
+    cdf_prod = torch.prod(cdfs, dim=0, keepdim=True)
+    thompson = (ps[:, 1:] * cdf_prod[:, :-1] / cdfs[:, :-1]).sum(1)
+    total = thompson.sum()
+    assert total <= 1
+    return thompson/total
 
-    cdf_prod = torch.prod(cdfs, dim=1, keepdim=True)
-    thompson = (ps*cdf_prod/cdfs).sum(2)
-    thompson *= mask
-    # sum stands in for integration as we treat individual p's as bin probabilities
-    out = thompson.sum(1) # would expect these to be approx ones
-    assert (out-1).abs().max() <= 5/ps.size(2), "the pre-normalized Thompson sampling probabilities should sum up to 1, up to discretization error"
-    return thompson/thompson.sum(1, keepdim=True)
+
+
 
 class SoftmaxPolicyProbsFromDistributions(nn.Module):
     def __init__(self):
