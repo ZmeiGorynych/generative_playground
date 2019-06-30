@@ -1,4 +1,5 @@
 import numpy as np
+import copy
 from generative_playground.codec.codec import get_codec
 from generative_playground.molecules.model_settings import get_settings
 from rdkit import Chem
@@ -33,7 +34,7 @@ class GraphEnvironment:
         self.smiles = [None for _ in range(self.batch_size)]
         self.seq_len = np.zeros([self.batch_size])
         self.valid = np.zeros([self.batch_size])
-        return graphs, node_mask, full_logit_priors
+        return copy.deepcopy(graphs), node_mask, full_logit_priors
 
     def step(self, full_action):
         '''

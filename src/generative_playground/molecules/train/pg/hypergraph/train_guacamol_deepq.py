@@ -19,7 +19,7 @@ from generative_playground.codec.hypergraph_grammar import GrammarInitializer
 from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring_functions, version_name_list
 import torch
 
-batch_size = 75 # 20
+batch_size = 100 # 20
 drop_rate = 0.3
 molecules = True
 grammar_cache = 'hyper_grammar_guac_10k.pickle'
@@ -47,14 +47,14 @@ explore, model_fitter = train_deepq(molecules,
                                     plot_prefix='',
                                     dashboard=root_name,  # 'policy gradient',
                                     save_file_root_name=root_name,
-                                    # preload_file_root_name='guacamol_ar_emb_node_rpev2_0lr2e-5',#'guacamol_ar_nodev2_0lr2e-5',#root_name,
+                                    preload_file_root_name=root_name,#'guacamol_ar_nodev2_0lr2e-5',#root_name,
                                     smiles_save_file=None,  # 'pg_smiles_hg1.h5',
                                     rule_temperature_schedule=lambda x: 0.1,
                                     priors='conditional',
-                                    eps=0.25)  # chance to just simulate the priors
+                                    eps=0.05)  # chance to just simulate the priors
 # preload_file='policy_gradient_run.h5')
 
 while True:
     explore()
-    for _ in range(3):
+    for _ in range(10):
         next(model_fitter)

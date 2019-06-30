@@ -18,7 +18,7 @@ class WassersteinLoss(nn.Module):
         x1_ = normalize_distribution(x1)
         x2_ = normalize_distribution(x2)
         if self.M is None:
-            self.M = wasserstein_matrix(x1.size(1)).to(dtype=x1.dtype, device=x1.device)
+            self.M = wasserstein_matrix(x1.size(-1)).to(dtype=x1.dtype, device=x1.device)
         wasserstein_coeffs = torch.einsum("mn,bn->bm", (self.M, x1_ - x2_))
         assert wasserstein_coeffs[:, 0].abs().max() < 1e-5
         loss = wasserstein_coeffs[:, 1:].abs().sum(1).mean()
@@ -27,9 +27,12 @@ class WassersteinLoss(nn.Module):
 
 def normalize_distribution(x):
     assert all(x.view(-1)>=0), "Distributions must be non-negative"
-    totalx = x.sum(1, keepdim=True)
+    totalx = x.sum(-1, keepdim=True)
     out = x / totalx
-    assert all((out.sum(1)-1).abs() < 1e-5), "Normalization fail"
+    if len(out.size()) == 1:
+        assert (out.sum(-1)-1).abs() < 1e-5, "Normalization fail"
+    else:
+        assert all((out.sum(-1)-1).abs() < 1e-5), "Normalization fail"
     return out
 
 

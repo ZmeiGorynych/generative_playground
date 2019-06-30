@@ -1,3 +1,4 @@
+import copy
 import torch
 from torch import nn as nn
 import numpy as np
@@ -74,6 +75,7 @@ class DecoderWithEnvironmentNew(nn.Module):
                 #  batch x num_actions
                 next_action, next_logp = self.stepper(last_state)
                 out_logp.append(to_pytorch(next_logp).unsqueeze(1))
+                # need to do a deepcopy to snapshot the graphs at their current state
                 next_env_output = self.task.step(to_numpy(next_action))
                 last_state, rewards, done, info = next_env_output
                 actions.append(next_action)  #

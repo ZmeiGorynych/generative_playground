@@ -4,6 +4,7 @@ import networkx as nx
 import uuid
 from rdkit import Chem
 from rdkit.Chem import MolFromSmiles, AddHs, MolToSmiles, RemoveHs, Kekulize, BondType
+from functools import lru_cache
 
 from collections import OrderedDict
 
@@ -187,7 +188,7 @@ class HyperGraph:
                 data[edge_id].append(node_id)
 
         return data
-    # TODO: merge these with the above?
+
     def node_ids_from_edge_id(self, edge_id):
         my_nodes=[]
         for node_id, node in self.node.items():
@@ -534,6 +535,8 @@ def replace_nonterminal(orig_node, loc, new_node):
 
 
 def hypergraphs_are_equivalent(graph1, graph2, isomorphy=True):
+    if graph1 is None or graph2 is None:
+        return None
     graph1 = put_parent_node_first(graph1)
     graph2 = put_parent_node_first(graph2)
     if len(graph1) != len(graph2):

@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 
-from .agent import Agent
-from .environment import Gridworld
+from gridworld.agent import Agent
+from gridworld.environment import Gridworld
 
 
 if __name__ == '__main__':

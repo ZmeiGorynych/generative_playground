@@ -12,26 +12,28 @@ def slice(x, b):
     out = [xx[b] for xx in x]
     # out[0] = [out[0]] # need to wrap these so Pytorch loader can concatenate them
     assert len(out) == 3
-    assert isinstance(out[0], HyperGraph)
-    assert isinstance(out[1], np.ndarray)
-    assert isinstance(out[2], np.ndarray)
+    assert isinstance(out[0], HyperGraph) or out[0] is None, "First element of the state tuple must be None or a HyperGraph"
+    assert isinstance(out[1], np.ndarray), "Second element of the state tuple must be an ndarray"
+    assert isinstance(out[2], np.ndarray), "Third element of the state tuple must be an ndarray"
     return out
+
+
 
 class QLearningDataset(deque):
     def update_data(self, new_data):
         batch_size, num_steps = new_data['rewards'].shape
         for s in range(num_steps):
             for b in range(batch_size):
-                # TODO check for padding
                 old_state = new_data['env_outputs'][s][0]
-                new_state = new_data['env_outputs'][s+1][0]
-                reward = new_data['rewards'][b:b+1,s]
-                action = new_data['actions'][s][b]
-                exp_tuple =(slice(old_state,b),
-                             action,
-                             reward,
-                             slice(new_state,b))
-                self.append(exp_tuple)
+                if old_state[0][b] is None or len(old_state[0][b].nonterminal_ids()):  # exclude padding states
+                    new_state = new_data['env_outputs'][s+1][0]
+                    reward = new_data['rewards'][b:b+1, s]
+                    action = new_data['actions'][s][b]
+                    exp_tuple =(slice(old_state, b),
+                                 action,
+                                 reward,
+                                 slice(new_state,b))
+                    self.append(exp_tuple)
 
 def pad_numpy(x, max_len, pad_value):
     if len(x) >= max_len: # sometimes it's been padded too much as part of its batch, need to trim that
@@ -41,7 +43,7 @@ def pad_numpy(x, max_len, pad_value):
 
 def collate_states(states_batch):
     graphs = [b[0] for b in states_batch]
-    max_len = max([len(g) for g in graphs])
+    max_len = max([1 if g is None else len(g) for g in graphs])
     node_priors = np.array([pad_numpy(b[1], max_len=max_len, pad_value=-1e5) for b in states_batch])
     full_priors = np.array([pad_numpy(b[2], max_len=max_len, pad_value=-1e5) for b in states_batch])
     assert max_len == node_priors.shape[1]
@@ -54,6 +56,7 @@ def collate_experiences(batch):
     new_states = collate_states([b[3] for b in batch])
     actions = [b[1] for b in batch]
     rewards = torch.cat([b[2] for b in batch])
+    assert old_states[0][0] != new_states[0][0], "Invalid experience tuple: graph unchanged" # test that this is a valid state transition
     return old_states, actions, rewards, new_states
 
 
