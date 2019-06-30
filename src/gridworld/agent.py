@@ -4,6 +4,7 @@ import torch
 from tqdm import tqdm_notebook as tqdm
 from .distribution import DistributionCalculator
 from .q_function import QDistFunction
+from .dist_utils import display_values
 from generative_playground.models.losses.wasserstein_loss import WassersteinLoss
 
 
@@ -25,11 +26,11 @@ class Agent:
         done = False
         total_reward = 0.0
         while not done:
+            display_values(self.env, self.q, self.range_)
             qdist = self.q(
                 torch.tensor(self.env.state, dtype=torch.float32)
             )
             samples = torch.multinomial(qdist, 1)
-            print(samples)
             action = samples.max(0)[1]
 
             old_state, reward, _, done = self.env.step(action)

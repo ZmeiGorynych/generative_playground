@@ -23,7 +23,6 @@ class Gridworld:
         self.pit = np.array([0, 1, 0, 0])
         self.goal = np.array([1, 0, 0, 0])
         self.player_position = None
-        self.world_ = None
 
         self.up = 0
         self.right = 1
