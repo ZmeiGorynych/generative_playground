@@ -47,7 +47,6 @@ class QDistFunction(nn.Module):
         new_qdist = self(new_state).detach()
         aggregated_dist = distr_calc.aggregate_distributions_best_exp_value(new_qdist)
         new_qdist = distr_calc.shift_distribution(aggregated_dist, reward)
-
         # introduce a batch dimension since the thingy seems to be expecting it
         loss = loss_fun(outputs.unsqueeze(0), new_qdist.detach().unsqueeze(0))
         loss.backward()

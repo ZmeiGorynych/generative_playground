@@ -25,11 +25,18 @@ class DistributionCalculator:
             m[min(l+1, len(m)-1)] += dp
             m[l] += p - dp
         assert (dist.sum(-1) - m.sum(-1)).abs() < eps
+        pre_ev = self.expected_value(dist)
+        post_ev = self.expected_value(m)
+        assert (post_ev - (self.gamma*pre_ev + reward)).abs() < 1
         return m
+
+    def expected_value(self, distrs):
+        return (distrs * self.bin_mids).sum(-1)
+
+
 
     def aggregate_distributions_best_exp_value(self, distrs):
         assert len(distrs.size()) == 2
         assert distrs.size(1) == len(self.bin_mids)
-        exp_values = (distrs*self.bin_mids).sum(1)
-        best_ev = torch.argmax(exp_values)
+        best_ev = torch.argmax(self.expected_value(distrs))
         return distrs[best_ev,:]

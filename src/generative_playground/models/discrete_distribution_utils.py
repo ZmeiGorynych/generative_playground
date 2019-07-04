@@ -13,7 +13,7 @@ def thompson_probabilities(ps, mask):
     """
 
     batch_size, actions, bins = ps.shape
-    assert all(ps.view(-1)>=0), "Probabilities must be non-negative"
+    # assert all(ps.view(-1)>=0), "Probabilities must be non-negative"
     out = torch.zeros(batch_size, actions, dtype=ps.dtype, device=ps.device)
     for b in range(batch_size):
         out[b, mask[b,:]] = thompson_probabilities_one_slice(ps[b,mask[b,:]])
@@ -31,8 +31,6 @@ def thompson_probabilities_one_slice(ps):
     total = thompson.sum()
     assert total <= 1
     return thompson/total
-
-
 
 
 class SoftmaxPolicyProbsFromDistributions(nn.Module):
@@ -80,7 +78,7 @@ def aggregate_distributions_by_policy_logits(ps, policy_logits):
     out =aggregate_distributions_by_policy(ps, policy_p)
     return out
 
-def aggregate_distributions_by_policy(ps, policy_p):
+def aggregate_distributions_by_policy(ps, policy_p, asserts = False):
     """
     Calculates the aggregation of probabilities assuming Thompson sampling.
     actions can be one index or actions1, actions2
@@ -88,15 +86,16 @@ def aggregate_distributions_by_policy(ps, policy_p):
     :param policy_p: batch x actions probabilities of each action
     :return: batch x bins floats
     """
-    assert all([p >= 0 for p in policy_p.view(-1)])
     policy_p = policy_p/policy_p.sum(-1, keepdim=True)
-    assert all([(p - 1.0).abs() < eps for p in policy_p.sum(-1)])
+    if asserts:
+        assert all([p >= 0 for p in policy_p.view(-1)])
+        assert all([(p - 1.0).abs() < eps for p in policy_p.sum(-1)])
     policy_p = policy_p.unsqueeze(len(policy_p.size()))
     weighted_ps = (ps*policy_p).sum(-2)
     if len(weighted_ps.size()) == 3:
         weighted_ps = weighted_ps.sum(-2)
-
-    assert all([x < eps for x in (weighted_ps.sum(1) - 1).abs()])
+    if asserts:
+        assert all([x < eps for x in (weighted_ps.sum(1) - 1).abs()])
     assert weighted_ps.size(0) == ps.size(0)
     assert weighted_ps.size(-1) == ps.size(-1)
     assert len(weighted_ps.size()) == 2

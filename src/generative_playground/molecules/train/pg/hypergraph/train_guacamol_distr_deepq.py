@@ -19,7 +19,7 @@ from generative_playground.codec.hypergraph_grammar import GrammarInitializer
 from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring_functions, version_name_list
 import torch
 
-batch_size = 75 # 20
+batch_size = 100 # 20
 drop_rate = 0.3
 molecules = True
 grammar_cache = 'hyper_grammar_guac_10k.pickle'
@@ -32,7 +32,7 @@ reward_fun = reward_funs[obj_num]
 # later will run this ahead of time
 gi = GrammarInitializer(grammar_cache)
 
-root_name = 'distr_deepq_softmax' + ver + '_' + str(obj_num) + 'do 0.3 lr4e-5'
+root_name = 'distr_deepq_' + ver + '_' + str(obj_num) + 'do 0.3 lr4e-5'
 max_steps = 45
 explore, model_fitter = train_deepq(molecules,
                                     grammar,
@@ -43,19 +43,21 @@ explore, model_fitter = train_deepq(molecules,
                                     lr_on=4e-5,
                                     drop_rate=drop_rate,
                                     reward_sm=0.0,
-                                    decoder_type='attn_graph_distr_softmax',  #'attn_graph_distr_softmax', 'attn_graph_node' #
+                                    decoder_type='attn_graph_distr',  #'attn_graph_distr_softmax', 'attn_graph_node' #
                                     plot_prefix='',
                                     dashboard=root_name,  # 'policy gradient',
                                     save_file_root_name=root_name,
-                                    preload_file_root_name=root_name,#'guacamol_ar_nodev2_0lr2e-5',#root_name,
+                                    preload_file_root_name=None, #root_name,#'guacamol_ar_nodev2_0lr2e-5',#root_name,
                                     smiles_save_file=None,  # 'pg_smiles_hg1.h5',
                                     rule_temperature_schedule=lambda x: 0.1,
                                     priors='conditional',
-                                    eps=0.25,
-                                    bins=10)  # chance to just simulate the priors
+                                    eps=0.25,# chance to just simulate the priors
+                                    bins=20)
 # preload_file='policy_gradient_run.h5')
 
 while True:
     explore()
+    print('done exploring!')
     for _ in range(3):
         next(model_fitter)
+        print('done a Q fit!')
