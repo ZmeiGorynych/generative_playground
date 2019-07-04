@@ -15,7 +15,7 @@ class Agent:
         loss_fun,
         q_function,
         gamma,
-        lr=0.01,
+        lr=0.001,
         max_steps=100,
     ):
         self.q = q_function
