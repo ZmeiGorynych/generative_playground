@@ -5,16 +5,20 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from generative_playground.models.discrete_distribution_utils import thompson_probabilities
+
 from .distribution import DistributionCalculator
 
 
 class QDistFunction(nn.Module):
-    def __init__(self, gamma):
+    def __init__(self, gamma, thompson=True):
         super().__init__()
         self.smax = nn.Softmax()
         self.gamma = gamma
         self.distr_calc = DistributionCalculator(
-            torch.tensor(list(range(-10, 11)), dtype=torch.float32), gamma
+            torch.tensor(list(range(-10, 11)), dtype=torch.float32),
+            gamma=gamma,
+            thompson=thompson
         )
         self.bins = len(self.distr_calc.bin_mids)
         self.l1 = nn.Linear(64, 164)
@@ -48,9 +52,7 @@ class QDistFunction(nn.Module):
         # forward + backward + optimize
         outputs = self(old_state)[action[0], :]
         new_qdist = self(new_state).detach()
-        aggregated_dist = self.distr_calc.aggregate_distributions_best_exp_value(
-            new_qdist
-        )
+        aggregated_dist = self.distr_calc.aggregate_distributions(new_qdist)
         new_qdist = self.distr_calc.shift_distribution(aggregated_dist, reward, done)
 
         # introduce a batch dimension since the thingy seems to be expecting it
@@ -71,8 +73,11 @@ class QDistFunction(nn.Module):
         if greedy:
             exp_values = (qdist * self.distr_calc.bin_mids).sum(1)
             return torch.argmax(exp_values)
-        samples = torch.multinomial(qdist, 1)
-        return samples.max(0)[1]
+        else:
+            thompson_probs = thompson_probabilities(qdist.unsqueeze(0)).squeeze(0)
+            sample = torch.multinomial(thompson_probs,1)
+            # print(sample)
+            return sample
 
 
 class QFunction(nn.Module):

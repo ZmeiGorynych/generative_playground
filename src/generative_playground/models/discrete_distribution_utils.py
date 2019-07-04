@@ -4,19 +4,22 @@ import torch.nn.functional as F
 import math
 eps = 1e-5
 
-def thompson_probabilities(ps, mask):
+def thompson_probabilities(ps, mask=None):
     """
     Calculates the probability that if we sample from the distributions specified, the value of the a'th variable will be the largess
     :param ps: batch x action x bin non-negative floats
     :param mask: batch x action booleans or ints representing booleans
     :return: batch x action non-negative floats summing up to 1
     """
-
     batch_size, actions, bins = ps.shape
     # assert all(ps.view(-1)>=0), "Probabilities must be non-negative"
     out = torch.zeros(batch_size, actions, dtype=ps.dtype, device=ps.device)
-    for b in range(batch_size):
-        out[b, mask[b,:]] = thompson_probabilities_one_slice(ps[b,mask[b,:]])
+    if mask is None:
+        for b in range(batch_size):
+            out[b] = thompson_probabilities_one_slice(ps[b])
+    else:
+        for b in range(batch_size):
+            out[b, mask[b,:]] = thompson_probabilities_one_slice(ps[b,mask[b,:]])
     return out
 
 def thompson_probabilities_one_slice(ps):
@@ -92,8 +95,8 @@ def aggregate_distributions_by_policy(ps, policy_p, asserts = False):
         assert all([(p - 1.0).abs() < eps for p in policy_p.sum(-1)])
     policy_p = policy_p.unsqueeze(len(policy_p.size()))
     weighted_ps = (ps*policy_p).sum(-2)
-    if len(weighted_ps.size()) == 3:
-        weighted_ps = weighted_ps.sum(-2)
+    # if len(weighted_ps.size()) == 3:
+    #     weighted_ps = weighted_ps.sum(-2)
     if asserts:
         assert all([x < eps for x in (weighted_ps.sum(1) - 1).abs()])
     assert weighted_ps.size(0) == ps.size(0)
