@@ -2,36 +2,38 @@ import numpy as np
 import pandas as pd
 import torch
 from tqdm import tqdm_notebook as tqdm
-from .distribution import DistributionCalculator
-from .q_function import QDistFunction
+
 from .dist_utils import display_values
-from generative_playground.models.losses.wasserstein_loss import WassersteinLoss
+from .q_function import QDistFunction
 
 
 class Agent:
-    def __init__(self, env, epsilon, gamma, lr=0.01, max_steps=100):
-        self.q = QDistFunction(20)
+    def __init__(
+        self,
+        env,
+        epsilon,
+        loss_fun,
+        q_function,
+        gamma,
+        lr=0.01,
+        max_steps=100,
+    ):
+        self.q = q_function
         self.env = env
         self.epsilon = epsilon
         self.gamma = gamma
         self.max_steps = max_steps
-        self.loss_fun = WassersteinLoss()
+        self.loss_fun = loss_fun
         self.optimizer = torch.optim.Adam(self.q.parameters(), lr)
-        self.distr = DistributionCalculator(torch.tensor(list(range(-10, 11)),
-                                                         dtype=torch.float32),
-                                            gamma)
         self.range_ = list(range(-10, 11))
 
     def run_episode(self):
         done = False
         total_reward = 0.0
         while not done:
-            display_values(self.env, self.q, self.range_)
-            qdist = self.q(
-                torch.tensor(self.env.state, dtype=torch.float32)
-            )
-            samples = torch.multinomial(qdist, 1)
-            action = samples.max(0)[1]
+            if isinstance(self.q, QDistFunction):
+                display_values(self.env, self.q, self.range_)
+            action = self.q.select_action(self.env.state)
 
             old_state, reward, _, done = self.env.step(action)
             total_reward += reward
@@ -41,31 +43,20 @@ class Agent:
                 torch.tensor(self.env.state, dtype=torch.float32),
                 action,
                 reward,
-                self.range_,
+                done,
                 self.gamma,
                 self.loss_fun,
                 self.optimizer,
-                self.distr
+                self.range_,
             )
         return total_reward
 
     def run_model(self, world=0):
-        done = False
+        # done = False
         self.env.reset()
         print(self.env.display())
         for _ in range(self.max_steps):
-            qdist = self.q(torch.tensor(self.env.state, dtype=torch.float32))
-            len_range = len(self.range_)
-            evs = [
-                sum(
-                    z * p for z, p in zip(
-                        self.range_, qdist[len_range * a:len_range * (a + 1)]
-                    )
-                )
-                for a in range(4)
-            ]
-            action = np.argmax(evs)
-
+            action = self.q.select_action(self.env.state, greedy=True)
             _, _, _, done = self.env.step(action)
             print(self.env.display())
             if done:
