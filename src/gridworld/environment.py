@@ -15,14 +15,13 @@ class Gridworld:
         self.height = height
         self.width = width
 
-        self.initial_state = None
-        self.initial_player_pos = None
         self.state = np.zeros((height, width, 4), dtype=int)
         self.player = np.array([0, 0, 0, 1])
         self.wall = np.array([0, 0, 1, 0])
         self.pit = np.array([0, 1, 0, 0])
         self.goal = np.array([1, 0, 0, 0])
         self.player_position = None
+        self.world_factory = None
 
         self.up = 0
         self.right = 1
@@ -35,10 +34,6 @@ class Gridworld:
         self.player_position = tuple(position)
         self.state[tuple(position)] = self.player
 
-    def save_state(self):
-        self.initial_state = np.copy(self.state)
-        self.initial_player_pos = np.copy(self.player_position)
-
     @classmethod
     def deterministic_easy(cls, height=4, width=4):
         world = cls(height, width)
@@ -46,7 +41,7 @@ class Gridworld:
         world.set_player_position((0, 1))
         # place goal
         world.state[3, 3] = world.goal
-        world.save_state()
+        world.world_factory = cls.deterministic_easy
         return world
 
     @classmethod
@@ -60,7 +55,7 @@ class Gridworld:
         world.state[1, 1] = world.pit
         # place goal
         world.state[3, 3] = world.goal
-        world.save_state()
+        world.world_factory = cls.deterministic
         return world
 
     @classmethod
@@ -77,7 +72,7 @@ class Gridworld:
         world.state[1, 1] = world.pit
         # place goal
         world.state[1, 2] = world.goal
-        world.save_state()
+        world.world_factory = cls.random_player_pos
         return world
 
     @classmethod
@@ -93,7 +88,7 @@ class Gridworld:
         world.state[positions[2]] = world.pit
         # place goal
         world.state[positions[3]] = world.goal
-        world.save_state()
+        world.world_factory = cls.random
         return world
 
     def step(self, action):
@@ -124,8 +119,9 @@ class Gridworld:
         return old_state, reward, self.state, done
 
     def reset(self):
-        self.state = np.copy(self.initial_state)
-        self.player_position = np.copy(self.initial_player_pos)
+        new_world = self.world_factory(self.width, self.height)
+        self.state = new_world.state
+        self.player_position = new_world.player_position
         return self.state
 
     def display(self):
