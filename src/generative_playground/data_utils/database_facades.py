@@ -64,6 +64,24 @@ class DatabaseDeque:
             )
         )
 
+    def update_data(self, new_data):
+        batch_size, num_steps = new_data['rewards'].shape
+        for s in range(num_steps):
+            for b in range(batch_size):
+                old_state = new_data['env_outputs'][s][0]
+                # exclude padding states
+                if old_state[0][b] is None or len(old_state[0][b].nonterminal_ids()):
+                    new_state = new_data['env_outputs'][s + 1][0]
+                    reward = new_data['rewards'][b:b + 1, s]
+                    action = new_data['actions'][s][b]
+                    exp_tuple =(
+                        slice(old_state, b),
+                        action,
+                        reward,
+                        slice(new_state, b)
+                    )
+                    self.append(exp_tuple)
+
     def __getitem__(self, index):
         row = self.conn.execute(
             self.table.select().where(
