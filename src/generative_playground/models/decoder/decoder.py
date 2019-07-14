@@ -36,7 +36,7 @@ def get_decoder(molecules=True,
                                       steps=max_seq_length,
                                       drop_rate=drop_rate)
         stepper = OneStepDecoderContinuous(stepper)
-    elif decoder_type in ['attn_graph_node', 'rnn_graph_node', 'attn_graph_distr', 'rnn_graph_distr']:
+    elif 'graph' in decoder_type and decoder_type not in ['attn_graph', 'rnn_graph']:
         return get_node_decoder(grammar,
                      max_seq_length,
                      drop_rate,
@@ -46,7 +46,7 @@ def get_decoder(molecules=True,
                      batch_size,
                      priors)
 
-    elif decoder_type in ['attn_graph', 'rnn_graph']:
+    elif decoder_type in ['attn_graph', 'rnn_graph']: # deprecated
         assert 'hypergraph' in grammar, "Only the hypergraph grammar can be used with attn_graph decoder type"
         if 'attn' in decoder_type:
             encoder = GraphEncoder(grammar=codec.grammar,
@@ -159,6 +159,8 @@ def get_node_decoder(grammar,
         model_type='transformer'
     elif 'rnn' in decoder_type:
         model_type = 'rnn'
+    elif 'conditional' in decoder_type:
+        model_type = 'conditional'
 
     if 'distr' in decoder_type:
         if 'softmax' in decoder_type:
@@ -169,18 +171,6 @@ def get_node_decoder(grammar,
         output_type = 'values'
 
     model = get_graph_model(codec, drop_rate, model_type, output_type, num_bins=bins)
-    # encoder = GraphEncoder(grammar=codec.grammar,
-    #                        d_model=512,
-    #                        drop_rate=drop_rate,
-    #                        model_type=model_type)
-    #
-    #
-    # model = MultipleOutputHead(model=encoder,
-    #                            output_spec={'node': 1,  # to be used to select next node to expand
-    #                                         'action': codec.feature_len()},  # to select the action for chosen node
-    #                            drop_rate=drop_rate)
-
-    # don't support using this model in VAE-style models yet
 
     mask_gen = HypergraphMaskGenerator(max_len=max_seq_length,
                                        grammar=codec.grammar)

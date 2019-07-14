@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from math import floor
 
-from generative_playground.codec.hypergraph_grammar import HypergraphMaskGenerator
+from generative_playground.codec.hypergraph_mask_generator import HypergraphMaskGenerator
 from generative_playground.models.problem.policy import SoftmaxRandomSamplePolicy
 from generative_playground.models.decoder.stepper import Stepper
 from generative_playground.utils.gpu_utils import device
@@ -94,7 +94,7 @@ class GraphDecoderWithNodeSelection(Stepper):
     #
     #     return (next_node, next_action), action_logp + node_selection_logp # will also want to return which node we picked, once we enable that
 
-class GraphDecoder(Stepper):
+class GraphDecoder(Stepper): # DEPRECATED
     def __init__(self,
                  model,
                  mask_gen: HypergraphMaskGenerator,

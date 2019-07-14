@@ -6,7 +6,8 @@ from unittest import TestCase
 from generative_playground.codec.hypergraph_grammar import GrammarInitializer
 from generative_playground.models.decoder.decoders import DecoderWithEnvironmentNew
 from generative_playground.utils.gpu_utils import device
-from generative_playground.codec.hypergraph_grammar import evaluate_rules, HypergraphGrammar, HypergraphMaskGenerator
+from generative_playground.codec.hypergraph_grammar import evaluate_rules, HypergraphGrammar
+from generative_playground.codec.hypergraph_mask_generator import HypergraphMaskGenerator
 from generative_playground.models.problem.rl.environment import GraphEnvironment
 
 

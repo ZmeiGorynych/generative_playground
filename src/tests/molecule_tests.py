@@ -5,7 +5,8 @@ from unittest import TestCase, skip
 from generative_playground.codec.hypergraph import to_mol, HyperGraph, HypergraphTree
 from generative_playground.codec.hypergraph_parser import hypergraph_parser, graph_from_graph_tree
 from generative_playground.molecules.data_utils.zinc_utils import get_smiles_from_database
-from generative_playground.codec.hypergraph_grammar import evaluate_rules, HypergraphGrammar, HypergraphMaskGenerator, apply_rule
+from generative_playground.codec.hypergraph_grammar import evaluate_rules, HypergraphGrammar, apply_rule
+from generative_playground.codec.hypergraph_mask_generator import HypergraphMaskGenerator
 from generative_playground.codec.hypergraph_rpe_grammar import HypergraphRPEGrammar
 from rdkit.Chem import MolFromSmiles, AddHs, MolToSmiles, RemoveHs, Kekulize, BondType
 

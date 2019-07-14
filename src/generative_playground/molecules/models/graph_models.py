@@ -9,6 +9,8 @@ from generative_playground.codec.codec import get_codec
 from generative_playground.models.heads.attention_aggregating_head import *
 from generative_playground.models.heads.multiple_output_head import MultipleOutputHead
 from generative_playground.models.discrete_distribution_utils import CalcExpectedValue, thompson_probabilities
+from generative_playground.molecules.models.conditional_probability_model import CondtionalProbabilityModel
+
 
 class GraphDiscriminator(nn.Module):
     def __init__(self, grammar, drop_rate=0.0, d_model=512):
@@ -65,6 +67,12 @@ class GraphTransformerModel(nn.Module):
 
 
 def get_graph_model(codec, drop_rate, model_type, output_type='values', num_bins=51):
+    if model_type == 'conditional':
+        model = CondtionalProbabilityModel(codec.grammar)
+        model.init_encoder_output = lambda x: None
+        return model
+
+    # for all other models, start with a GraphEncoder and attach the right head
     encoder = GraphEncoder(grammar=codec.grammar,
                            d_model=512,
                            drop_rate=drop_rate,
@@ -134,7 +142,9 @@ class DistributionPerNodeRuleTransformParent(nn.Module):
                                                            pre_out['action'].device)
 
         pre_out['masked_policy_logits'] = self.action_distrs_to_action_prob_logits(pre_out['action_distrs'],
-                                                                                     pre_out['used_priors']>-1e3)
+                                                                                     pre_out['used_priors']>-1e3) + \
+            pre_out['used_priors']
+
         return pre_out
 
 class DistributionPerNodeRuleTransformSoftmax(DistributionPerNodeRuleTransformParent):
@@ -146,7 +156,6 @@ class DistributionPerNodeRuleTransformSoftmax(DistributionPerNodeRuleTransformPa
     def action_distrs_to_action_prob_logits(self, action_distrs, mask):
         # and calculate their expected values, later to be replaced by log Thompson probabilities
         action_p_logits = self.exp_value(action_distrs) / self.T
-        action_p_logits[mask==0] = -1e5
         return action_p_logits
 
 class DistributionPerNodeRuleTransformThompson(DistributionPerNodeRuleTransformParent):
@@ -156,7 +165,6 @@ class DistributionPerNodeRuleTransformThompson(DistributionPerNodeRuleTransformP
     def action_distrs_to_action_prob_logits(self, action_distrs, mask):
         # and calculate their log Thompson probabilities
         action_p_logits = torch.log(thompson_probabilities(action_distrs, mask) + 1e-5)
-        action_p_logits[mask == 0] = -1e5
         return action_p_logits
 
 

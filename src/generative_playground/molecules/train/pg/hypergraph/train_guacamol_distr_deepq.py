@@ -19,14 +19,14 @@ from generative_playground.codec.hypergraph_grammar import GrammarInitializer
 from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring_functions, version_name_list
 import torch
 
-batch_size = 100 # 20
+batch_size = 150# 20
 drop_rate = 0.3
 molecules = True
 grammar_cache = 'hyper_grammar_guac_10k.pickle'
 grammar = 'hypergraph:' + grammar_cache
 settings = get_settings(molecules, grammar)
-ver = 'trivial'
-obj_num = 4
+ver = 'v2'#''trivial'
+obj_num = 1
 reward_funs = guacamol_goal_scoring_functions(ver)
 reward_fun = reward_funs[obj_num]
 # later will run this ahead of time
@@ -47,7 +47,7 @@ explore, model_fitter = train_deepq(molecules,
                                     plot_prefix='',
                                     dashboard=root_name,  # 'policy gradient',
                                     save_file_root_name=root_name,
-                                    preload_file_root_name=None, #root_name,#'guacamol_ar_nodev2_0lr2e-5',#root_name,
+                                    preload_file_root_name=root_name,#'guacamol_ar_nodev2_0lr2e-5',#root_name,
                                     smiles_save_file=None,  # 'pg_smiles_hg1.h5',
                                     rule_temperature_schedule=lambda x: 0.1,
                                     priors='conditional',

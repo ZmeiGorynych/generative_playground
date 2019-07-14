@@ -168,6 +168,9 @@ class HyperGraph:
         assert len(out) == 1, "This id does not exist"
         return out[0]
 
+    def id_to_condition_tuple(self, id):
+        pass
+
     def children(self):
         return [self.node[child_id] for child_id in self.child_ids()]
 

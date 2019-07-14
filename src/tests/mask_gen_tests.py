@@ -2,7 +2,8 @@ import random
 import numpy as np
 import os
 from unittest import TestCase
-from generative_playground.codec.hypergraph_grammar import HypergraphGrammar, HypergraphMaskGenerator
+from generative_playground.codec.hypergraph_grammar import HypergraphGrammar
+from generative_playground.codec.hypergraph_mask_generator import HypergraphMaskGenerator
 from rdkit.Chem import MolFromSmiles
 from generative_playground.codec.codec import get_codec
 from generative_playground.codec.hypergraph_grammar import GrammarInitializer

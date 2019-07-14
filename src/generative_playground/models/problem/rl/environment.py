@@ -42,8 +42,12 @@ class GraphEnvironment:
         :param rule_action: LongTensor(batch_size), or np.array(batch_size) of ints last discrete rule_action chosen
         :return:
         '''
-        node_action = [floor(a.item() / self.action_dim) for a in full_action]
-        rule_action = [a.item() % self.action_dim for a in full_action]
+        if type(full_action)==tuple and len(full_action) == 2:
+            # old-style inputs, separate node and rule selections
+            node_action, rule_action = full_action
+        else: # new-style inputs, node and rule encoded in one int
+            node_action = [floor(a.item() / self.action_dim) for a in full_action]
+            rule_action = [a.item() % self.action_dim for a in full_action]
         next_state = self.mask_gen.step((node_action, rule_action))
         graphs, node_mask, full_logit_priors = next_state
         # TODO: the rest here is just bookkeeping + reward calculation

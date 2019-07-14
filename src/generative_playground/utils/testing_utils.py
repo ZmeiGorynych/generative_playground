@@ -1,6 +1,7 @@
 import numpy as np
 
-from generative_playground.codec.hypergraph_grammar import GrammarInitializer, HypergraphMaskGenerator
+from generative_playground.codec.hypergraph_grammar import GrammarInitializer
+from generative_playground.codec.hypergraph_mask_generator import HypergraphMaskGenerator
 from generative_playground.models.decoder.decoders import DecoderWithEnvironmentNew
 from generative_playground.models.decoder.graph_decoder import GraphDecoderWithNodeSelection
 from generative_playground.models.problem.rl.environment import GraphEnvironment

@@ -129,4 +129,11 @@ class TestDecoders(TestCase):
         out = self.generic_decoder_test(decoder_type, grammar)
         print('success!')
 
+    def test_graph_conditional_decoder(self):
+        decoder_type = 'graph_conditional'
+        grammar = 'hypergraph:' + tmp_file
+        print("testing ", decoder_type, grammar)
+        out = self.generic_decoder_test(decoder_type, grammar)
+        print('success!')
+
     # TODO: 'action_resnet' decoder is broken, maybe want to fix some day

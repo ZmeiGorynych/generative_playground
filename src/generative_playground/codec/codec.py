@@ -2,7 +2,8 @@ from generative_playground.codec.character_codec import CharacterCodec
 from generative_playground.codec.grammar_codec import CFGrammarCodec, zinc_tokenizer, eq_tokenizer, zinc_tokenizer_new
 from generative_playground.codec.grammar_helper import grammar_zinc, grammar_eq, grammar_zinc_new
 from generative_playground.codec.grammar_mask_gen import GrammarMaskGenerator
-from generative_playground.codec.hypergraph_grammar import HypergraphGrammar, HypergraphMaskGenerator
+from generative_playground.codec.hypergraph_grammar import HypergraphGrammar
+from generative_playground.codec.hypergraph_mask_generator import HypergraphMaskGenerator
 from generative_playground.codec.mask_gen_new_2 import GrammarMaskGeneratorNew
 
 
