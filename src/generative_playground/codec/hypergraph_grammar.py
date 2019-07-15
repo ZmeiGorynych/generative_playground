@@ -10,6 +10,7 @@ import pickle
 import os, copy
 import numpy as np
 import math
+from functools import lru_cache
 
 grammar_data_location = molecules_root_location + 'data/grammar/'
 
@@ -75,6 +76,7 @@ class HypergraphGrammar(GenericCodec):
             out[ind] = math.log(value)
         return out
 
+    @lru_cache()
     def get_conditional_log_frequencies_single_query(self, x, default=-3):
         out = default*np.ones(len(self.rules))
         if x in self.conditional_frequencies:
