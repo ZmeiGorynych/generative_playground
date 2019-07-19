@@ -9,8 +9,8 @@ from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring
 
 num_bins = 20 # TODO: replace with a Value Distribution object
 num_actions = 200
-ver = 'v2'
-obj_num = 8
+ver = 'trivial'
+obj_num = 0
 reward_fun = guacamol_goal_scoring_functions(ver)[obj_num]
 
 
@@ -21,7 +21,7 @@ def explore(root_node, num_sims):
         while True:
             is_terminal = next_node.is_terminal()
             if is_terminal:
-                next_node.start_back_up(reward)
+                next_node.back_up(reward)
                 break
             else:
                 probs = next_node.action_probabilities()
@@ -39,55 +39,44 @@ def save_experience_tuples(node):
 # Tree:
 # linked tree with nodes
 class MCTSNode:
-    def __init__(self, grammar, parent, source_action, value_distr,max_depth, depth):
+    def __init__(self, grammar, parent, source_action, max_depth, depth):
         """
         Creates a placeholder with just the value distribution guess, to be aggregated by the parent
         :param value_distr:
         """
-        self.value_distr_total = value_distr
-        self.child_run_count = 1
-        self.refresh_prob_thresh = 0.1
-        self.decay = 0.99
         self.grammar = grammar
         self.parent = parent
         self.source_action = source_action
-        self.max_depth=max_depth
-        self.depth=depth
+        self.max_depth = max_depth
+        self.depth = depth
+        self.value_distr_total = None
+        self.child_run_count = 0
+        self.refresh_prob_thresh = 0.1
+        self.decay = 0.99
         self.log_action_probs = None
-        self.children = [] # maps action index to child
-        self.action_ids = []
-        self.graph = None
-
-    def is_terminal(self):
-        return graph_is_terminal(self.graph)
-
-    def expand(self):
-        # this gets called when we actually go down a child
-        # initialize the graph in this node
         if self.parent is not None:
-            self.graph = apply_rule(self.parent.graph, self.source_action, self.grammar)
+            self.graph = apply_rule(parent.graph, source_action, grammar)
+        else:
+            self.graph = None
 
-        # initialize the machinery for conditional probabilities
-        log_freqs = get_log_conditional_freqs(self.grammar, [self.graph])
+        self.children = [None for _ in range(len(grammar)*
+                                             (1 if self.graph is None else len(self.graph)))] # maps action index to child
+
+
+        log_freqs = get_log_conditional_freqs(grammar, [self.graph])
         # the full_logit_priors at this stage merely store the information about which actions are allowed
-        full_logit_priors, _ , node_mask = get_full_logit_priors(self.grammar, self.max_depth-self.depth, [self.graph]) # TODO: proper arguments
+        full_logit_priors, _, node_mask = get_full_logit_priors(self.grammar, self.max_depth - self.depth,
+                                                                [self.graph])  # TODO: proper arguments
         priors = full_logit_priors + log_freqs
 
-        self.log_priors = priors.reshape((-1,))# only store the priors for allowed children
+        self.log_priors = priors.reshape((-1,))  # only store the priors for allowed children
         # self.priors = np.exp(self.log_priors - self.log_priors.max())
         self.refresh_probabilities()
 
-        # now put in minimalist children
-        for action, log_prior in enumerate(full_logit_priors.reshape((-1,))):
-            if log_prior>-1e4:
-                self.children.append(MCTSNode(grammar=self.grammar,
-                                              parent=self,
-                                              source_action=action,
-                                              value_distr=self.value_distr(),
-                                              max_depth=self.max_depth,
-                                              depth=self.depth+1))
-            else:
-                self.children.append(None)
+
+
+    def is_terminal(self):
+        return graph_is_terminal(self.graph)
 
     def value_distr(self):
         return self.value_distr_total/self.child_run_count
@@ -95,38 +84,51 @@ class MCTSNode:
     def action_probabilities(self):
         if np.random.random([1][0]) < self.refresh_prob_thresh:
             self.refresh_probabilities()
-        tmp = np.exp(self.log_action_probs + self.log_priors)
-        return tmp/tmp.sum()
+        return self.probs
 
+    # specific
     def refresh_probabilities(self): # TODO: replace the stub with  a real implementation
         if self.log_action_probs is None:
             self.log_action_probs = np.zeros_like(self.log_priors)
+        tmp = np.exp(self.log_action_probs + self.log_priors)
+        self.probs = tmp/tmp.sum()
         # # iterate over all children, get their value distrs, calculate Thompson probs
         # child_distributions = np.array([child.value_distr() for child in self.children])
         # self.action_probs = thompson_probabilities(child_distributions)
 
     def apply_action(self, action):
+        if self.children[action] is None:
+            self.make_child(action)
         chosen_child = self.children[action]
-        if chosen_child.graph is None:
-            chosen_child.expand()
         reward = get_reward(chosen_child.graph)
         return chosen_child, reward
 
-    def start_back_up(self, reward=None):
-        self.value_distr_total = to_bins(reward, num_bins)
-        self.child_run_count=1
+    def make_child(self, action):
+        self.children[action] = MCTSNode(grammar=self.grammar,
+                                         parent=self,
+                                         source_action=action,
+                                         max_depth=self.max_depth,
+                                         depth=self.depth+1)
+
+    def back_up(self, reward):
+        self.process_back_up(reward)
         if self.parent is not None:
-            self.parent.back_up(self.value_distr())
+            self.parent.back_up(reward)
 
-    def back_up(self, child_value_distr):
-        self.value_distr_total *= self.decay
-        self.value_distr_total += child_value_distr
+    # this one is specific
+    def process_back_up(self, reward):
+        binned_reward = to_bins(reward, num_bins)
+        if self.value_distr_total is None:
+            self.value_distr_total = binned_reward
+            self.child_run_count = 1
+        else:
+            self.value_distr_total *= self.decay
+            self.value_distr_total += binned_reward
 
-        self.child_run_count *= self.decay
-        self.child_run_count +=1
-
-        if self.parent is not None:
-            self.parent.back_up(self.value_distr())
+            self.child_run_count *= self.decay
+            self.child_run_count += 1
+        # todo: also save the reward together with its conditioning to a global registry
+        # todo: ?randomly trigger model refresh
 
 def to_bins(reward, num_bins): # TODO: replace with a ProbabilityDistribution object
     reward = max(min(reward,1.0), 0.0)
@@ -145,15 +147,6 @@ def get_reward(graph): # TODO: replace stub with real impl
     else:
         return 0.0
 
-
-def get_mask(graph):
-    out = np.zeros((num_actions,))
-    out[3] = 1
-    out[5] = 1
-    out[10] = 1
-    priors = np.random.random((num_actions,))
-    priors = priors/priors.sum()
-    return out, priors
 
 def apply_rule(graph, action_index, grammar):
     '''
@@ -178,15 +171,13 @@ def graph_is_terminal(graph):
 if __name__=='__main__':
     grammar_cache = 'hyper_grammar_guac_10k_with_clique_collapse.pickle'  # 'hyper_grammar.pickle'
     grammar = 'hypergraph:' + grammar_cache
-    max_seq_length = 50
+    max_seq_length = 30
     codec = get_codec(True, grammar, max_seq_length)
     root_node = MCTSNode(grammar=codec.grammar,
                          parent=None,
                          source_action=None,
-                         value_distr=np.ones((num_bins,))/num_bins,
                          max_depth=max_seq_length,
                          depth=1)
-    root_node.expand()
     explore(root_node, 100)
     print(root_node.value_distr())
     print("done!")
