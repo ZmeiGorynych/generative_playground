@@ -193,7 +193,7 @@ class HypergraphGrammar(GenericCodec):
         #         out.append(1)
         #     else:
         #         out.append(0)
-        assert any(out), "Mask must allow at least one rule"
+        # assert any(out), "Mask must allow at least one rule"
         return out
 
 

@@ -31,7 +31,7 @@ class ExperienceRepository:
     def __init__(self,
                  grammar: HypergraphGrammar,
                  reward_preprocessor=lambda x: to_bins(x, num_bins),
-                 decay =0.99):
+                 decay=0.99):
         self.grammar = grammar
         self.reward_preprocessor = reward_preprocessor
         self.conditional_rewards = OrderedDict([(key, None) for key in grammar.conditional_frequencies.keys()])
@@ -132,7 +132,7 @@ class RuleChoiceRepository:
         else:
             all_rewards = np.array([self.get_regularized_reward(rule_ind) for rule_ind in range(len(self.reward_totals))
                                     if not self.bool_mask[rule_ind]])
-            th_probs = softmax_probabilities(all_rewards) # TODO: fix and insert the Thompson ones!
+            th_probs = thompson_probabilities(all_rewards) # TODO: fix and insert the Thompson ones!
             probs[~self.bool_mask] = th_probs
             return probs
 
@@ -266,6 +266,7 @@ def thompson_probabilities(log_ps):
     cdfs = ps.cumsum(axis=1) + 1e-5
     cdf_prod = np.prod(cdfs, axis=0, keepdims=True)
     thompson = (ps[:, 1:] * cdf_prod[:, :-1] / cdfs[:, :-1]).sum(1)
+    # thompson2 = (ps*cdf_prod / cdfs).sum(1) # this should always be >1
     total = thompson.sum()
     assert 0 < total <= 1
     return np.log(thompson/total)
