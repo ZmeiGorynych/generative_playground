@@ -63,26 +63,53 @@ class ExperienceRepository:
                                                                         decay=self.decay)
         self.conditional_rewards[cond_tuple].update(rule_ind, reward)
 
-    def get_conditional_log_probs(self, cond_tuple):
+    def get_conditional_log_probs_with_reward(self, cond_tuple):
         if self.conditional_rewards[cond_tuple] is not None:
-            return self.conditional_rewards[cond_tuple].get_conditional_log_probs()
+            return self.conditional_rewards[cond_tuple].get_conditional_log_probs_with_reward()
         else:
-            return np.zeros(len(self.grammar))
+            return np.zeros(len(self.grammar)), None
 
     def get_log_probs_for_graph(self, graph):
         if graph is None:
-            return self.get_conditional_log_probs((None, None))
+            log_probs, reward = self.get_conditional_log_probs_with_reward((None, None))
+            return log_probs
         else:
             out = -1e5*np.ones((len(graph), len(self.grammar)))
             child_ids = set(graph.child_ids())
+            child_indices = []
+            child_rewards = []
             for n, node_id in enumerate(graph.node.keys()):
                 if node_id in child_ids:
                     cond_tuple = conditoning_tuple(graph, node_id)
-                    out[n,:] = self.get_conditional_log_probs(cond_tuple)
+                    log_probs, reward = self.get_conditional_log_probs_with_reward(cond_tuple)
+                    child_indices.append(n)
+                    child_rewards.append(reward)
+                    out[n,:] = log_probs
+
+            node_log_probs = child_rewards_to_log_probs(child_rewards)
+            for n, nn in enumerate(child_indices):
+                out[nn, :] += node_log_probs[n]
 
             out = out.reshape((-1))
             assert out.max() > -1e4, "At least some actions must be allowed"
             return out
+
+def child_rewards_to_log_probs(child_rewards):
+    total = 0
+    counter = 0
+    for c in child_rewards:
+        if c is not None:
+            total+=c
+            counter += 1
+    if counter == 0:
+        return np.zeros((len(child_rewards)))
+    avg_reward = total/counter
+    for c in range(len(child_rewards)):
+        if child_rewards[c] is None:
+            child_rewards[c] = avg_reward
+
+    log_probs, probs = thompson_probabilities(np.array(child_rewards))
+    return log_probs
 
 
 class RuleChoiceRepository:
@@ -127,17 +154,25 @@ class RuleChoiceRepository:
         return self.all_reward_totals[1]/self.all_reward_totals[0]
 
     def get_conditional_log_probs(self):
-        probs = np.zeros(len(self.reward_totals))
-        probs[self.bool_mask] = -1e5 # kill the prohibited rules
+        probs, avg_reward = self.get_conditional_log_probs_with_reward()
+        return probs
+
+
+    def get_conditional_log_probs_with_reward(self):
+        # TODO: could do some probabilistic caching here
+        num_actions = len(self.reward_totals)
+        out_log_probs = np.zeros(num_actions)
+        out_log_probs[self.bool_mask] = -1e5 # kill the prohibited rules
 
         if self.all_reward_totals[1] is None: # no experiences yet
-            return probs
+            return out_log_probs, None
         else:
             all_rewards = np.array([self.get_regularized_reward(rule_ind) for rule_ind in range(len(self.reward_totals))
                                     if not self.bool_mask[rule_ind]])
-            th_probs = thompson_probabilities(all_rewards) # TODO: fix and insert the Thompson ones!
-            probs[~self.bool_mask] = th_probs
-            return probs
+            log_probs, probs = thompson_probabilities(all_rewards)
+            avg_reward = (all_rewards*probs.reshape((-1,1))).sum(0)
+            out_log_probs[~self.bool_mask] = log_probs
+            return out_log_probs, avg_reward
 
 def update_node(node, reward, decay, reward_preprocessor):
     weight, proc_reward = reward_preprocessor(reward)
@@ -154,7 +189,11 @@ def update_node(node, reward, decay, reward_preprocessor):
 # Tree:
 # linked tree with nodes
 class MCTSNode:
-    def __init__(self, grammar, parent, source_action, max_depth, depth, exp_repo, decay=0.99, reward_proc=None):
+    def __init__(self, grammar, parent, source_action,
+                 max_depth, depth, exp_repo,
+                 decay=0.99,
+                 reward_proc=None,
+                 refresh_prob_thresh=0.01):
         """
         Creates a placeholder with just the value distribution guess, to be aggregated by the parent
         :param value_distr:
@@ -166,7 +205,7 @@ class MCTSNode:
         self.depth = depth
         self.value_distr_total = None
         self.child_run_count = 0
-        self.refresh_prob_thresh = 0.1
+        self.refresh_prob_thresh = refresh_prob_thresh
         self.experience_repository = exp_repo
         self.decay = decay
         self.reward_proc = reward_proc
@@ -267,21 +306,23 @@ def to_bins(reward, num_bins): # TODO: replace with a ProbabilityDistribution ob
     return out
 
 
-def thompson_probabilities(log_ps):
-    '''
+def thompson_probabilities(ps):
+    """
     Calculate thompson probabilities for one slice, that's already been masked
-    :param ps: actions x bins floats
+    :param ps: actions x bins floats reward probability distribution per action
     :return: actions floats
-    '''
-    ps = np.exp(log_ps - log_ps.max())
+    """
+
     ps = ps/ps.sum(axis=1, keepdims=True)
-    cdfs = ps.cumsum(axis=1) + 1e-5
+    cdfs = ps.cumsum(axis=1) + 1e-5 # to guarantee positivity
     cdf_prod = np.prod(cdfs, axis=0, keepdims=True)
     thompson = (ps[:, 1:] * cdf_prod[:, :-1] / cdfs[:, :-1]).sum(1)
+    thompson[thompson<=0] = 1e-5 # regularization term
     # thompson2 = (ps*cdf_prod / cdfs).sum(1) # this should always be >1
     total = thompson.sum()
-    assert 0 < total <= 1
-    return np.log(thompson/total)
+    assert 0 < total <= 1.01
+    out = thompson/total
+    return np.log(out), out
 
 def softmax_probabilities(log_ps):
     '''
@@ -325,7 +366,7 @@ def graph_is_terminal(graph):
         return len(graph.child_ids()) == 0
 
 if __name__=='__main__':
-    num_bins = 20  # TODO: replace with a Value Distribution object
+    num_bins = 50  # TODO: replace with a Value Distribution object
     ver = 'trivial'
     obj_num = 0
     reward_fun = guacamol_goal_scoring_functions(ver)[obj_num]
@@ -343,7 +384,8 @@ if __name__=='__main__':
                          depth=1,
                          exp_repo=exp_repo,
                          decay=0.99,
-                         reward_proc=lambda x: (1,to_bins(x, num_bins)))
-    explore(root_node, 100)
+                         reward_proc=lambda x: (1,to_bins(x, num_bins)),
+                         refresh_prob_thresh=0.01)
+    explore(root_node, 1000)
     print(root_node.result_repo.avg_reward())
     print("done!")
