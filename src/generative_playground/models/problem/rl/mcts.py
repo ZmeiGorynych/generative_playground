@@ -112,7 +112,7 @@ class RuleChoiceRepository:
         # for actions that haven't been visited often, augment their reward with the average one for regularization
         max_wt = 1/(1-self.decay)
         assert self.all_reward_totals[1] is not None, "This function should only be called after at least one experience!"
-        avg_reward = self.all_reward_totals[1]/self.all_reward_totals[0]
+        avg_reward = self.avg_reward()
         assert avg_reward.sum() < float('inf')
         if self.reward_totals[rule_ind][1] is None:
             return avg_reward
@@ -122,6 +122,9 @@ class RuleChoiceRepository:
             reg_reward = (this_reward + avg_reward*reg_wt)/(this_wt + reg_wt)
             assert reg_reward.sum() < float('inf')
             return reg_reward
+
+    def avg_reward(self):
+        return self.all_reward_totals[1]/self.all_reward_totals[0]
 
     def get_conditional_log_probs(self):
         probs = np.zeros(len(self.reward_totals))
@@ -151,7 +154,7 @@ def update_node(node, reward, decay, reward_preprocessor):
 # Tree:
 # linked tree with nodes
 class MCTSNode:
-    def __init__(self, grammar, parent, source_action, max_depth, depth, exp_repo, decay=0.99):
+    def __init__(self, grammar, parent, source_action, max_depth, depth, exp_repo, decay=0.99, reward_proc=None):
         """
         Creates a placeholder with just the value distribution guess, to be aggregated by the parent
         :param value_distr:
@@ -166,11 +169,14 @@ class MCTSNode:
         self.refresh_prob_thresh = 0.1
         self.experience_repository = exp_repo
         self.decay = decay
+        self.reward_proc = reward_proc
+
 
         if self.parent is not None:
             self.graph = apply_rule(parent.graph, source_action, grammar)
         else:
             self.graph = None
+
 
         if not graph_is_terminal(self.graph):
             self.log_action_probs = exp_repo.get_log_probs_for_graph(self.graph)
@@ -186,6 +192,10 @@ class MCTSNode:
             priors = full_logit_priors + log_freqs
 
             self.log_priors = priors.reshape((-1,))
+            self.result_repo = RuleChoiceRepository(len(self.log_priors),
+                                                    reward_proc=reward_proc,
+                                                    mask=self.log_priors > -1e4,
+                                                    decay=decay)
             # self.priors = np.exp(self.log_priors - self.log_priors.max())
             self.refresh_probabilities()
 
@@ -201,15 +211,13 @@ class MCTSNode:
         return self.probs
 
     # specific
-    def refresh_probabilities(self): # TODO: replace the stub with  a real implementation
+    def refresh_probabilities(self):
+        self.log_action_probs = self.result_repo.get_conditional_log_probs()
         total_prob = self.log_action_probs + self.log_priors
         assert total_prob.max() > -1e4, "We need at least one allowed action!"
         tmp = np.exp(total_prob - total_prob.max())
         self.probs = tmp/tmp.sum()
         assert not np.isnan(self.probs.sum())
-        # # iterate over all children, get their value distrs, calculate Thompson probs
-        # child_distributions = np.array([child.value_distr() for child in self.children])
-        # self.action_probs = thompson_probabilities(child_distributions)
 
     def apply_action(self, action):
         if self.children[action] is None:
@@ -225,26 +233,30 @@ class MCTSNode:
                                          max_depth=self.max_depth,
                                          depth=self.depth+1,
                                          exp_repo=self.experience_repository,
-                                         decay=self.decay)
+                                         decay=self.decay,
+                                         reward_proc=self.reward_proc)
 
     def back_up(self, reward):
-        self.process_back_up(reward)
+        # self.process_back_up(reward)
         if self.parent is not None:
+            # update the local result cache
+            self.parent.result_repo.update(self.source_action, reward)
+            # update the global result cache
             self.experience_repository.update(self.parent.graph, self.source_action, reward)
             self.parent.back_up(reward)
 
-    # this one is specific
-    def process_back_up(self, reward):
-        binned_reward = to_bins(reward, num_bins)
-        if self.value_distr_total is None:
-            self.value_distr_total = binned_reward
-            self.child_run_count = 1
-        else:
-            self.value_distr_total *= self.decay
-            self.value_distr_total += binned_reward
-
-            self.child_run_count *= self.decay
-            self.child_run_count += 1
+    # # this one is specific
+    # def process_back_up(self, reward):
+    #     binned_reward = to_bins(reward, num_bins)
+    #     if self.value_distr_total is None:
+    #         self.value_distr_total = binned_reward
+    #         self.child_run_count = 1
+    #     else:
+    #         self.value_distr_total *= self.decay
+    #         self.value_distr_total += binned_reward
+    #
+    #         self.child_run_count *= self.decay
+    #         self.child_run_count += 1
 
 
 def to_bins(reward, num_bins): # TODO: replace with a ProbabilityDistribution object
@@ -330,7 +342,8 @@ if __name__=='__main__':
                          max_depth=max_seq_length,
                          depth=1,
                          exp_repo=exp_repo,
-                         decay=0.99)
+                         decay=0.99,
+                         reward_proc=lambda x: (1,to_bins(x, num_bins)))
     explore(root_node, 100)
-    print(root_node.value_distr())
+    print(root_node.result_repo.avg_reward())
     print("done!")
