@@ -1,6 +1,8 @@
+from math import floor
+
 import numpy as np
 
-from generative_playground.codec.hypergraph import replace_nonterminal, HyperGraph
+from generative_playground.codec.hypergraph import replace_nonterminal, HyperGraph, expand_index_to_id
 
 
 class HypergraphMaskGenerator:
@@ -143,28 +145,6 @@ def valid_node_mask_fun(graphs):
     return out
 
 
-def expand_index_to_id(graph, expand_index=None):
-    '''
-
-    :param graph: HyperGraph or None for the first step
-    :param expand_index: None or an index of the node in graph.node that we want to expand next
-    :return: id of the next node to expand, or None if we have nothing left to expand
-    '''
-    if graph is None:
-        return None # expand_id will be ignored as we'll be starting a new graph
-
-    nonterminals_left = graph.nonterminal_ids()
-    if len(nonterminals_left):
-        if expand_index is None:
-            expand_id = nonterminals_left[-1]
-        else:
-            expand_id = list(graph.node.keys())[expand_index]
-            assert expand_id in nonterminals_left, \
-                "The proposed expand location is not valid"
-    else:
-        expand_id = None
-    return expand_id
-
 def apply_one_action(grammar, graph, last_action, expand_id):
     # TODO: allow None action
     last_rule = grammar.rules[last_action]
@@ -223,6 +203,15 @@ def get_one_mask_fun(grammar, steps_left, graph, expand_id):
     this_mask = grammar.get_mask(next_rule_string, free_rules_left)
     return this_mask
 
+def action_to_condition(grammar, graph, action):
+    """
+    Converts an action on a graph to the conditioning tuple of the node implied by the action
+    :param grammar:
+    :param graph:
+    :param action:
+    :return:
+    """
+    pass
 
 def get_full_logit_priors(grammar, steps_left, graphs):
     node_mask = valid_node_mask_fun(graphs)
@@ -245,3 +234,9 @@ def get_full_logit_priors(grammar, steps_left, graphs):
     full_logit_priors += node_priors[:, :, None] # already add in the node priors so we know which nodes are impossible
     # TODO: instead, just return probabilities for nonterminal nodes?
     return full_logit_priors, node_priors, node_mask
+
+
+def action_to_node_rule_indices(action_index, num_rules):
+    node_index = floor(action_index / num_rules)
+    rule_index = action_index % num_rules
+    return node_index, rule_index

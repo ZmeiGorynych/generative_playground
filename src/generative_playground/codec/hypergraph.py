@@ -20,6 +20,9 @@ class Node:
         self.edge_ids = edge_ids
         self.data = data
         self.is_terminal = is_terminal
+        # the below two properties are set to nonnegative values in the graphs that are rules in a grammar, or generated from these
+        self.rule_id = -1
+        self.rule_index = -1
 
         if graph is not None:
             edges = [graph.edges[edge_id] for edge_id in edge_ids]
@@ -37,6 +40,10 @@ class Node:
 
     def __hash__(self):
         return hash(self.__str__())
+
+    def conditioning_tuple(self):
+        return (self.rule_id, self.node_index) # nonterminal index in the original rule
+
 
 
 class Edge:
@@ -613,10 +620,39 @@ def hypergraphs_are_equivalent(graph1, graph2, isomorphy=True):
         else:
             return None
 
-
 def put_parent_node_first(rule):
     if rule.parent_node_id is not None:
         new_node_order = [(rule.parent_node_id, rule.parent_node())] + \
             [item for item in rule.node.items() if item[0] != rule.parent_node_id]
         rule.node = OrderedDict(new_node_order)
     return rule
+
+def conditoning_tuple(graph, node_id):
+    if graph is None:
+        assert node_id is None
+        return None, None
+    else:
+        return graph.node[node_id].conditioning_tuple()
+
+
+def expand_index_to_id(graph, expand_index=None):
+    '''
+
+    :param graph: HyperGraph or None for the first step
+    :param expand_index: None or an index of the node in graph.node that we want to expand next
+    :return: id of the next node to expand, or None if we have nothing left to expand
+    '''
+    if graph is None:
+        return None # expand_id will be ignored as we'll be starting a new graph
+
+    nonterminals_left = graph.nonterminal_ids()
+    if len(nonterminals_left):
+        if expand_index is None:
+            expand_id = nonterminals_left[-1]
+        else:
+            expand_id = list(graph.node.keys())[expand_index]
+            assert expand_id in nonterminals_left, \
+                "The proposed expand location is not valid"
+    else:
+        expand_id = None
+    return expand_id
