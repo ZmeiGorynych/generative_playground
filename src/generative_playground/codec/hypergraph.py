@@ -175,8 +175,10 @@ class HyperGraph:
         assert len(out) == 1, "This id does not exist"
         return out[0]
 
-    def id_to_condition_tuple(self, id):
-        pass
+    def index_to_id(self, idx):
+        assert idx < len(self.node), "Index exceeds number of nodes"
+        out = [id_candidate for i, id_candidate in enumerate(self.node.keys()) if i == idx]
+        return out[0]
 
     def children(self):
         return [self.node[child_id] for child_id in self.child_ids()]

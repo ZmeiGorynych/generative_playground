@@ -187,8 +187,17 @@ def get_log_conditional_freqs(grammar, graphs):
 
     return freqs
 
+def mask_from_cond_tuple(grammar, cond_tuple):
+    if cond_tuple[0] is None:
+        rule_string = 'None'
+    else:
+        rule = grammar.rules[cond_tuple[0]]
+        node_id = rule.index_to_id(cond_tuple[1])
+        rule_string = get_rule_string(rule, node_id)
+    this_mask = grammar.get_mask(rule_string, float('inf'))
+    return this_mask
 
-def get_one_mask_fun(grammar, steps_left, graph, expand_id):
+def get_rule_string(graph, expand_id):
     if graph is None:
         next_rule_string = 'None'
     else:
@@ -196,7 +205,10 @@ def get_one_mask_fun(grammar, steps_left, graph, expand_id):
             next_rule_string = str(graph.node[expand_id])
         else: # we're out of nonterminals, just use the padding rule
             next_rule_string = 'DONE'
+    return next_rule_string
 
+def get_one_mask_fun(grammar, steps_left, graph, expand_id):
+    next_rule_string = get_rule_string(graph, expand_id)
     free_rules_left = steps_left - 1 - \
                       grammar.terminal_distance(graph)
 

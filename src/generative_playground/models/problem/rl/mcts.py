@@ -31,12 +31,17 @@ class ExperienceRepository:
     def __init__(self,
                  grammar: HypergraphGrammar,
                  reward_preprocessor=lambda x: to_bins(x, num_bins),
-                 decay=0.99):
+                 decay=0.99,
+                 num_updates_to_refresh=1000):
         self.grammar = grammar
         self.reward_preprocessor = reward_preprocessor
         self.conditional_rewards = OrderedDict([(key, None) for key in grammar.conditional_frequencies.keys()])
         self.mask_by_cond_tuple = OrderedDict([(key, None) for key in grammar.conditional_frequencies.keys()])
+        self.cond_tuple_to_index = {key: i for i, key in enumerate(grammar.conditional_frequencies.keys())}
         self.decay = decay
+        self.num_updates_to_refresh = num_updates_to_refresh
+        self.refresh_conditional_log_probs()
+        self.updates_since_last_refresh = 0
 
     def update(self, graph, action, reward):
         """
@@ -61,36 +66,70 @@ class ExperienceRepository:
                                                                         self.reward_preprocessor,
                                                                         self.mask_by_cond_tuple[cond_tuple],
                                                                         decay=self.decay)
-        self.conditional_rewards[cond_tuple].update(rule_ind, reward)
+        self.conditional_store(cond_tuple).update(rule_ind, reward)
+        self.updates_since_last_refresh += 1
+        if self.updates_since_last_refresh > self.num_updates_to_refresh:
+            self.refresh_conditional_log_probs()
 
-    def get_conditional_log_probs_with_reward(self, cond_tuple):
-        if self.conditional_rewards[cond_tuple] is not None:
-            return self.conditional_rewards[cond_tuple].get_conditional_log_probs_with_reward()
-        else:
-            return np.zeros(len(self.grammar)), None
+    def conditional_store(self, cond_tuple):
+        if self.mask_by_cond_tuple[cond_tuple] is None:
+            self.mask_by_cond_tuple[cond_tuple] = mask_from_cond_tuple(self.grammar, cond_tuple)
+        if self.conditional_rewards[cond_tuple] is None:
+            self.conditional_rewards[cond_tuple] = RuleChoiceRepository(len(self.grammar),
+                                                                        self.reward_preprocessor,
+                                                                        self.mask_by_cond_tuple[cond_tuple],
+                                                                        decay=self.decay)
+        return self.conditional_rewards[cond_tuple]
+
+
+    def refresh_conditional_log_probs(self):
+        # collect masks, avg rewards and weights for every conditioning, actions for every cond_tuple
+        masks = []
+        reward_totals = []
+        for cond_tuple in self.grammar.conditional_frequencies.keys():
+            this_cache = self.conditional_store(cond_tuple)
+            masks.append(~(this_cache.bool_mask))
+            reward_totals +=[x for i,x in enumerate(this_cache.reward_totals) if not this_cache.bool_mask[i]]
+        # calculate regularized rewards
+        # first pass calculates the global average
+        wts, rewards = 0, 0.0
+        for wt, reward in reward_totals:
+            if reward is not None:
+                wts += wt
+                rewards += reward
+        all_log_probs = np.zeros((len(self.grammar.conditional_frequencies)*len(self.grammar)))
+
+        if wts > 0:
+            avg_reward = rewards/wts
+            reg_rewards = [regularize_reward(wt, reward, avg_reward, self.decay) for (wt, reward) in reward_totals]
+            # call thompsom prob
+            log_probs, probs = log_thompson_probabilities(np.array(reg_rewards))
+            # cache the results per cond tuple
+            all_masks = np.concatenate(masks)
+            all_log_probs[all_masks] = log_probs
+        elif wts < 0:
+            raise ValueError("Wts should never be negative!")
+
+        all_log_probs = all_log_probs.reshape((len(self.grammar.conditional_frequencies),
+                                               len(self.grammar)))
+        self.log_probs = all_log_probs
+        self.updates_since_last_refresh = 0
+
 
     def get_log_probs_for_graph(self, graph):
         if graph is None:
-            log_probs, reward = self.get_conditional_log_probs_with_reward((None, None))
-            return log_probs
+            cond_tuple = (None,  None)
+            return self.log_probs[self.cond_tuple_to_index[cond_tuple],:]
         else:
-            out = -1e5*np.ones((len(graph), len(self.grammar)))
+            out = -1e5*np.ones((len(graph),len(self.grammar)))
             child_ids = set(graph.child_ids())
-            child_indices = []
-            child_rewards = []
+
             for n, node_id in enumerate(graph.node.keys()):
                 if node_id in child_ids:
                     cond_tuple = conditoning_tuple(graph, node_id)
-                    log_probs, reward = self.get_conditional_log_probs_with_reward(cond_tuple)
-                    child_indices.append(n)
-                    child_rewards.append(reward)
-                    out[n,:] = log_probs
+                    out[n] = self.log_probs[self.cond_tuple_to_index[cond_tuple],:]
+            out.reshape((-1,))
 
-            node_log_probs = child_rewards_to_log_probs(child_rewards)
-            for n, nn in enumerate(child_indices):
-                out[nn, :] += node_log_probs[n]
-
-            out = out.reshape((-1))
             assert out.max() > -1e4, "At least some actions must be allowed"
             return out
 
@@ -108,7 +147,7 @@ def child_rewards_to_log_probs(child_rewards):
         if child_rewards[c] is None:
             child_rewards[c] = avg_reward
 
-    log_probs, probs = thompson_probabilities(np.array(child_rewards))
+    log_probs, probs = log_thompson_probabilities(np.array(child_rewards))
     return log_probs
 
 
@@ -153,13 +192,19 @@ class RuleChoiceRepository:
     def avg_reward(self):
         return self.all_reward_totals[1]/self.all_reward_totals[0]
 
+    def get_mask_and_rewards(self):
+        return self.bool_mask, self.regularized_rewards()
+
     def get_conditional_log_probs(self):
         probs, avg_reward = self.get_conditional_log_probs_with_reward()
         return probs
 
+    def regularized_rewards(self):
+        reg_rewards = np.array([self.get_regularized_reward(rule_ind) for rule_ind in range(len(self.reward_totals))
+                  if not self.bool_mask[rule_ind]])
+        return reg_rewards
 
     def get_conditional_log_probs_with_reward(self):
-        # TODO: could do some probabilistic caching here
         num_actions = len(self.reward_totals)
         out_log_probs = np.zeros(num_actions)
         out_log_probs[self.bool_mask] = -1e5 # kill the prohibited rules
@@ -167,12 +212,22 @@ class RuleChoiceRepository:
         if self.all_reward_totals[1] is None: # no experiences yet
             return out_log_probs, None
         else:
-            all_rewards = np.array([self.get_regularized_reward(rule_ind) for rule_ind in range(len(self.reward_totals))
-                                    if not self.bool_mask[rule_ind]])
-            log_probs, probs = thompson_probabilities(all_rewards)
+            all_rewards = self.regularized_rewards()
+            log_probs, probs = log_thompson_probabilities(all_rewards)
             avg_reward = (all_rewards*probs.reshape((-1,1))).sum(0)
             out_log_probs[~self.bool_mask] = log_probs
             return out_log_probs, avg_reward
+
+def regularize_reward(this_wt, this_total_reward, avg_reward, decay):
+    max_wt = 1 / (1 - decay)
+    assert avg_reward.sum() < float('inf')
+    if this_total_reward is None:
+        return avg_reward
+    else:
+        reg_wt = max(0, max_wt - this_wt)
+        reg_reward = (this_total_reward + avg_reward * reg_wt) / (this_wt + reg_wt)
+        assert reg_reward.sum() < float('inf')
+        return reg_reward
 
 def update_node(node, reward, decay, reward_preprocessor):
     weight, proc_reward = reward_preprocessor(reward)
@@ -209,6 +264,8 @@ class MCTSNode:
         self.experience_repository = exp_repo
         self.decay = decay
         self.reward_proc = reward_proc
+        self.updates_to_refresh = 100
+        self.updates_since_refresh = 0
 
 
         if self.parent is not None:
@@ -218,7 +275,8 @@ class MCTSNode:
 
 
         if not graph_is_terminal(self.graph):
-            self.log_action_probs = exp_repo.get_log_probs_for_graph(self.graph)
+            self.log_action_probs = exp_repo.get_log_probs_for_graph(self.graph).reshape((-1,))
+
 
             self.children = [None for _ in range(len(grammar)*
                                                  (1 if self.graph is None else len(self.graph)))] # maps action index to child
@@ -229,14 +287,13 @@ class MCTSNode:
             full_logit_priors, _, node_mask = get_full_logit_priors(self.grammar, self.max_depth - self.depth,
                                                                     [self.graph])  # TODO: proper arguments
             priors = full_logit_priors + log_freqs
-
             self.log_priors = priors.reshape((-1,))
+            self.probs_from_log_action_probs()
+
             self.result_repo = RuleChoiceRepository(len(self.log_priors),
                                                     reward_proc=reward_proc,
                                                     mask=self.log_priors > -1e4,
                                                     decay=decay)
-            # self.priors = np.exp(self.log_priors - self.log_priors.max())
-            self.refresh_probabilities()
 
     def is_terminal(self):
         return graph_is_terminal(self.graph)
@@ -245,18 +302,25 @@ class MCTSNode:
         return self.value_distr_total/self.child_run_count
 
     def action_probabilities(self):
-        if np.random.random([1][0]) < self.refresh_prob_thresh:
+        if self.updates_since_refresh > self.updates_to_refresh:
             self.refresh_probabilities()
+        self.updates_since_refresh +=1
         return self.probs
+
+    def probs_from_log_action_probs(self):
+        total_prob = self.log_action_probs + self.log_priors
+        assert total_prob.max() > -1e4, "We need at least one allowed action!"
+        tmp = np.exp(total_prob - total_prob.max())
+        self.probs = tmp / tmp.sum()
+        assert not np.isnan(self.probs.sum())
 
     # specific
     def refresh_probabilities(self):
         self.log_action_probs = self.result_repo.get_conditional_log_probs()
-        total_prob = self.log_action_probs + self.log_priors
-        assert total_prob.max() > -1e4, "We need at least one allowed action!"
-        tmp = np.exp(total_prob - total_prob.max())
-        self.probs = tmp/tmp.sum()
-        assert not np.isnan(self.probs.sum())
+        self.probs_from_log_action_probs()
+        self.updates_since_refresh = 0
+
+
 
     def apply_action(self, action):
         if self.children[action] is None:
@@ -306,23 +370,26 @@ def to_bins(reward, num_bins): # TODO: replace with a ProbabilityDistribution ob
     return out
 
 
-def thompson_probabilities(ps):
+def log_thompson_probabilities(ps):
     """
     Calculate thompson probabilities for one slice, that's already been masked
     :param ps: actions x bins floats reward probability distribution per action
     :return: actions floats
     """
-
+    ps += 1e-5 # to guarantee positivity
     ps = ps/ps.sum(axis=1, keepdims=True)
-    cdfs = ps.cumsum(axis=1) + 1e-5 # to guarantee positivity
-    cdf_prod = np.prod(cdfs, axis=0, keepdims=True)
-    thompson = (ps[:, 1:] * cdf_prod[:, :-1] / cdfs[:, :-1]).sum(1)
-    thompson[thompson<=0] = 1e-5 # regularization term
+    log_ps = np.log(ps)
+    log_cdfs = np.log(ps.cumsum(axis=1))
+    log_cdf_prod = np.sum(log_cdfs, axis=0, keepdims=True)
+    pre_thompson = (log_ps[:, 1:] + log_cdf_prod[:, :-1] - log_cdfs[:, :-1])
+    thompson = (np.exp(pre_thompson - pre_thompson.max())).sum(1)
+    log_thompson = np.log(thompson + 1e-8)
     # thompson2 = (ps*cdf_prod / cdfs).sum(1) # this should always be >1
     total = thompson.sum()
-    assert 0 < total <= 1.01
+    assert total > 0, "total probs must be positive!"
     out = thompson/total
-    return np.log(out), out
+    assert not np.isnan(log_thompson.sum()), "Something went wrong in thompson probs, got a nan"
+    return log_thompson, out
 
 def softmax_probabilities(log_ps):
     '''
