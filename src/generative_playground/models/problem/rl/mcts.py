@@ -9,18 +9,21 @@ from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring
 
 
 def explore(root_node, num_sims):
+    rewards = []
+    infos = []
     for _ in range(num_sims):
         next_node = root_node
-        reward = 0
         while True:
+            probs = next_node.action_probabilities()
+            action = np.random.multinomial(1,probs).argmax()
+            next_node, reward, info = next_node.apply_action(action)
             is_terminal = next_node.is_terminal()
             if is_terminal:
                 next_node.back_up(reward)
+                rewards.append(reward)
+                infos.append(info)
                 break
-            else:
-                probs = next_node.action_probabilities()
-                action = np.random.multinomial(1,probs).argmax()
-                next_node, reward = next_node.apply_action(action)
+    return rewards, infos
 
 class ExperienceRepository:
     """
@@ -326,8 +329,8 @@ class MCTSNode:
         if self.children[action] is None:
             self.make_child(action)
         chosen_child = self.children[action]
-        reward = get_reward(chosen_child.graph)
-        return chosen_child, reward
+        reward, info = get_reward(chosen_child.graph)
+        return chosen_child, reward, info
 
     def make_child(self, action):
         self.children[action] = MCTSNode(grammar=self.grammar,
@@ -406,9 +409,10 @@ def softmax_probabilities(log_ps):
 
 def get_reward(graph):
     if graph_is_terminal(graph):
-        return reward_fun([graph.to_smiles()])[0]
+        smiles = graph.to_smiles()
+        return reward_fun([smiles])[0], {'smiles': smiles}
     else:
-        return 0.0
+        return 0.0, None
 
 
 def apply_rule(graph, action_index, grammar):
@@ -440,6 +444,7 @@ if __name__=='__main__':
     grammar_cache = 'hyper_grammar_guac_10k_with_clique_collapse.pickle'  # 'hyper_grammar.pickle'
     grammar_name = 'hypergraph:' + grammar_cache
     max_seq_length = 30
+    num_steps = 1
     codec = get_codec(True, grammar_name, max_seq_length)
     exp_repo = ExperienceRepository(grammar=codec.grammar,
                                     reward_preprocessor=lambda x: (1,to_bins(x, num_bins)),
@@ -453,6 +458,9 @@ if __name__=='__main__':
                          decay=0.99,
                          reward_proc=lambda x: (1,to_bins(x, num_bins)),
                          refresh_prob_thresh=0.01)
-    explore(root_node, 1000)
+    for _ in range(num_steps):
+        rewards, infos = explore(root_node, 100)
+        # visualisation code goes here
+
     print(root_node.result_repo.avg_reward())
     print("done!")
