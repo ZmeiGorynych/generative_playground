@@ -35,7 +35,7 @@ reward_fun = reward_funs[obj_num]
 # gi = GrammarInitializer(grammar_cache)
 
 
-root_name = 'conditional_' + ver + '_' + str(obj_num) + '_d_lr5e-2'
+root_name = 'conditional_' + ver + '_' + str(obj_num) + '_new_lr5e-2'
 max_steps = 45
 model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        grammar,
@@ -53,7 +53,7 @@ model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        plot_prefix='',
                                                        dashboard=root_name,  # 'policy gradient',
                                                        save_file_root_name=root_name,
-                                                       preload_file_root_name=None,#root_name,  #'guacamol_ar_emb_node_rpev2_0lr2e-5',#'guacamol_ar_nodev2_0lr2e-5',#root_name,
+                                                       preload_file_root_name=root_name,  #'guacamol_ar_emb_node_rpev2_0lr2e-5',#'guacamol_ar_nodev2_0lr2e-5',#root_name,
                                                        smiles_save_file=root_name.replace(' ', '_') + '_smiles_2.zip',
                                                        on_policy_loss_type='advantage_record',
                                                        node_temperature_schedule=lambda x: 100,

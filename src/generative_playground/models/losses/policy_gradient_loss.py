@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 
 class PolicyGradientLoss(nn.Module):
-    def __init__(self, loss_type='mean', loss_cutoff=1e4, keep_records=10): #last_reward_wgt=0.0,
+    def __init__(self, loss_type='mean', loss_cutoff=1e4, keep_records=10, entropy_wgt=1.0): #last_reward_wgt=0.0,
         super().__init__()
         self.loss_type = loss_type
         self.loss_cutoff = loss_cutoff
@@ -12,6 +12,7 @@ class PolicyGradientLoss(nn.Module):
         # self.sm_reward = None
         self.best_rewards = set([float('-inf')])
         self.keep_records = keep_records
+        self.entropy_wgt = entropy_wgt
 
     def update_record_list(self, new_value):
         worst = min(self.best_rewards)
@@ -33,9 +34,14 @@ class PolicyGradientLoss(nn.Module):
         smiles, valid = model_out['info']
 
         if 'logp' in model_out:
-            total_logp = -model_out['logp']
-            if len(total_logp.shape) > 1:
-                total_logp = total_logp.sum(1)
+            logp = model_out['logp']
+            entropy = torch.exp(logp)*logp
+            if len(logp.shape) > 1:
+                total_logp = -logp.sum(1)
+                total_entropy = entropy.sum(1)
+            else:
+                total_logp = -logp
+                total_entropy = entropy
         else:  # old-style outputs
             _, seq_len, _ = model_out['logits'].size()
             float_type = model_out['logits'].dtype
@@ -44,9 +50,12 @@ class PolicyGradientLoss(nn.Module):
             valid = valid.to(dtype=log_p.dtype)
             #total_rewards = total_rewards/total_rewards.mean() # normalize to avg weight 1
             total_logp = 0
+            total_entropy = 0
             for i in range(seq_len):
-                dloss = torch.diag(-log_p[:, i, model_out['actions'][:,i]]) # batch_size, hopefully
-                total_logp += dloss
+                this_logp = torch.diag(log_p[:, i, model_out['actions'][:,i]]) # batch_size, hopefully
+                total_logp -= this_logp
+                total_entropy += torch.exp(this_logp)*this_logp
+
         if len(model_out['rewards'].shape) > 1: # old-style outputs
             total_rewards = model_out['rewards'].sum(1).to(dtype=total_logp.dtype)
         else:
@@ -54,7 +63,7 @@ class PolicyGradientLoss(nn.Module):
 
 
 
-        my_loss = 0
+        my_loss = self.entropy_wgt*total_entropy.mean()
         # loss_cutoff causes us to ignore off-policy examples that are grammatically possible but masked away
         best_ind = torch.argmax(total_rewards)
         best_loss = total_logp[best_ind]
@@ -97,7 +106,8 @@ class PolicyGradientLoss(nn.Module):
             self.metrics = {'rec rwd': max(self.best_rewards) if 'inf' not in str(max(self.best_rewards)) else 0,
                             'avg rwd': total_rewards.mean().data.item(),
                             'max rwd': total_rewards.max().data.item(),
-                            'med rwd': total_rewards.median().data.item()
+                            'med rwd': total_rewards.median().data.item(),
+                            'entropy': total_entropy.mean().data.item()
                             }
         else:
             self.metrics = {}

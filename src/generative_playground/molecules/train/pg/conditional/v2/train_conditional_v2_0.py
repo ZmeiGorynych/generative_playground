@@ -35,7 +35,7 @@ reward_fun = reward_funs[obj_num]
 # gi = GrammarInitializer(grammar_cache)
 
 
-root_name = 'conditional_c_' + ver + '_' + str(obj_num) + '_lr4e-5'
+root_name = 'conditional_d_' + ver + '_' + str(obj_num) + '_lr4e-5'
 max_steps = 45
 model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        grammar,
