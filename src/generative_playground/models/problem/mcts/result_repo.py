@@ -52,8 +52,7 @@ class ExperienceRepository:
 
         # for each conditioning tuple we must choose between rules, so cond_tuple and rule_ind are the two bits we care about
         if self.conditional_rewards[cond_tuple] is None:
-            self.conditional_rewards[cond_tuple] = RuleChoiceRepository(len(self.grammar),
-                                                                        self.reward_preprocessor,
+            self.conditional_rewards[cond_tuple] = RuleChoiceRepository(self.reward_preprocessor,
                                                                         self.mask_by_cond_tuple[cond_tuple],
                                                                         decay=self.globals.decay)
         self.conditional_store(cond_tuple).update(rule_ind, reward)
@@ -65,8 +64,7 @@ class ExperienceRepository:
         if self.mask_by_cond_tuple[cond_tuple] is None:
             self.mask_by_cond_tuple[cond_tuple] = mask_from_cond_tuple(self.grammar, cond_tuple)
         if self.conditional_rewards[cond_tuple] is None:
-            self.conditional_rewards[cond_tuple] = RuleChoiceRepository(len(self.grammar),
-                                                                        self.reward_preprocessor,
+            self.conditional_rewards[cond_tuple] = RuleChoiceRepository(self.reward_preprocessor,
                                                                         self.mask_by_cond_tuple[cond_tuple],
                                                                         decay=self.decay)
         return self.conditional_rewards[cond_tuple]
@@ -128,7 +126,7 @@ class RuleChoiceRepository:
     Stores the results of rule choices for a certain kind of starting node, generates sampling probabilities from these
     """
 
-    def __init__(self, num_rules, reward_proc, mask, decay=0.99):
+    def __init__(self, reward_proc, mask, decay=0.99):
         """
 
         :param num_rules: number of rules
@@ -137,6 +135,7 @@ class RuleChoiceRepository:
         :param decay:
         """
         # self.grammar = grammar_name
+        num_rules = len(mask)
         self.reward_preprocessor = reward_proc
         self.decay = decay
         self.bool_mask = np.array(mask, dtype=np.int32) == 0
@@ -152,7 +151,7 @@ class RuleChoiceRepository:
 
     def get_regularized_reward(self, rule_ind):
         # for actions that haven't been visited often, augment their reward with the average one for regularization
-        max_wt = 1 / (1 - self.globals.decay)
+        max_wt = 1 / (1 - self.decay)
         assert self.all_reward_totals[
                    1] is not None, "This function should only be called after at least one experience!"
         avg_reward = self.avg_reward()
