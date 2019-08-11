@@ -65,15 +65,15 @@ if __name__ == '__main__':
     decay = 0.99
     codec = get_codec(True, grammar_name, max_seq_length)
     reward_proc = lambda x: (1, to_bins(x, num_bins))
-    exp_repo_ = ExperienceRepository(grammar=codec.grammar,
-                                     reward_preprocessor=reward_proc,
-                                     decay=decay)
-
-
-
     rule_choice_repo_factory = lambda x: RuleChoiceRepository(reward_proc=reward_proc,
                                                     mask=x,
                                                     decay=decay)
+
+    exp_repo_ = ExperienceRepository(grammar=codec.grammar,
+                                     reward_preprocessor=reward_proc,
+                                     decay=decay,
+                                     conditional_keys=[key for key in codec.grammar.conditional_frequencies.keys()],
+                                     rule_choice_repo_factory = rule_choice_repo_factory)
 
     state_store = {}
     globals = GlobalParameters(codec.grammar,
@@ -90,7 +90,7 @@ if __name__ == '__main__':
 
     with shelve.open(shelve_fn, writeback=True) as state_store:
         # globals.state_store = state_store
-        root_node = MCTSNodeLocalThompson(globals,
+        root_node = MCTSNodeGlobalThompson(globals,
                              parent=None,
                              source_action=None,
                              depth=1)

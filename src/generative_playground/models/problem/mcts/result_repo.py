@@ -19,16 +19,20 @@ class ExperienceRepository:
     def __init__(self,
                  grammar: HypergraphGrammar,
                  reward_preprocessor=None,
+                 rule_choice_repo_factory=None,
                  decay=0.99,
-                 num_updates_to_refresh=1000):
+                 num_updates_to_refresh=1000,
+                 conditional_keys=None):
         self.grammar = grammar
         self.reward_preprocessor = reward_preprocessor
-        self.conditional_rewards = OrderedDict([(key, None) for key in grammar.conditional_frequencies.keys()])
-        self.rewards_by_action = RuleChoiceRepository(self.reward_preprocessor,
-                                                      np.ones([len(grammar)]),
-                                                      decay=decay)
+        self.rule_choice_repo_factory = rule_choice_repo_factory
+        self.conditional_keys = conditional_keys
+        self.conditional_rewards = OrderedDict([(key, None) for key in conditional_keys])
+        self.rewards_by_action = rule_choice_repo_factory(np.ones([len(grammar)]))#RuleChoiceRepository(self.reward_preprocessor,
+                                                      # np.ones([len(grammar)]),
+                                                      # decay=decay)
         # self.mask_by_cond_tuple = OrderedDict([(key, None) for key in grammar.conditional_frequencies.keys()])
-        self.cond_tuple_to_index = {key: i for i, key in enumerate(grammar.conditional_frequencies.keys())}
+        self.cond_tuple_to_index = {key: i for i, key in enumerate(conditional_keys)}
         self.decay = decay
         self.num_updates_to_refresh = num_updates_to_refresh
 
@@ -57,9 +61,10 @@ class ExperienceRepository:
         #     self.mask_by_cond_tuple[cond_tuple] = mask_from_cond_tuple(self.grammar, cond_tuple)
         if self.conditional_rewards[cond_tuple] is None:
             mask_by_cond_tuple = mask_from_cond_tuple(self.grammar, cond_tuple)
-            self.conditional_rewards[cond_tuple] = RuleChoiceRepository(self.reward_preprocessor,
-                                                                        mask_by_cond_tuple,
-                                                                        decay=self.decay)
+            self.conditional_rewards[cond_tuple] = self.rule_choice_repo_factory(mask_by_cond_tuple)
+                # RuleChoiceRepository(self.reward_preprocessor,
+                #                                                         mask_by_cond_tuple,
+                #                                                         decay=self.decay)
         return self.conditional_rewards[cond_tuple]
 
     def refresh_conditional_log_probs(self):
@@ -78,7 +83,7 @@ class ExperienceRepository:
             if reward is not None:
                 wts += wt
                 rewards += reward
-        all_log_probs = np.zeros((len(self.grammar.conditional_frequencies) * len(self.grammar)))
+        all_log_probs = np.zeros((len(self.conditional_keys) * len(self.grammar)))
         rewards_by_rule = self.rewards_by_action.reward_totals
         if wts > 0:
             avg_reward = rewards / wts
@@ -92,7 +97,7 @@ class ExperienceRepository:
         elif wts < 0:
             raise ValueError("Wts should never be negative!")
 
-        all_log_probs = all_log_probs.reshape((len(self.grammar.conditional_frequencies),
+        all_log_probs = all_log_probs.reshape((len(self.conditional_keys),
                                                len(self.grammar)))
         self.log_probs = all_log_probs
         self.updates_since_last_refresh = 0
