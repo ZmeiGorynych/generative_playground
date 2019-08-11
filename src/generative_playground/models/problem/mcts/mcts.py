@@ -68,6 +68,7 @@ if __name__ == '__main__':
                                                     mask=x,
                                                     decay=decay)
 
+    state_store = {}
     globals = GlobalParameters(codec.grammar,
                                max_seq_length,
                                exp_repo_,
@@ -75,8 +76,10 @@ if __name__ == '__main__':
                                updates_to_refresh=100,
                                reward_fun=reward_fun_,
                                reward_proc=reward_proc,
-                               rule_choice_repo_factory=rule_choice_repo_factory
+                               rule_choice_repo_factory=rule_choice_repo_factory,
+                               state_store=state_store
                                )
+
 
     root_node = MCTSNodeLocalThompson(globals,
                          parent=None,

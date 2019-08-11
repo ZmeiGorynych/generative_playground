@@ -1,5 +1,5 @@
 import numpy as np
-
+import uuid
 from generative_playground.codec.hypergraph import expand_index_to_id
 from generative_playground.codec.hypergraph_mask_generator import get_log_conditional_freqs, get_full_logit_priors, \
     action_to_node_rule_indices, apply_one_action
@@ -15,7 +15,8 @@ class GlobalParameters:
                  updates_to_refresh=100,
                  reward_fun=None,
                  reward_proc=None,
-                 rule_choice_repo_factory=None):
+                 rule_choice_repo_factory=None,
+                 state_store={}):
         self.grammar = grammar
         self.max_depth = max_depth
         self.experience_repository = exp_repo
@@ -24,6 +25,7 @@ class GlobalParameters:
         self.reward_fun = reward_fun
         self.reward_proc = reward_proc
         self.rule_choice_repo_factory = rule_choice_repo_factory
+        self.state_store = state_store
 
 class LocalState:
     def __init__(self):
@@ -40,57 +42,63 @@ class MCTSNodeParent:
         Creates a placeholder with just the value distribution guess, to be aggregated by the parent
         :param value_distr:
         """
+        self.id = uuid.uuid4()
+        global_params.state_store[self.id] = LocalState()
+
         self.globals = global_params
 
         self.parent = parent
         self.source_action = source_action
         self.depth = depth
         self.updates_since_refresh = 0
-        self.locals = LocalState()
 
         if self.parent is not None:
-            self.locals.graph = apply_rule(parent.locals.graph, source_action, global_params.grammar)
+            self.locals().graph = apply_rule(self.parent.locals().graph, source_action, global_params.grammar)
         else:
-            self.locals.graph = None
+            self.locals().graph = None
 
-        if not graph_is_terminal(self.locals.graph):
+        if not graph_is_terminal(self.locals().graph):
             self.children = [None for _ in range(len(global_params.grammar) *
-                                                 (1 if self.locals.graph is None else len(
-                                                     self.locals.graph)))]  # maps action index to child
+                                                 (1 if self.locals().graph is None else len(
+                                                     self.locals().graph)))]  # maps action index to child
             # the full_logit_priors at this stage merely store the information about which actions are allowed
             full_logit_priors, _, node_mask = get_full_logit_priors(self.globals.grammar,
                                                                     self.globals.max_depth - self.depth,
-                                                                    [self.locals.graph])
-            log_freqs = get_log_conditional_freqs(self.globals.grammar, [self.locals.graph])
+                                                                    [self.locals().graph])
+            log_freqs = get_log_conditional_freqs(self.globals.grammar, [self.locals().graph])
             # these are the emprirical priors from the original dataset
-            self.locals.log_priors = (full_logit_priors + log_freqs).reshape((-1,))
+            self.locals().log_priors = (full_logit_priors + log_freqs).reshape((-1,))
 
             mask = full_logit_priors.reshape([-1]) > -1e4
-            self.locals.result_repo = self.globals.rule_choice_repo_factory(mask)
+            self.locals().result_repo = self.globals.rule_choice_repo_factory(mask)
 
-            self.locals.log_action_probs = None
-            self.locals.probs = None
+            self.locals().log_action_probs = None
+            self.locals().probs = None
 
             self.init_action_probabilities()
+        assert hasattr(self.locals(), 'graph')
+
+    def locals(self):
+        return self.globals.state_store[self.id]
 
     def is_terminal(self):
-        return graph_is_terminal(self.locals.graph)
+        return graph_is_terminal(self.locals().graph)
 
     def action_probabilities(self):
         if self.updates_since_refresh > self.globals.updates_to_refresh:
             self.refresh_probabilities()
         self.updates_since_refresh += 1
-        return self.locals.probs
+        return self.locals().probs
 
     def apply_action(self, action):
         if self.children[action] is None:
-            self.make_child(action)
+            self.children[action] = self.make_child(action)
         chosen_child = self.children[action]
-        reward, info = get_reward(chosen_child.locals.graph, self.globals.reward_fun)
+        reward, info = get_reward(chosen_child.locals().graph, self.globals.reward_fun)
         return chosen_child, reward, info
 
     def make_child(self, action):
-        self.children[action] = type(self)(global_params=self.globals,
+        return type(self)(global_params=self.globals,
                                            parent=self,
                                            source_action=action,
                                            depth=self.depth + 1)
@@ -99,9 +107,9 @@ class MCTSNodeParent:
         # self.process_back_up(reward)
         if self.parent is not None:
             # update the local result cache
-            self.parent.locals.result_repo.update(self.source_action, reward)
+            self.parent.locals().result_repo.update(self.source_action, reward)
             # update the global result cache
-            self.globals.experience_repository.update(self.parent.locals.graph, self.source_action, reward)
+            self.globals.experience_repository.update(self.parent.locals().graph, self.source_action, reward)
             self.parent.back_up(reward)
 
     def generate_probs_from_log_action_probs(self):
@@ -109,11 +117,11 @@ class MCTSNodeParent:
         Helper function - combines the empirical priors with model-generated action probabilities
         :return:
         """
-        total_prob = self.locals.log_action_probs + self.locals.log_priors
+        total_prob = self.locals().log_action_probs + self.locals().log_priors
         assert total_prob.max() > -1e4, "We need at least one allowed action!"
         tmp = np.exp(total_prob - total_prob.max())
-        self.locals.probs = tmp / tmp.sum()
-        assert not np.isnan(self.locals.probs.sum())
+        self.locals().probs = tmp / tmp.sum()
+        assert not np.isnan(self.locals().probs.sum())
 
     def refresh_probabilities(self):
         raise NotImplementedError
@@ -125,12 +133,12 @@ class MCTSNodeParent:
 class MCTSNodeLocalThompson(MCTSNodeParent):
     def init_action_probabilities(self):
         # gets called on node creation
-        self.locals.log_action_probs = self.globals.experience_repository.get_log_probs_for_graph(self.locals.graph).reshape((-1,))
+        self.locals().log_action_probs = self.globals.experience_repository.get_log_probs_for_graph(self.locals().graph).reshape((-1,))
         self.generate_probs_from_log_action_probs()
 
     def refresh_probabilities(self):
         # gets called each time a node decides to refresh its probability vector
-        self.locals.log_action_probs = self.locals.result_repo.get_conditional_log_probs()
+        self.locals().log_action_probs = self.locals().result_repo.get_conditional_log_probs()
         self.generate_probs_from_log_action_probs()
         self.updates_since_refresh = 0
 
@@ -141,7 +149,7 @@ class MCTSNodeGlobalThompson(MCTSNodeParent):
     """
     def init_action_probabilities(self):
         # gets called on node creation
-        self.locals.log_action_probs = self.globals.experience_repository.get_log_probs_for_graph(self.locals.graph).reshape((-1,))
+        self.locals().log_action_probs = self.globals.experience_repository.get_log_probs_for_graph(self.locals().graph).reshape((-1,))
         self.generate_probs_from_log_action_probs()
         self.updates_since_refresh = 0
 
