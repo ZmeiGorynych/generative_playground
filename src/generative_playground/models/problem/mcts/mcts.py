@@ -55,25 +55,33 @@ def explore(root_node, num_sims):
 if __name__ == '__main__':
     shelve_fn = 'states'
     num_bins = 50  # TODO: replace with a Value Distribution object
-    ver = 'trivial'
-    obj_num = 4
+    ver = 'v2'#''trivial'
+    obj_num = 0
     reward_fun_ = guacamol_goal_scoring_functions(ver)[obj_num]
     grammar_cache = 'hyper_grammar_guac_10k_with_clique_collapse.pickle'  # 'hyper_grammar.pickle'
     grammar_name = 'hypergraph:' + grammar_cache
     max_seq_length = 30
     num_batches = 100
-    decay = 0.99
+    decay = 0.9
     codec = get_codec(True, grammar_name, max_seq_length)
     reward_proc = lambda x: (1, to_bins(x, num_bins))
     rule_choice_repo_factory = lambda x: RuleChoiceRepository(reward_proc=reward_proc,
                                                     mask=x,
                                                     decay=decay)
 
+
     exp_repo_ = ExperienceRepository(grammar=codec.grammar,
                                      reward_preprocessor=reward_proc,
                                      decay=decay,
                                      conditional_keys=[key for key in codec.grammar.conditional_frequencies.keys()],
-                                     rule_choice_repo_factory = rule_choice_repo_factory)
+                                     rule_choice_repo_factory=rule_choice_repo_factory)
+
+    # TODO: weave this into the nodes to do node-level action averages as regularization
+    local_exp_repo_factory = lambda graph: ExperienceRepository(grammar=codec.grammar,
+                                     reward_preprocessor=reward_proc,
+                                     decay=decay,
+                                     conditional_keys=[i for i in range(len(graph))],
+                                     rule_choice_repo_factory=rule_choice_repo_factory)
 
     state_store = {}
     globals = GlobalParameters(codec.grammar,
