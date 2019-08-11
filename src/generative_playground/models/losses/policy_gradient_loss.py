@@ -10,16 +10,17 @@ class PolicyGradientLoss(nn.Module):
         self.loss_cutoff = loss_cutoff
         #self.last_reward_wgt = last_reward_wgt
         # self.sm_reward = None
-        self.best_rewards = set([float('-inf')])
+        self.best_rewards = [float('-inf')]
         self.keep_records = keep_records
         self.entropy_wgt = entropy_wgt
 
     def update_record_list(self, new_value):
         worst = min(self.best_rewards)
         if new_value > worst:
-            self.best_rewards.add(new_value)
+            self.best_rewards.append(new_value)
+            self.best_rewards = sorted(self.best_rewards, reverse=True)
         if len(self.best_rewards) > self.keep_records:
-            self.best_rewards.discard(worst)
+            self.best_rewards = self.best_rewards[:self.keep_records]
 
     def forward(self, model_out):
         '''
