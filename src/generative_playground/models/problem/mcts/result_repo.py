@@ -1,29 +1,14 @@
-import numpy as np
 import math
 from collections import OrderedDict
-from generative_playground.codec.hypergraph_grammar import HypergraphGrammar
-from generative_playground.codec.hypergraph_mask_generator import *
+
+import numpy
+import numpy as np
+
 from generative_playground.codec.hypergraph import expand_index_to_id, conditoning_tuple
-from generative_playground.codec.codec import get_codec
-from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring_functions
+from generative_playground.codec.hypergraph_grammar import HypergraphGrammar
+from generative_playground.codec.hypergraph_mask_generator import action_to_node_rule_indices, get_one_mask_fun, \
+    mask_from_cond_tuple
 
-
-def explore(root_node, num_sims):
-    rewards = []
-    infos = []
-    for _ in range(num_sims):
-        next_node = root_node
-        while True:
-            probs = next_node.action_probabilities()
-            action = np.random.multinomial(1, probs).argmax()
-            next_node, reward, info = next_node.apply_action(action)
-            is_terminal = next_node.is_terminal()
-            if is_terminal:
-                next_node.back_up(reward)
-                rewards.append(reward)
-                infos.append(info)
-                break
-    return rewards, infos
 
 
 class ExperienceRepository:
@@ -35,7 +20,7 @@ class ExperienceRepository:
 
     def __init__(self,
                  grammar: HypergraphGrammar,
-                 reward_preprocessor=lambda x: to_bins(x, num_bins),
+                 reward_preprocessor=None,
                  decay=0.99,
                  num_updates_to_refresh=1000):
         self.grammar = grammar
@@ -138,24 +123,6 @@ class ExperienceRepository:
             return out
 
 
-def child_rewards_to_log_probs(child_rewards):
-    total = 0
-    counter = 0
-    for c in child_rewards:
-        if c is not None:
-            total += c
-            counter += 1
-    if counter == 0:
-        return np.zeros((len(child_rewards)))
-    avg_reward = total / counter
-    for c in range(len(child_rewards)):
-        if child_rewards[c] is None:
-            child_rewards[c] = avg_reward
-
-    log_probs, probs = log_thompson_probabilities(np.array(child_rewards))
-    return log_probs
-
-
 class RuleChoiceRepository:
     """
     Stores the results of rule choices for a certain kind of starting node, generates sampling probabilities from these
@@ -169,7 +136,7 @@ class RuleChoiceRepository:
         :param mask: a vector of length num_rules, 1 for legal rules, 0 for illegal ones
         :param decay:
         """
-        self.grammar = grammar_name
+        # self.grammar = grammar_name
         self.reward_preprocessor = reward_proc
         self.decay = decay
         self.bool_mask = np.array(mask, dtype=np.int32) == 0
@@ -241,6 +208,14 @@ def regularize_reward(this_wt, this_total_reward, avg_reward, decay):
         return reg_reward
 
 
+def to_bins(reward, num_bins):  # TODO: replace with a ProbabilityDistribution object
+    reward = max(min(reward, 1.0), 0.0)
+    out = np.zeros([num_bins])
+    ind = math.floor(reward * num_bins * 0.9999)
+    out[ind] = 1
+    return out
+
+
 def update_node(node, reward, decay, reward_preprocessor):
     weight, proc_reward = reward_preprocessor(reward)
     if node[1] is None:
@@ -252,129 +227,6 @@ def update_node(node, reward, decay, reward_preprocessor):
         node[1] *= (decay ** weight)
         node[1] += proc_reward
     return node
-
-
-class GlobalParameters:
-    def __init__(self,
-                 grammar,
-                 max_depth,
-                 exp_repo,
-                 decay=0.99,
-                 updates_to_refresh=100):
-        self.grammar = grammar
-        self.max_depth = max_depth
-        self.experience_repository = exp_repo
-        self.decay = decay
-        self.updates_to_refresh = updates_to_refresh
-
-
-# linked tree with nodes
-class MCTSNode:
-    def __init__(self,
-                 global_params,
-                 parent,
-                 source_action,
-                 depth,
-                 reward_proc=None):
-        """
-        Creates a placeholder with just the value distribution guess, to be aggregated by the parent
-        :param value_distr:
-        """
-        self.globals = global_params
-
-        self.parent = parent
-        self.source_action = source_action
-        self.depth = depth
-        self.reward_proc = reward_proc
-
-        self.value_distr_total = None
-        self.child_run_count = 0
-
-
-        self.updates_since_refresh = 0
-
-        if self.parent is not None:
-            self.graph = apply_rule(parent.graph, source_action, global_params.grammar)
-        else:
-            self.graph = None
-
-        if not graph_is_terminal(self.graph):
-            self.log_action_probs = exp_repo.get_log_probs_for_graph(self.graph).reshape((-1,))
-
-            self.children = [None for _ in range(len(global_params.grammar) *
-                                                 (1 if self.graph is None else len(
-                                                     self.graph)))]  # maps action index to child
-
-            log_freqs = get_log_conditional_freqs(global_params.grammar, [self.graph])
-
-            # the full_logit_priors at this stage merely store the information about which actions are allowed
-            full_logit_priors, _, node_mask = get_full_logit_priors(self.globals.grammar,
-                                                                    self.globals.max_depth - self.depth,
-                                                                    [self.graph])  # TODO: proper arguments
-            priors = full_logit_priors + log_freqs
-            self.log_priors = priors.reshape((-1,))
-            self.probs_from_log_action_probs()
-
-            self.result_repo = RuleChoiceRepository(len(self.log_priors),
-                                                    reward_proc=reward_proc,
-                                                    mask=self.log_priors > -1e4,
-                                                    decay=global_params.decay)
-
-    def is_terminal(self):
-        return graph_is_terminal(self.graph)
-
-    def action_probabilities(self):
-        if self.updates_since_refresh > self.globals.updates_to_refresh:
-            self.refresh_probabilities()
-        self.updates_since_refresh += 1
-        return self.probs
-
-    def apply_action(self, action):
-        if self.children[action] is None:
-            self.make_child(action)
-        chosen_child = self.children[action]
-        reward, info = get_reward(chosen_child.graph)
-        return chosen_child, reward, info
-
-    def make_child(self, action):
-        self.children[action] = MCTSNode(global_params=self.globals,
-                                         parent=self,
-                                         source_action=action,
-                                         depth=self.depth + 1,
-                                         reward_proc=self.reward_proc)
-
-    def back_up(self, reward):
-        # self.process_back_up(reward)
-        if self.parent is not None:
-            # update the local result cache
-            self.parent.result_repo.update(self.source_action, reward)
-            # update the global result cache
-            self.globals.experience_repository.update(self.parent.graph, self.source_action, reward)
-            self.parent.back_up(reward)
-
-    def value_distr(self):
-        return self.value_distr_total / self.child_run_count
-
-    def probs_from_log_action_probs(self):
-        total_prob = self.log_action_probs + self.log_priors
-        assert total_prob.max() > -1e4, "We need at least one allowed action!"
-        tmp = np.exp(total_prob - total_prob.max())
-        self.probs = tmp / tmp.sum()
-        assert not np.isnan(self.probs.sum())
-
-    # specific
-    def refresh_probabilities(self):
-        self.log_action_probs = self.result_repo.get_conditional_log_probs()
-        self.probs_from_log_action_probs()
-        self.updates_since_refresh = 0
-
-
-def to_bins(reward, num_bins):  # TODO: replace with a ProbabilityDistribution object
-    reward = max(min(reward, 1.0), 0.0)
-    out = np.zeros([num_bins])
-    ind = math.floor(reward * num_bins * 0.9999)
-    out[ind] = 1
-    return out
 
 
 def log_thompson_probabilities(ps):
@@ -411,67 +263,3 @@ def softmax_probabilities(log_ps):
     evs = (evs - evs.min() + 1e-5) / (evs.max() - evs.min() + 1e-5)
     evs = evs / evs.sum()
     return np.log(evs)
-
-
-def get_reward(graph):
-    if graph_is_terminal(graph):
-        smiles = graph.to_smiles()
-        return reward_fun([smiles])[0], {'smiles': smiles}
-    else:
-        return 0.0, None
-
-
-def apply_rule(graph, action_index, grammar):
-    '''
-    Applies a rule to a graph, using the grammar to convert from index to actual rule
-    :param graph: a hypergraph
-    :param action_index:
-    :return:
-    '''
-    node_index, rule_index = action_to_node_rule_indices(action_index, len(grammar))
-    next_expand_id = expand_index_to_id(graph, node_index)
-    new_graph = apply_one_action(grammar, graph, rule_index, next_expand_id)
-    return new_graph
-
-
-def graph_is_terminal(graph):
-    # can't make this a method of HyperGraph because it must also work for None graphs
-    # a cleaner way of doing that would be for HyperGraph to support empty graphs
-    if graph is None:
-        return False
-    else:
-        return len(graph.child_ids()) == 0
-
-
-if __name__ == '__main__':
-    num_bins = 50  # TODO: replace with a Value Distribution object
-    ver = 'trivial'
-    obj_num = 0
-    reward_fun = guacamol_goal_scoring_functions(ver)[obj_num]
-    grammar_cache = 'hyper_grammar_guac_10k_with_clique_collapse.pickle'  # 'hyper_grammar.pickle'
-    grammar_name = 'hypergraph:' + grammar_cache
-    max_seq_length = 30
-    num_steps = 1
-    codec = get_codec(True, grammar_name, max_seq_length)
-    exp_repo = ExperienceRepository(grammar=codec.grammar,
-                                    reward_preprocessor=lambda x: (1, to_bins(x, num_bins)),
-                                    decay=0.99)
-
-    globals = GlobalParameters(codec.grammar,
-                               max_seq_length,
-                               exp_repo,
-                               decay=0.99,
-                               updates_to_refresh=100)
-
-    root_node = MCTSNode(globals,
-                         parent=None,
-                         source_action=None,
-                         depth=1,
-                         reward_proc=lambda x: (1, to_bins(x, num_bins)))
-
-    for _ in range(num_steps):
-        rewards, infos = explore(root_node, 100)
-        # visualisation code goes here
-
-    print(root_node.result_repo.avg_reward())
-    print("done!")
