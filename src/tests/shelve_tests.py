@@ -22,6 +22,7 @@ class ShelveTest(TestCase):
         self.db_path = '/{}/test.db'.format(self.temp_dir_path)
         self.table_name = 'kv_test'
         self.shelve = Shelve(self.db_path, self.table_name)
+        self.conn = self.shelve.db.conn
         self.table = self.shelve.db.table
 
     def tearDown(self):
@@ -47,13 +48,13 @@ class ShelveTest(TestCase):
         self.assertIn(key, self.shelve.cache)
         self.assertIs(self.shelve[key], value)
 
-    def test_sync(self):
+    def test_flush(self):
         key, value = self.add_dummy_object(1)
 
         self.assertIn(key, self.shelve.cache)
         self.assertIs(self.shelve[key], value)
 
-        self.shelve.sync()
+        self.shelve.flush()
 
         self.assertNotIn(key, self.shelve.cache)
         self.assertIsNot(self.shelve[key], value)
@@ -63,11 +64,11 @@ class ShelveTest(TestCase):
 
     def test_update_value(self):
         key, value = self.add_dummy_object(1)
-        self.shelve.sync()
+        self.shelve.flush()
 
         second = DummyObject(2)
         self.shelve[key] = second
-        self.shelve.sync()
+        self.shelve.flush()
 
         recovered = self.shelve[key]
         self.assertEqual(second, recovered)
@@ -81,7 +82,7 @@ class ShelveTest(TestCase):
 
     def test_delete_item_in_store(self):
         key, value = self.add_dummy_object(1)
-        self.shelve.sync()
+        self.shelve.flush()
 
         del self.shelve[key]
 
@@ -89,3 +90,13 @@ class ShelveTest(TestCase):
 
         with self.assertRaises(KeyError):
             self.shelve[key]
+
+    def test_write_very_many(self):
+        num = 3571
+        items = {str(i): DummyObject(i) for i in range(num)}
+        for key, value in items.items():
+            self.shelve[key] = value
+        self.shelve.flush()
+
+        all_ = self.conn.execute(self.table.select()).fetchall()
+        self.assertEqual(num, len(all_))

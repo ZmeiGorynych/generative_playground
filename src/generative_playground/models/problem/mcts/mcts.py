@@ -1,9 +1,6 @@
-import shelve
 # have to monkey-patch shelve to replace pickle with dill, for support of saving lambdas
-import dill
-shelve.Pickler = dill.Pickler
-shelve.Unpickler = dill.Unpickler
-
+import tempfile
+from generative_playground.data_utils.shelve import Shelve
 from generative_playground.utils.persistent_dict import PersistentDict
 from generative_playground.codec.hypergraph_mask_generator import *
 from generative_playground.codec.codec import get_codec
@@ -88,19 +85,23 @@ if __name__ == '__main__':
                                )
 
 
-    with shelve.open(shelve_fn, writeback=True) as state_store:
-        # globals.state_store = state_store
+    temp_dir = tempfile.TemporaryDirectory()
+    temp_dir_path = temp_dir.name
+    db_path = '/{}/kv_store.db'.format(temp_dir_path)
+    with Shelve(db_path, 'kv_table') as state_store:
+        globals.state_store = state_store
         root_node = MCTSNodeLocalThompson(globals,
                              parent=None,
                              source_action=None,
                              depth=1)
+        state_store.flush()
 
-    for _ in range(num_batches):
-        with shelve.open(shelve_fn, writeback=True) as state_store:
-            # globals.state_store = state_store
+        for _ in range(num_batches):
             rewards, infos = explore(root_node, 100)
-        # visualisation code goes here
-        print(max(rewards))
+            state_store.flush()
+            # visualisation code goes here
+            print(max(rewards))
 
     print(root_node.result_repo.avg_reward())
+    temp_dir.cleanup()
     print("done!")

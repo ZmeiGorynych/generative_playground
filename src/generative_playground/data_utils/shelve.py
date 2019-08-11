@@ -93,4 +93,7 @@ class Shelve(collections.abc.MutableMapping):
             self.db.write_many(
                 {str(k): dill.dumps(v) for k, v in self.cache.items()}
             )
+
+    def flush(self):
+        self.sync()
         self.cache = {}

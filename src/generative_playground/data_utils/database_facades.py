@@ -10,6 +10,9 @@ from torch.utils.data import DataLoader
 from .experience_buffer_schema import create_kv_store
 
 
+MAX_LINES_PER_INSERT = 250
+
+
 def unwind_batch(batch: torch.Tensor) -> List[Dict[str, torch.Tensor]]:
     """
     Takes a batch of experiences and returns a list of single experiences
@@ -80,9 +83,14 @@ class DBKVStore:
 
     def write_many(self, items: Dict[str, object]):
         query = [{'key': k, 'value': v} for k, v in items.items()]
-        self.conn.execute(
-            self.table.insert().values(query)
-        )
+        for i in range((len(query) // MAX_LINES_PER_INSERT) + 1):
+            lower = i * MAX_LINES_PER_INSERT
+            upper = (i + 1) * MAX_LINES_PER_INSERT
+            input_ = query[lower: upper]
+            print('Insert Length: {}'.format(len(input_)))
+            self.conn.execute(
+                self.table.insert().values(input_)
+            )
 
     def delete_one(self, key: str):
         self.conn.execute(
