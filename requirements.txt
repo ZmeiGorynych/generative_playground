@@ -12,3 +12,4 @@ gpy
 gpyopt
 visdom
 frozendict
+fabric
