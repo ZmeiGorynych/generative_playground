@@ -1,3 +1,10 @@
+import shelve
+# have to monkey-patch shelve to replace pickle with dill, for support of saving lambdas
+import dill
+shelve.Pickler = dill.Pickler
+shelve.Unpickler = dill.Unpickler
+
+from generative_playground.utils.persistent_dict import PersistentDict
 from generative_playground.codec.hypergraph_mask_generator import *
 from generative_playground.codec.codec import get_codec
 from generative_playground.models.problem.mcts.node import GlobalParameters, \
@@ -5,7 +12,6 @@ from generative_playground.models.problem.mcts.node import GlobalParameters, \
 from generative_playground.models.problem.mcts.result_repo import ExperienceRepository, to_bins, \
     RuleChoiceRepository
 from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring_functions
-
 
 def explore(root_node, num_sims):
     rewards = []
@@ -47,6 +53,7 @@ def explore(root_node, num_sims):
 
 
 if __name__ == '__main__':
+    shelve_fn = 'states'
     num_bins = 50  # TODO: replace with a Value Distribution object
     ver = 'trivial'
     obj_num = 4
@@ -81,13 +88,17 @@ if __name__ == '__main__':
                                )
 
 
-    root_node = MCTSNodeLocalThompson(globals,
-                         parent=None,
-                         source_action=None,
-                         depth=1)
+    with shelve.open(shelve_fn, writeback=True) as state_store:
+        # globals.state_store = state_store
+        root_node = MCTSNodeLocalThompson(globals,
+                             parent=None,
+                             source_action=None,
+                             depth=1)
 
     for _ in range(num_batches):
-        rewards, infos = explore(root_node, 100)
+        with shelve.open(shelve_fn, writeback=True) as state_store:
+            # globals.state_store = state_store
+            rewards, infos = explore(root_node, 100)
         # visualisation code goes here
         print(max(rewards))
 

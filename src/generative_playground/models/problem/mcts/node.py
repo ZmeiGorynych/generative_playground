@@ -42,7 +42,7 @@ class MCTSNodeParent:
         Creates a placeholder with just the value distribution guess, to be aggregated by the parent
         :param value_distr:
         """
-        self.id = uuid.uuid4()
+        self.id = str(uuid.uuid4())
         global_params.state_store[self.id] = LocalState()
 
         self.globals = global_params
@@ -110,6 +110,7 @@ class MCTSNodeParent:
             self.parent.locals().result_repo.update(self.source_action, reward)
             # update the global result cache
             self.globals.experience_repository.update(self.parent.locals().graph, self.source_action, reward)
+            # and recurse
             self.parent.back_up(reward)
 
     def generate_probs_from_log_action_probs(self):
