@@ -1,14 +1,12 @@
 import math
 from collections import OrderedDict
 
-import numpy
 import numpy as np
 
 from generative_playground.codec.hypergraph import expand_index_to_id, conditoning_tuple
 from generative_playground.codec.hypergraph_grammar import HypergraphGrammar
 from generative_playground.codec.hypergraph_mask_generator import action_to_node_rule_indices, get_one_mask_fun, \
     mask_from_cond_tuple
-
 
 
 class ExperienceRepository:
@@ -26,10 +24,14 @@ class ExperienceRepository:
         self.grammar = grammar
         self.reward_preprocessor = reward_preprocessor
         self.conditional_rewards = OrderedDict([(key, None) for key in grammar.conditional_frequencies.keys()])
-        self.mask_by_cond_tuple = OrderedDict([(key, None) for key in grammar.conditional_frequencies.keys()])
+        self.rewards_by_action = RuleChoiceRepository(self.reward_preprocessor,
+                                                      np.ones([len(grammar)]),
+                                                      decay=decay)
+        # self.mask_by_cond_tuple = OrderedDict([(key, None) for key in grammar.conditional_frequencies.keys()])
         self.cond_tuple_to_index = {key: i for i, key in enumerate(grammar.conditional_frequencies.keys())}
         self.decay = decay
         self.num_updates_to_refresh = num_updates_to_refresh
+
         self.refresh_conditional_log_probs()
         self.updates_since_last_refresh = 0
 
@@ -44,28 +46,19 @@ class ExperienceRepository:
         node_ind, rule_ind = action_to_node_rule_indices(action, len(self.grammar))
         node_id = expand_index_to_id(graph, node_ind)
         cond_tuple = conditoning_tuple(graph, node_id)
-        if self.mask_by_cond_tuple[cond_tuple] is None:
-            self.mask_by_cond_tuple[cond_tuple] = get_one_mask_fun(self.grammar,
-                                                                   1e6,
-                                                                   graph,
-                                                                   node_id)
 
-        # for each conditioning tuple we must choose between rules, so cond_tuple and rule_ind are the two bits we care about
-        if self.conditional_rewards[cond_tuple] is None:
-            self.conditional_rewards[cond_tuple] = RuleChoiceRepository(self.reward_preprocessor,
-                                                                        self.mask_by_cond_tuple[cond_tuple],
-                                                                        decay=self.globals.decay)
         self.conditional_store(cond_tuple).update(rule_ind, reward)
         self.updates_since_last_refresh += 1
         if self.updates_since_last_refresh > self.num_updates_to_refresh:
             self.refresh_conditional_log_probs()
 
     def conditional_store(self, cond_tuple):
-        if self.mask_by_cond_tuple[cond_tuple] is None:
-            self.mask_by_cond_tuple[cond_tuple] = mask_from_cond_tuple(self.grammar, cond_tuple)
+        # if self.mask_by_cond_tuple[cond_tuple] is None:
+        #     self.mask_by_cond_tuple[cond_tuple] = mask_from_cond_tuple(self.grammar, cond_tuple)
         if self.conditional_rewards[cond_tuple] is None:
+            mask_by_cond_tuple = mask_from_cond_tuple(self.grammar, cond_tuple)
             self.conditional_rewards[cond_tuple] = RuleChoiceRepository(self.reward_preprocessor,
-                                                                        self.mask_by_cond_tuple[cond_tuple],
+                                                                        mask_by_cond_tuple,
                                                                         decay=self.decay)
         return self.conditional_rewards[cond_tuple]
 
@@ -76,20 +69,21 @@ class ExperienceRepository:
         for cond_tuple in self.grammar.conditional_frequencies.keys():
             this_cache = self.conditional_store(cond_tuple)
             masks.append(~(this_cache.bool_mask))
-            reward_totals += [x for i, x in enumerate(this_cache.reward_totals) if not this_cache.bool_mask[i]]
+            # enrich each conditional distribution with its rule index
+            reward_totals += [(i,x) for i, x in enumerate(this_cache.reward_totals) if not this_cache.bool_mask[i]]
         # calculate regularized rewards
         # first pass calculates the global average
         wts, rewards = 0, 0.0
-        for wt, reward in reward_totals:
+        for rule_ind, (wt, reward) in reward_totals:
             if reward is not None:
                 wts += wt
                 rewards += reward
         all_log_probs = np.zeros((len(self.grammar.conditional_frequencies) * len(self.grammar)))
-
+        rewards_by_rule = self.rewards_by_action.reward_totals
         if wts > 0:
             avg_reward = rewards / wts
-            reg_rewards = [regularize_reward(wt, reward, avg_reward, self.decay) for (wt, reward) in
-                           reward_totals]
+            reg_rewards = [regularize_reward(wt, reward, avg_reward, self.decay, rewards_by_rule[rule_ind])
+                           for (rule_ind, (wt, reward)) in reward_totals]
             # call thompsom prob
             log_probs, probs = log_thompson_probabilities(np.array(reg_rewards))
             # cache the results per cond tuple
@@ -128,13 +122,10 @@ class RuleChoiceRepository:
 
     def __init__(self, reward_proc, mask, decay=0.99):
         """
-
-        :param num_rules: number of rules
         :param reward_proc: converts incoming rewards into something we want to store, such as prob vectors
         :param mask: a vector of length num_rules, 1 for legal rules, 0 for illegal ones
         :param decay:
         """
-        # self.grammar = grammar_name
         num_rules = len(mask)
         self.reward_preprocessor = reward_proc
         self.decay = decay
@@ -165,8 +156,12 @@ class RuleChoiceRepository:
             assert reg_reward.sum() < float('inf')
             return reg_reward
 
-    def avg_reward(self):
-        return self.all_reward_totals[1] / self.all_reward_totals[0]
+    def avg_reward(self, rule_ind=None):
+        if rule_ind is None or self.reward_totals[rule_ind][0] <= 0:
+            return self.all_reward_totals[1] / self.all_reward_totals[0]
+        else:
+            return self.reward_totals[rule_ind][1]/self.reward_totals[rule_ind][0]
+
 
     def get_mask_and_rewards(self):
         return self.bool_mask, self.regularized_rewards()
@@ -195,14 +190,28 @@ class RuleChoiceRepository:
             return out_log_probs, avg_reward
 
 
-def regularize_reward(this_wt, this_total_reward, avg_reward, decay):
+def regularize_reward(this_wt, this_total_reward, avg_reward, decay, reward_by_rule=None):
+    rule_wt, rule_total = reward_by_rule
+    if rule_total is not None:
+        rule_avg = rule_total/rule_wt
+    else:
+        rule_avg = 0
+
     max_wt = 1 / (1 - decay)
     assert avg_reward.sum() < float('inf')
+    # handle the sparse cases
     if this_total_reward is None:
-        return avg_reward
+        if rule_total is None:
+            return avg_reward
+        else:
+            return rule_avg
     else:
-        reg_wt = max(0, max_wt - this_wt)
-        reg_reward = (this_total_reward + avg_reward * reg_wt) / (this_wt + reg_wt)
+        # top up actuals first with observations by rule, then with global average
+        combined_reg_wt = max(0, max_wt - this_wt)
+        used_rule_wt = min(combined_reg_wt, rule_wt)
+        used_avg_wt = max(0, combined_reg_wt-used_rule_wt)
+        assert this_wt + used_rule_wt + used_avg_wt == max_wt
+        reg_reward = (this_total_reward + rule_avg*used_rule_wt + avg_reward * used_avg_wt) / max_wt
         assert reg_reward.sum() < float('inf')
         return reg_reward
 
