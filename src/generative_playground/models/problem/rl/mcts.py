@@ -15,7 +15,7 @@ def explore(root_node, num_sims):
         next_node = root_node
         while True:
             probs = next_node.action_probabilities()
-            action = np.random.multinomial(1,probs).argmax()
+            action = np.random.multinomial(1, probs).argmax()
             next_node, reward, info = next_node.apply_action(action)
             is_terminal = next_node.is_terminal()
             if is_terminal:
@@ -25,12 +25,14 @@ def explore(root_node, num_sims):
                 break
     return rewards, infos
 
+
 class ExperienceRepository:
     """
     This generates the starting probabilities for a newly created child in an MCTS graph
     The below implementation is meant for an explicit formula based on the experiences so far
     another version could instead train and sample a model deepQ-style
     """
+
     def __init__(self,
                  grammar: HypergraphGrammar,
                  reward_preprocessor=lambda x: to_bins(x, num_bins),
@@ -68,7 +70,7 @@ class ExperienceRepository:
             self.conditional_rewards[cond_tuple] = RuleChoiceRepository(len(self.grammar),
                                                                         self.reward_preprocessor,
                                                                         self.mask_by_cond_tuple[cond_tuple],
-                                                                        decay=self.decay)
+                                                                        decay=self.globals.decay)
         self.conditional_store(cond_tuple).update(rule_ind, reward)
         self.updates_since_last_refresh += 1
         if self.updates_since_last_refresh > self.num_updates_to_refresh:
@@ -84,7 +86,6 @@ class ExperienceRepository:
                                                                         decay=self.decay)
         return self.conditional_rewards[cond_tuple]
 
-
     def refresh_conditional_log_probs(self):
         # collect masks, avg rewards and weights for every conditioning, actions for every cond_tuple
         masks = []
@@ -92,7 +93,7 @@ class ExperienceRepository:
         for cond_tuple in self.grammar.conditional_frequencies.keys():
             this_cache = self.conditional_store(cond_tuple)
             masks.append(~(this_cache.bool_mask))
-            reward_totals +=[x for i,x in enumerate(this_cache.reward_totals) if not this_cache.bool_mask[i]]
+            reward_totals += [x for i, x in enumerate(this_cache.reward_totals) if not this_cache.bool_mask[i]]
         # calculate regularized rewards
         # first pass calculates the global average
         wts, rewards = 0, 0.0
@@ -100,11 +101,12 @@ class ExperienceRepository:
             if reward is not None:
                 wts += wt
                 rewards += reward
-        all_log_probs = np.zeros((len(self.grammar.conditional_frequencies)*len(self.grammar)))
+        all_log_probs = np.zeros((len(self.grammar.conditional_frequencies) * len(self.grammar)))
 
         if wts > 0:
-            avg_reward = rewards/wts
-            reg_rewards = [regularize_reward(wt, reward, avg_reward, self.decay) for (wt, reward) in reward_totals]
+            avg_reward = rewards / wts
+            reg_rewards = [regularize_reward(wt, reward, avg_reward, self.decay) for (wt, reward) in
+                           reward_totals]
             # call thompsom prob
             log_probs, probs = log_thompson_probabilities(np.array(reg_rewards))
             # cache the results per cond tuple
@@ -118,34 +120,34 @@ class ExperienceRepository:
         self.log_probs = all_log_probs
         self.updates_since_last_refresh = 0
 
-
     def get_log_probs_for_graph(self, graph):
         if graph is None:
-            cond_tuple = (None,  None)
-            return self.log_probs[self.cond_tuple_to_index[cond_tuple],:]
+            cond_tuple = (None, None)
+            return self.log_probs[self.cond_tuple_to_index[cond_tuple], :]
         else:
-            out = -1e5*np.ones((len(graph),len(self.grammar)))
+            out = -1e5 * np.ones((len(graph), len(self.grammar)))
             child_ids = set(graph.child_ids())
 
             for n, node_id in enumerate(graph.node.keys()):
                 if node_id in child_ids:
                     cond_tuple = conditoning_tuple(graph, node_id)
-                    out[n] = self.log_probs[self.cond_tuple_to_index[cond_tuple],:]
+                    out[n] = self.log_probs[self.cond_tuple_to_index[cond_tuple], :]
             out.reshape((-1,))
 
             assert out.max() > -1e4, "At least some actions must be allowed"
             return out
+
 
 def child_rewards_to_log_probs(child_rewards):
     total = 0
     counter = 0
     for c in child_rewards:
         if c is not None:
-            total+=c
+            total += c
             counter += 1
     if counter == 0:
         return np.zeros((len(child_rewards)))
-    avg_reward = total/counter
+    avg_reward = total / counter
     for c in range(len(child_rewards)):
         if child_rewards[c] is None:
             child_rewards[c] = avg_reward
@@ -158,6 +160,7 @@ class RuleChoiceRepository:
     """
     Stores the results of rule choices for a certain kind of starting node, generates sampling probabilities from these
     """
+
     def __init__(self, num_rules, reward_proc, mask, decay=0.99):
         """
 
@@ -170,17 +173,21 @@ class RuleChoiceRepository:
         self.reward_preprocessor = reward_proc
         self.decay = decay
         self.bool_mask = np.array(mask, dtype=np.int32) == 0
-        self.reward_totals = [[0, None] for _ in range(num_rules)] # rewards can be stored as numbers or other objects supporting + and *, don't prejudge
+        self.reward_totals = [[0, None] for _ in range(
+            num_rules)]  # rewards can be stored as numbers or other objects supporting + and *, don't prejudge
         self.all_reward_totals = [0, None]
 
     def update(self, rule_ind, reward):
-        self.reward_totals[rule_ind] = update_node(self.reward_totals[rule_ind], reward, self.decay, self.reward_preprocessor)
-        self.all_reward_totals = update_node(self.all_reward_totals, reward, self.decay, self.reward_preprocessor)
+        self.reward_totals[rule_ind] = update_node(self.reward_totals[rule_ind], reward, self.decay,
+                                                   self.reward_preprocessor)
+        self.all_reward_totals = update_node(self.all_reward_totals, reward, self.decay,
+                                             self.reward_preprocessor)
 
     def get_regularized_reward(self, rule_ind):
         # for actions that haven't been visited often, augment their reward with the average one for regularization
-        max_wt = 1/(1-self.decay)
-        assert self.all_reward_totals[1] is not None, "This function should only be called after at least one experience!"
+        max_wt = 1 / (1 - self.globals.decay)
+        assert self.all_reward_totals[
+                   1] is not None, "This function should only be called after at least one experience!"
         avg_reward = self.avg_reward()
         assert avg_reward.sum() < float('inf')
         if self.reward_totals[rule_ind][1] is None:
@@ -188,12 +195,12 @@ class RuleChoiceRepository:
         else:
             this_wt, this_reward = self.reward_totals[rule_ind]
             reg_wt = max(0, max_wt - this_wt)
-            reg_reward = (this_reward + avg_reward*reg_wt)/(this_wt + reg_wt)
+            reg_reward = (this_reward + avg_reward * reg_wt) / (this_wt + reg_wt)
             assert reg_reward.sum() < float('inf')
             return reg_reward
 
     def avg_reward(self):
-        return self.all_reward_totals[1]/self.all_reward_totals[0]
+        return self.all_reward_totals[1] / self.all_reward_totals[0]
 
     def get_mask_and_rewards(self):
         return self.bool_mask, self.regularized_rewards()
@@ -204,22 +211,23 @@ class RuleChoiceRepository:
 
     def regularized_rewards(self):
         reg_rewards = np.array([self.get_regularized_reward(rule_ind) for rule_ind in range(len(self.reward_totals))
-                  if not self.bool_mask[rule_ind]])
+                                if not self.bool_mask[rule_ind]])
         return reg_rewards
 
     def get_conditional_log_probs_with_reward(self):
         num_actions = len(self.reward_totals)
         out_log_probs = np.zeros(num_actions)
-        out_log_probs[self.bool_mask] = -1e5 # kill the prohibited rules
+        out_log_probs[self.bool_mask] = -1e5  # kill the prohibited rules
 
-        if self.all_reward_totals[1] is None: # no experiences yet
+        if self.all_reward_totals[1] is None:  # no experiences yet
             return out_log_probs, None
         else:
             all_rewards = self.regularized_rewards()
             log_probs, probs = log_thompson_probabilities(all_rewards)
-            avg_reward = (all_rewards*probs.reshape((-1,1))).sum(0)
+            avg_reward = (all_rewards * probs.reshape((-1, 1))).sum(0)
             out_log_probs[~self.bool_mask] = log_probs
             return out_log_probs, avg_reward
+
 
 def regularize_reward(this_wt, this_total_reward, avg_reward, decay):
     max_wt = 1 / (1 - decay)
@@ -231,6 +239,7 @@ def regularize_reward(this_wt, this_total_reward, avg_reward, decay):
         reg_reward = (this_total_reward + avg_reward * reg_wt) / (this_wt + reg_wt)
         assert reg_reward.sum() < float('inf')
         return reg_reward
+
 
 def update_node(node, reward, decay, reward_preprocessor):
     weight, proc_reward = reward_preprocessor(reward)
@@ -244,50 +253,63 @@ def update_node(node, reward, decay, reward_preprocessor):
         node[1] += proc_reward
     return node
 
-# Tree:
+
+class GlobalParameters:
+    def __init__(self,
+                 grammar,
+                 max_depth,
+                 exp_repo,
+                 decay=0.99,
+                 updates_to_refresh=100):
+        self.grammar = grammar
+        self.max_depth = max_depth
+        self.experience_repository = exp_repo
+        self.decay = decay
+        self.updates_to_refresh = updates_to_refresh
+
+
 # linked tree with nodes
 class MCTSNode:
-    def __init__(self, grammar, parent, source_action,
-                 max_depth, depth, exp_repo,
-                 decay=0.99,
-                 reward_proc=None,
-                 refresh_prob_thresh=0.01):
+    def __init__(self,
+                 global_params,
+                 parent,
+                 source_action,
+                 depth,
+                 reward_proc=None):
         """
         Creates a placeholder with just the value distribution guess, to be aggregated by the parent
         :param value_distr:
         """
-        self.grammar = grammar
+        self.globals = global_params
+
         self.parent = parent
         self.source_action = source_action
-        self.max_depth = max_depth
         self.depth = depth
+        self.reward_proc = reward_proc
+
         self.value_distr_total = None
         self.child_run_count = 0
-        self.refresh_prob_thresh = refresh_prob_thresh
-        self.experience_repository = exp_repo
-        self.decay = decay
-        self.reward_proc = reward_proc
-        self.updates_to_refresh = 100
+
+
         self.updates_since_refresh = 0
 
-
         if self.parent is not None:
-            self.graph = apply_rule(parent.graph, source_action, grammar)
+            self.graph = apply_rule(parent.graph, source_action, global_params.grammar)
         else:
             self.graph = None
-
 
         if not graph_is_terminal(self.graph):
             self.log_action_probs = exp_repo.get_log_probs_for_graph(self.graph).reshape((-1,))
 
+            self.children = [None for _ in range(len(global_params.grammar) *
+                                                 (1 if self.graph is None else len(
+                                                     self.graph)))]  # maps action index to child
 
-            self.children = [None for _ in range(len(grammar)*
-                                                 (1 if self.graph is None else len(self.graph)))] # maps action index to child
+            log_freqs = get_log_conditional_freqs(global_params.grammar, [self.graph])
 
-
-            log_freqs = get_log_conditional_freqs(grammar, [self.graph])
             # the full_logit_priors at this stage merely store the information about which actions are allowed
-            full_logit_priors, _, node_mask = get_full_logit_priors(self.grammar, self.max_depth - self.depth,
+            full_logit_priors, _, node_mask = get_full_logit_priors(self.globals.grammar,
+                                                                    self.globals.max_depth - self.depth,
                                                                     [self.graph])  # TODO: proper arguments
             priors = full_logit_priors + log_freqs
             self.log_priors = priors.reshape((-1,))
@@ -296,19 +318,42 @@ class MCTSNode:
             self.result_repo = RuleChoiceRepository(len(self.log_priors),
                                                     reward_proc=reward_proc,
                                                     mask=self.log_priors > -1e4,
-                                                    decay=decay)
+                                                    decay=global_params.decay)
 
     def is_terminal(self):
         return graph_is_terminal(self.graph)
 
-    def value_distr(self):
-        return self.value_distr_total/self.child_run_count
-
     def action_probabilities(self):
-        if self.updates_since_refresh > self.updates_to_refresh:
+        if self.updates_since_refresh > self.globals.updates_to_refresh:
             self.refresh_probabilities()
-        self.updates_since_refresh +=1
+        self.updates_since_refresh += 1
         return self.probs
+
+    def apply_action(self, action):
+        if self.children[action] is None:
+            self.make_child(action)
+        chosen_child = self.children[action]
+        reward, info = get_reward(chosen_child.graph)
+        return chosen_child, reward, info
+
+    def make_child(self, action):
+        self.children[action] = MCTSNode(global_params=self.globals,
+                                         parent=self,
+                                         source_action=action,
+                                         depth=self.depth + 1,
+                                         reward_proc=self.reward_proc)
+
+    def back_up(self, reward):
+        # self.process_back_up(reward)
+        if self.parent is not None:
+            # update the local result cache
+            self.parent.result_repo.update(self.source_action, reward)
+            # update the global result cache
+            self.globals.experience_repository.update(self.parent.graph, self.source_action, reward)
+            self.parent.back_up(reward)
+
+    def value_distr(self):
+        return self.value_distr_total / self.child_run_count
 
     def probs_from_log_action_probs(self):
         total_prob = self.log_action_probs + self.log_priors
@@ -324,51 +369,10 @@ class MCTSNode:
         self.updates_since_refresh = 0
 
 
-
-    def apply_action(self, action):
-        if self.children[action] is None:
-            self.make_child(action)
-        chosen_child = self.children[action]
-        reward, info = get_reward(chosen_child.graph)
-        return chosen_child, reward, info
-
-    def make_child(self, action):
-        self.children[action] = MCTSNode(grammar=self.grammar,
-                                         parent=self,
-                                         source_action=action,
-                                         max_depth=self.max_depth,
-                                         depth=self.depth+1,
-                                         exp_repo=self.experience_repository,
-                                         decay=self.decay,
-                                         reward_proc=self.reward_proc)
-
-    def back_up(self, reward):
-        # self.process_back_up(reward)
-        if self.parent is not None:
-            # update the local result cache
-            self.parent.result_repo.update(self.source_action, reward)
-            # update the global result cache
-            self.experience_repository.update(self.parent.graph, self.source_action, reward)
-            self.parent.back_up(reward)
-
-    # # this one is specific
-    # def process_back_up(self, reward):
-    #     binned_reward = to_bins(reward, num_bins)
-    #     if self.value_distr_total is None:
-    #         self.value_distr_total = binned_reward
-    #         self.child_run_count = 1
-    #     else:
-    #         self.value_distr_total *= self.decay
-    #         self.value_distr_total += binned_reward
-    #
-    #         self.child_run_count *= self.decay
-    #         self.child_run_count += 1
-
-
-def to_bins(reward, num_bins): # TODO: replace with a ProbabilityDistribution object
-    reward = max(min(reward,1.0), 0.0)
+def to_bins(reward, num_bins):  # TODO: replace with a ProbabilityDistribution object
+    reward = max(min(reward, 1.0), 0.0)
     out = np.zeros([num_bins])
-    ind = math.floor(reward*num_bins*0.9999)
+    ind = math.floor(reward * num_bins * 0.9999)
     out[ind] = 1
     return out
 
@@ -379,8 +383,8 @@ def log_thompson_probabilities(ps):
     :param ps: actions x bins floats reward probability distribution per action
     :return: actions floats
     """
-    ps += 1e-5 # to guarantee positivity
-    ps = ps/ps.sum(axis=1, keepdims=True)
+    ps += 1e-5  # to guarantee positivity
+    ps = ps / ps.sum(axis=1, keepdims=True)
     log_ps = np.log(ps)
     log_cdfs = np.log(ps.cumsum(axis=1))
     log_cdf_prod = np.sum(log_cdfs, axis=0, keepdims=True)
@@ -390,9 +394,10 @@ def log_thompson_probabilities(ps):
     # thompson2 = (ps*cdf_prod / cdfs).sum(1) # this should always be >1
     total = thompson.sum()
     assert total > 0, "total probs must be positive!"
-    out = thompson/total
+    out = thompson / total
     assert not np.isnan(log_thompson.sum()), "Something went wrong in thompson probs, got a nan"
     return log_thompson, out
+
 
 def softmax_probabilities(log_ps):
     '''
@@ -401,11 +406,12 @@ def softmax_probabilities(log_ps):
     :return: actions floats
     '''
     ps = np.exp(log_ps - log_ps.max())
-    ps = ps/ps.sum(axis=1, keepdims=True)
-    evs = ps.cumsum(axis=1).sum(axis=1) # a very crude way to do expected value :)
-    evs = (evs - evs.min()+1e-5)/(evs.max()-evs.min()+1e-5)
-    evs = evs/evs.sum()
+    ps = ps / ps.sum(axis=1, keepdims=True)
+    evs = ps.cumsum(axis=1).sum(axis=1)  # a very crude way to do expected value :)
+    evs = (evs - evs.min() + 1e-5) / (evs.max() - evs.min() + 1e-5)
+    evs = evs / evs.sum()
     return np.log(evs)
+
 
 def get_reward(graph):
     if graph_is_terminal(graph):
@@ -436,7 +442,8 @@ def graph_is_terminal(graph):
     else:
         return len(graph.child_ids()) == 0
 
-if __name__=='__main__':
+
+if __name__ == '__main__':
     num_bins = 50  # TODO: replace with a Value Distribution object
     ver = 'trivial'
     obj_num = 0
@@ -447,17 +454,21 @@ if __name__=='__main__':
     num_steps = 1
     codec = get_codec(True, grammar_name, max_seq_length)
     exp_repo = ExperienceRepository(grammar=codec.grammar,
-                                    reward_preprocessor=lambda x: (1,to_bins(x, num_bins)),
+                                    reward_preprocessor=lambda x: (1, to_bins(x, num_bins)),
                                     decay=0.99)
-    root_node = MCTSNode(grammar=codec.grammar,
+
+    globals = GlobalParameters(codec.grammar,
+                               max_seq_length,
+                               exp_repo,
+                               decay=0.99,
+                               updates_to_refresh=100)
+
+    root_node = MCTSNode(globals,
                          parent=None,
                          source_action=None,
-                         max_depth=max_seq_length,
                          depth=1,
-                         exp_repo=exp_repo,
-                         decay=0.99,
-                         reward_proc=lambda x: (1,to_bins(x, num_bins)),
-                         refresh_prob_thresh=0.01)
+                         reward_proc=lambda x: (1, to_bins(x, num_bins)))
+
     for _ in range(num_steps):
         rewards, infos = explore(root_node, 100)
         # visualisation code goes here
