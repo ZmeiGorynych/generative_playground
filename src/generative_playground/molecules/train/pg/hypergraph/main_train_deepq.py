@@ -1,31 +1,15 @@
 import os, inspect
-from collections import deque
 import torch.optim as optim
 from torch.optim import lr_scheduler
-import torch.nn as nn
-import torch.nn.functional as F
-import torch
-import math
 from torch.utils.data import DataLoader
 from generative_playground.molecules.molecule_saver_callback import MoleculeSaver
-from generative_playground.molecules.train.pg.hypergraph.visualize_molecules import model_process_fun
+from generative_playground.molecules.visualize_molecules import model_process_fun
 
-from generative_playground.utils.fit import fit
 from generative_playground.utils.fit_rl import fit_rl
-from generative_playground.utils.gpu_utils import to_gpu
-from generative_playground.molecules.model_settings import get_settings
 from generative_playground.metrics.metric_monitor import MetricPlotter
 from generative_playground.utils.checkpointer import Checkpointer
-from generative_playground.models.problem.rl.task import SequenceGenerationTask
-from generative_playground.models.decoder.decoder import get_decoder, get_node_decoder
-from generative_playground.models.losses.policy_gradient_loss import PolicyGradientLoss
+from generative_playground.models.decoder.decoder import get_node_decoder
 from generative_playground.models.problem.policy import SoftmaxRandomSamplePolicy
-from generative_playground.data_utils.blended_dataset import EvenlyBlendedDataset
-from generative_playground.codec.codec import get_codec
-from generative_playground.molecules.data_utils.zinc_utils import get_smiles_from_database
-from generative_playground.data_utils.data_sources import IterableTransform, GeneratorToIterable
-from generative_playground.molecules.models.graph_models import GraphDiscriminator
-from generative_playground.utils.gpu_utils import device
 from generative_playground.models.problem.rl.deepq import *
 
 def train_deepq(molecules=True,

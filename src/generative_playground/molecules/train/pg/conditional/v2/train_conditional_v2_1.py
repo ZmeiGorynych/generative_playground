@@ -20,14 +20,14 @@ from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring
 
 
 
-batch_size = 100# 20
+batch_size = 10# 20
 drop_rate = 0.5
 molecules = True
 grammar_cache = 'hyper_grammar_guac_10k_with_clique_collapse.pickle'#'hyper_grammar.pickle'
 grammar = 'hypergraph:' + grammar_cache
 settings = get_settings(molecules, grammar)
 ver = 'v2'
-obj_num = 0
+obj_num = 1
 reward_funs = guacamol_goal_scoring_functions(ver)
 # this accepts a list of SMILES strings
 reward_fun = reward_funs[obj_num]
@@ -35,8 +35,8 @@ reward_fun = reward_funs[obj_num]
 # gi = GrammarInitializer(grammar_cache)
 
 
-root_name = 'conditional_c_' + ver + '_' + str(obj_num) + '_lr4e-5'
-max_steps = 45
+root_name = 'test_conditional_c_' + ver + '_' + str(obj_num) + '_lr4e-5'
+max_steps = 30
 model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        grammar,
                                                        EPOCHS=100,

@@ -18,10 +18,11 @@ def model_process_fun(model_out, visdom, n):
     from rdkit.Chem.Draw import MolToFile
     # actions, logits, rewards, terminals, info = model_out
     smiles, valid = model_out['info']
-    total_rewards = model_out['rewards']
+    valid = to_numpy(valid)
+    total_rewards = to_numpy(model_out['rewards'])
     if len(total_rewards.shape) > 1:
         total_rewards = total_rewards.sum(1)
-    best_ind = torch.argmax(total_rewards).data.item()
+    best_ind = np.argmax(total_rewards)
     this_smile = smiles[best_ind]
     mol = Chem.MolFromSmiles(this_smile)
     pic_save_path = os.path.realpath(root_location + '/images/' + 'tmp.svg')
@@ -44,11 +45,17 @@ def model_process_fun(model_out, visdom, n):
         visdom.append('reward',
                       'line',
                       X=np.array([n]),
-                      Y=np.array([total_rewards[best_ind].item()]))
+                      Y=np.array([total_rewards[best_ind]]))
         visdom.append('fraction valid',
                       'line',
                       X=np.array([n]),
-                      Y=np.array([valid.mean().data.item()]))
+                      Y=np.array([valid.mean()]))
         visdom.append('num atoms', 'line',
                       X=np.array([n]),
                       Y=np.array([len(mol.GetAtoms())]))
+
+def to_numpy(x):
+    if hasattr(x,'device'): # must be pytorch
+        return x.cpu().detach().numpy()
+    else:
+        return x

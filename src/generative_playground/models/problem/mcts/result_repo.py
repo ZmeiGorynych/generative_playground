@@ -28,10 +28,7 @@ class ExperienceRepository:
         self.rule_choice_repo_factory = rule_choice_repo_factory
         self.conditional_keys = conditional_keys
         self.conditional_rewards = OrderedDict([(key, None) for key in conditional_keys])
-        self.rewards_by_action = rule_choice_repo_factory(np.ones([len(grammar)]))#RuleChoiceRepository(self.reward_preprocessor,
-                                                      # np.ones([len(grammar)]),
-                                                      # decay=decay)
-        # self.mask_by_cond_tuple = OrderedDict([(key, None) for key in grammar.conditional_frequencies.keys()])
+        self.rewards_by_action = rule_choice_repo_factory(np.ones([len(grammar)]))  # RuleChoiceRepository(self.reward_preprocessor,
         self.cond_tuple_to_index = {key: i for i, key in enumerate(conditional_keys)}
         self.decay = decay
         self.num_updates_to_refresh = num_updates_to_refresh
@@ -62,9 +59,9 @@ class ExperienceRepository:
         if self.conditional_rewards[cond_tuple] is None:
             mask_by_cond_tuple = mask_from_cond_tuple(self.grammar, cond_tuple)
             self.conditional_rewards[cond_tuple] = self.rule_choice_repo_factory(mask_by_cond_tuple)
-                # RuleChoiceRepository(self.reward_preprocessor,
-                #                                                         mask_by_cond_tuple,
-                #                                                         decay=self.decay)
+            # RuleChoiceRepository(self.reward_preprocessor,
+            #                                                         mask_by_cond_tuple,
+            #                                                         decay=self.decay)
         return self.conditional_rewards[cond_tuple]
 
     def refresh_conditional_log_probs(self):
@@ -75,7 +72,7 @@ class ExperienceRepository:
             this_cache = self.conditional_store(cond_tuple)
             masks.append(~(this_cache.bool_mask))
             # enrich each conditional distribution with its rule index
-            reward_totals += [(i,x) for i, x in enumerate(this_cache.reward_totals) if not this_cache.bool_mask[i]]
+            reward_totals += [(i, x) for i, x in enumerate(zip(this_cache.wt_totals,this_cache.reward_totals)) if not this_cache.bool_mask[i]]
         # calculate regularized rewards
         # first pass calculates the global average
         wts, rewards = 0, 0.0
@@ -85,9 +82,11 @@ class ExperienceRepository:
                 rewards += reward
         all_log_probs = np.zeros((len(self.conditional_keys) * len(self.grammar)))
         rewards_by_rule = self.rewards_by_action.reward_totals
+        weights_by_rule = self.rewards_by_action.wt_totals
         if wts > 0:
             avg_reward = rewards / wts
-            reg_rewards = [regularize_reward(wt, reward, avg_reward, self.decay, rewards_by_rule[rule_ind])
+            reg_rewards = [regularize_reward(wt, reward, avg_reward, self.decay,
+                                             weights_by_rule[rule_ind], rewards_by_rule[rule_ind])
                            for (rule_ind, (wt, reward)) in reward_totals]
             # call thompsom prob
             log_probs, probs = log_thompson_probabilities(np.array(reg_rewards))
@@ -119,13 +118,42 @@ class ExperienceRepository:
             assert out.max() > -1e4, "At least some actions must be allowed"
             return out
 
+    def get_total_rewards_for_graph(self, graph):
+        if graph is None:
+            cond_tuple = (None, None)
+            glob_data = self.conditional_store(cond_tuple)
+            masks = ~(glob_data.bool_mask)
+            total_weights = glob_data.wt_totals
+            total_rewards = glob_data.reward_totals
+        else:
+            masks = []
+            total_rewards = []
+            total_weights = []
+            child_ids = set(graph.child_ids())
+            num_bins = self.conditional_store((None, None)).num_bins
+            for n, node_id in enumerate(graph.node.keys()):
+                if node_id in child_ids:
+                    cond_tuple = conditoning_tuple(graph, node_id)
+                    this_cache = self.conditional_store(cond_tuple)
+                    masks.append(~(this_cache.bool_mask))
+                    total_rewards.append(this_cache.reward_totals)
+                    total_weights.append(this_cache.wt_totals)
+                else:
+                    masks.append(np.full(len(self.grammar), False))
+                    total_weights.append(np.zeros(len(self.grammar)))
+                    total_rewards.append(np.zeros((len(self.grammar), num_bins)))
+            masks = np.concatenate(masks)
+            total_rewards = np.concatenate(total_rewards)
+            total_weights = np.concatenate(total_weights)
+        return masks, total_weights, total_rewards
+
 
 class RuleChoiceRepository:
     """
     Stores the results of rule choices for a certain kind of starting node, generates sampling probabilities from these
     """
 
-    def __init__(self, reward_proc, mask, decay=0.99):
+    def __init__(self, reward_proc, mask, decay=0.99, num_bins=50):
         """
         :param reward_proc: converts incoming rewards into something we want to store, such as prob vectors
         :param mask: a vector of length num_rules, 1 for legal rules, 0 for illegal ones
@@ -133,40 +161,45 @@ class RuleChoiceRepository:
         """
         num_rules = len(mask)
         self.reward_preprocessor = reward_proc
+        self.num_bins = len(reward_proc(1.0)[1])
         self.decay = decay
         self.bool_mask = np.array(mask, dtype=np.int32) == 0
-        self.reward_totals = [[0, None] for _ in range(
-            num_rules)]  # rewards can be stored as numbers or other objects supporting + and *, don't prejudge
-        self.all_reward_totals = [0, None]
+        self.reward_totals = np.zeros((num_rules, self.num_bins))
+        self.wt_totals = np.zeros(num_rules)
+        self.all_reward_totals = [0.0, np.zeros(self.num_bins)]
 
     def update(self, rule_ind, reward):
-        self.reward_totals[rule_ind] = update_node(self.reward_totals[rule_ind], reward, self.decay,
-                                                   self.reward_preprocessor)
-        self.all_reward_totals = update_node(self.all_reward_totals, reward, self.decay,
+        self.wt_totals[rule_ind], self.reward_totals[rule_ind] = update_node(self.wt_totals[rule_ind],
+                                                                             self.reward_totals[rule_ind],
+                                                                             reward,
+                                                                             self.decay,
+                                                                             self.reward_preprocessor)
+        self.all_reward_totals = update_node(self.all_reward_totals[0],
+                                             self.all_reward_totals[1],
+                                             reward,
+                                             self.decay,
                                              self.reward_preprocessor)
 
     def get_regularized_reward(self, rule_ind):
         # for actions that haven't been visited often, augment their reward with the average one for regularization
         max_wt = 1 / (1 - self.decay)
-        assert self.all_reward_totals[
-                   1] is not None, "This function should only be called after at least one experience!"
+        assert self.all_reward_totals[0] != 0, "This function should only be called after at least one experience!"
         avg_reward = self.avg_reward()
         assert avg_reward.sum() < float('inf')
-        if self.reward_totals[rule_ind][1] is None:
+        if self.wt_totals[rule_ind] < 1e-5:
             return avg_reward
         else:
-            this_wt, this_reward = self.reward_totals[rule_ind]
+            this_wt, this_reward = self.wt_totals[rule_ind], self.reward_totals[rule_ind]
             reg_wt = max(0, max_wt - this_wt)
             reg_reward = (this_reward + avg_reward * reg_wt) / (this_wt + reg_wt)
             assert reg_reward.sum() < float('inf')
             return reg_reward
 
     def avg_reward(self, rule_ind=None):
-        if rule_ind is None or self.reward_totals[rule_ind][0] <= 0:
+        if rule_ind is None or self.wt_totals[rule_ind] < 1e-5:
             return self.all_reward_totals[1] / self.all_reward_totals[0]
         else:
-            return self.reward_totals[rule_ind][1]/self.reward_totals[rule_ind][0]
-
+            return self.reward_totals[rule_ind] / self.wt_totals[rule_ind]
 
     def get_mask_and_rewards(self):
         return self.bool_mask, self.regularized_rewards()
@@ -195,18 +228,17 @@ class RuleChoiceRepository:
             return out_log_probs, avg_reward
 
 
-def regularize_reward(this_wt, this_total_reward, avg_reward, decay, reward_by_rule=None):
-    rule_wt, rule_total = reward_by_rule
-    if rule_total is not None:
-        rule_avg = rule_total/rule_wt
+def regularize_reward(this_wt, this_total_reward, avg_reward, decay, rule_wt=0, rule_total=None):
+    if rule_wt > 1e-5:
+        rule_avg = rule_total / rule_wt
     else:
         rule_avg = 0
 
     max_wt = 1 / (1 - decay)
     assert avg_reward.sum() < float('inf')
     # handle the sparse cases
-    if this_total_reward is None:
-        if rule_total is None:
+    if this_wt < 1e-5:
+        if rule_wt < 1e-5:
             return avg_reward
         else:
             return rule_avg
@@ -214,9 +246,9 @@ def regularize_reward(this_wt, this_total_reward, avg_reward, decay, reward_by_r
         # top up actuals first with observations by rule, then with global average
         combined_reg_wt = max(0, max_wt - this_wt)
         used_rule_wt = min(combined_reg_wt, rule_wt)
-        used_avg_wt = max(0, combined_reg_wt-used_rule_wt)
+        used_avg_wt = max(0, combined_reg_wt - used_rule_wt)
         assert this_wt + used_rule_wt + used_avg_wt == max_wt
-        reg_reward = (this_total_reward + rule_avg*used_rule_wt + avg_reward * used_avg_wt) / max_wt
+        reg_reward = (this_total_reward + rule_avg * used_rule_wt + avg_reward * used_avg_wt) / max_wt
         assert reg_reward.sum() < float('inf')
         return reg_reward
 
@@ -229,17 +261,15 @@ def to_bins(reward, num_bins):  # TODO: replace with a ProbabilityDistribution o
     return out
 
 
-def update_node(node, reward, decay, reward_preprocessor):
+def update_node(wt, total_reward, reward, decay, reward_preprocessor):
     weight, proc_reward = reward_preprocessor(reward)
-    if node[1] is None:
-        node = [weight, proc_reward]
-    else:
-        node[0] *= (decay ** weight)
-        node[0] += weight
 
-        node[1] *= (decay ** weight)
-        node[1] += proc_reward
-    return node
+    wt *= (decay ** weight)
+    wt += weight
+
+    total_reward *= (decay ** weight)
+    total_reward += proc_reward
+    return (wt, total_reward)
 
 
 def log_thompson_probabilities(ps):

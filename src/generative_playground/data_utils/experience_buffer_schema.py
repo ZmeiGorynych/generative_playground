@@ -1,14 +1,17 @@
-from sqlalchemy import Column, Index, Integer, MetaData, BLOB, Table
+from sqlalchemy import BLOB, Column, Index, MetaData, String, Table
+from sqlalchemy.schema import UniqueConstraint
 
 
-def create_exp_buffer(engine) -> Table:
+def create_kv_store(engine, name: str) -> Table:
     meta = MetaData()
 
-    exp_buffer = Table(
-        'exp_buffer', meta,
-        Column('id', Integer, primary_key=True),
-        Column('data', BLOB)
+    kv_store = Table(
+        name,
+        meta,
+        Column('key', String, primary_key=True),
+        Column('value', BLOB),
+        UniqueConstraint('key', sqlite_on_conflict='REPLACE')
     )
-    Index('exp_buffer_id_idx', exp_buffer.c.id)
+    Index('{}_id_idx'.format(name), kv_store.c.key)
     meta.create_all(engine)
-    return exp_buffer
+    return kv_store

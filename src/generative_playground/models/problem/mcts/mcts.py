@@ -1,14 +1,13 @@
-import shelve
 # have to monkey-patch shelve to replace pickle with dill, for support of saving lambdas
-import dill
-shelve.Pickler = dill.Pickler
-shelve.Unpickler = dill.Unpickler
-
+import tempfile
+from generative_playground.data_utils.shelve import Shelve
 from generative_playground.utils.persistent_dict import PersistentDict
+from generative_playground.molecules.visualize_molecules import model_process_fun
 from generative_playground.codec.hypergraph_mask_generator import *
 from generative_playground.codec.codec import get_codec
 from generative_playground.models.problem.mcts.node import GlobalParameters, \
     MCTSNodeLocalThompson, MCTSNodeGlobalThompson
+from generative_playground.metrics.metric_monitor import MetricPlotter
 from generative_playground.models.problem.mcts.result_repo import ExperienceRepository, to_bins, \
     RuleChoiceRepository
 from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring_functions
@@ -55,16 +54,19 @@ def explore(root_node, num_sims):
 if __name__ == '__main__':
     shelve_fn = 'states'
     num_bins = 50  # TODO: replace with a Value Distribution object
-    ver = 'v2'#''trivial'
-    obj_num = 0
+    ver = 'trivial'#'v2'#'
+    obj_num = 4
     reward_fun_ = guacamol_goal_scoring_functions(ver)[obj_num]
     grammar_cache = 'hyper_grammar_guac_10k_with_clique_collapse.pickle'  # 'hyper_grammar.pickle'
     grammar_name = 'hypergraph:' + grammar_cache
-    max_seq_length = 30
-    num_batches = 100
+    max_seq_length = 60
+    num_batches = 10000
     decay = 0.9
     codec = get_codec(True, grammar_name, max_seq_length)
-    reward_proc = lambda x: (1, to_bins(x, num_bins))
+
+    def reward_proc(x):
+        return (1, to_bins(x, num_bins))
+
     rule_choice_repo_factory = lambda x: RuleChoiceRepository(reward_proc=reward_proc,
                                                     mask=x,
                                                     decay=decay)
@@ -95,20 +97,36 @@ if __name__ == '__main__':
                                state_store=state_store
                                )
 
+    plotter = MetricPlotter(plot_prefix='',
+                 save_file=None,
+                 loss_display_cap=4,
+                 dashboard_name='MCTS',
+                 plot_ignore_initial=0,
+                 process_model_fun=model_process_fun,
+                 extra_metric_fun=None,
+                 smooth_weight=0.0,
+                 frequent_calls=False)
 
-    with shelve.open(shelve_fn, writeback=True) as state_store:
-        # globals.state_store = state_store
-        root_node = MCTSNodeGlobalThompson(globals,
+    temp_dir = tempfile.TemporaryDirectory()
+    temp_dir_path = temp_dir.name
+    db_path = '/{}/kv_store.db'.format(temp_dir_path)
+    with Shelve(db_path, 'kv_table') as state_store:
+        globals.state_store = state_store
+        root_node = MCTSNodeLocalThompson(globals,
                              parent=None,
                              source_action=None,
                              depth=1)
+        state_store.flush()
 
-    for _ in range(num_batches):
-        with shelve.open(shelve_fn, writeback=True) as state_store:
-            # globals.state_store = state_store
-            rewards, infos = explore(root_node, 100)
-        # visualisation code goes here
-        print(max(rewards))
+        for _ in range(num_batches):
+            rewards, infos = explore(root_node, 10)
+            state_store.flush()
+            # visualisation code goes here
+            plotter_input = {'rewards': np.array(rewards),
+                             'info': [[x['smiles'] for x in infos], np.ones(len(infos))]}
+            plotter(None, None, plotter_input, None, None)
+            print(max(rewards))
 
     print(root_node.result_repo.avg_reward())
+    temp_dir.cleanup()
     print("done!")

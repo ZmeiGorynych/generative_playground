@@ -8,7 +8,7 @@ import torch
 import math
 from torch.utils.data import DataLoader
 from generative_playground.molecules.molecule_saver_callback import MoleculeSaver
-from generative_playground.molecules.train.pg.hypergraph.visualize_molecules import model_process_fun
+from generative_playground.molecules.visualize_molecules import model_process_fun
 
 from generative_playground.utils.fit_rl import fit_rl
 from generative_playground.utils.gpu_utils import to_gpu

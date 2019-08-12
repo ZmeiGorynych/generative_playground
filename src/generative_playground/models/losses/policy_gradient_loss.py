@@ -104,21 +104,17 @@ class PolicyGradientLoss(nn.Module):
         # check for NaNs
         assert(my_loss == my_loss)
         if sum(valid) > 0:
-            self.metrics = {'rec rwd': max(self.best_rewards) if 'inf' not in str(max(self.best_rewards)) else 0,
-                            'avg rwd': total_rewards.mean().data.item(),
-                            'max rwd': total_rewards.max().data.item(),
-                            'med rwd': total_rewards.median().data.item(),
-                            'entropy': total_entropy.mean().data.item()
-                            }
+            # self.metrics = {'rec rwd': max(self.best_rewards) if 'inf' not in str(max(self.best_rewards)) else 0,
+            #                 'avg rwd': total_rewards.mean().data.item(),
+            #                 'max rwd': total_rewards.max().data.item(),
+            #                 'med rwd': total_rewards.median().data.item(),
+            self.metrics = {'entropy': total_entropy.mean().data.item()}
         else:
             self.metrics = {}
 
-        try:
-            smiles = model_out['info'][0]
-            self.metrics.update({'unique': len(set(smiles)) / len(smiles)})
-        except:
-            pass
+
 
         if my_loss != my_loss:  # NaN check
             print("NaN loss!")
         return my_loss
+

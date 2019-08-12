@@ -7,6 +7,28 @@ from collections import OrderedDict
 from generative_playground.utils.gpu_utils import get_gpu_memory_map
 import os, inspect
 
+
+class MetricStats:
+    def __init__(self):
+        self.best_reward = float('-inf')
+
+    def __call__(self, rewards, smiles=None):
+        """
+        Calculates reward stats
+        :param rewards: numpy array of rewards
+        :param smiles: array of strings
+        :return: dict with the metrics
+        """
+        self.best_reward = max(self.best_reward, max(rewards))
+        metrics = {'rec rwd': self.best_reward,
+                   'avg rwd': rewards.mean(),
+                   'max rwd': rewards.max(),
+                   'med rwd': np.median(rewards)
+                   }
+        if smiles is not None: metrics['unique'] = len(set(smiles)) / len(smiles)
+
+        return metrics
+
 class MetricPlotter:
     def __init__(self,
                  plot_prefix='',
@@ -33,6 +55,7 @@ class MetricPlotter:
         self.plot_ignore_initial = plot_ignore_initial
         self.loss_display_cap = loss_display_cap
         self.plot_counter = 0
+        self.reward_calc = MetricStats()
         self.stats = pd.DataFrame(columns=['batch', 'timestamp', 'gpu_usage', 'train', 'loss'])
         self.smooth_weight = smooth_weight
         self.smooth = {}
@@ -50,17 +73,11 @@ class MetricPlotter:
             self.vis = None
 
     def __call__(self,
-                 inputs,
+                 _, #inputs
                  model,
                  outputs,
                  loss_fn,
                  loss):
-                 # train,
-                 # loss,
-                 # metrics=None,
-                 # model_out=None,
-                 # inputs=None,
-                 # targets=None):
         '''
         Plot the results of the latest batch
         :param train: bool: was this a traning batch?
@@ -69,9 +86,15 @@ class MetricPlotter:
         :return: None
         '''
         print('calling metric monitor...')
-        train = model.training
-        loss = loss.data.item()
-        metrics = loss_fn.metrics if hasattr(loss_fn, 'metrics') else None
+        try:
+            train = model.training
+        except:
+            train = True
+
+        if hasattr(loss, 'device'):
+            loss = loss.data.item()
+
+        metrics_from_loss = loss_fn.metrics if hasattr(loss_fn, 'metrics') else None
         model_out = outputs
 
         if train:
@@ -89,29 +112,36 @@ class MetricPlotter:
             all_metrics['gpu_usage'] ={'type':'line',
                             'X': np.array([self.plot_counter]),
                             'Y':np.array([gpu_usage[0]])}
-            all_metrics[loss_name] ={'type': 'line',
+            if loss is not None:
+                all_metrics[loss_name] ={'type': 'line',
                             'X': np.array([self.plot_counter]),
                             'Y': np.array([min(self.loss_display_cap, loss)]),
                                 'smooth':self.smooth_weight}
-            if metrics is not None and len(metrics) > 0:
-                all_metrics[loss_name + ' metrics']={'type':'line',
-                            'X': np.array([self.plot_counter]),
-                            'Y': np.array([[val for key, val in metrics.items()]]),
-                            'opts':{'legend': [key for key, val in metrics.items()]},
-                                    'smooth': self.smooth_weight}
 
-            # if 'rewards' in outputs:
-            #     rewards = outputs['rewards']
-            #     if 'tensor' in str(type(rewards)):
-            #         rewards = rewards.cpu().detach().numpy()
-            #     all_metrics['reward'] = {'type': 'line',
-            #                 'X': np.array([self.plot_counter]),
-            #                 'Y': np.array([max(rewards)]),
-            #                              'opts':{'legend':['max']},
-            #                     'smooth':self.smooth_weight}
+            if metrics_from_loss is not None and len(metrics_from_loss) > 0:
+                for key, value in metrics_from_loss.items():
+                    if type(value) == dict: # dict of dicts, so multiple plots
+                        all_metrics[key] = self.entry_from_dict(value)
+                    else: # just one dict with data, old-style
+                        all_metrics[loss_name + ' metrics'] = self.entry_from_dict(metrics_from_loss)
+                        break
 
-            if self.extra_metric_fun is not None:
-                all_metrics.update(self.extra_metric_fun(inputs, targets, model_out, train, self.plot_counter))
+            try:
+                smiles = outputs['info'][0]
+            except:
+                smiles = None
+
+            try:
+                rewards = outputs['rewards']
+                if len(rewards.shape) == 2:
+                    rewards = rewards.sum(1)
+                rewards = to_numpy(rewards)
+                reward_dict = self.reward_calc(rewards,smiles)
+                all_metrics['reward_stats'] = self.entry_from_dict(reward_dict)
+            except:
+                pass
+            # if self.extra_metric_fun is not None:
+            #     all_metrics.update(self.extra_metric_fun(inputs, targets, model_out, train, self.plot_counter))
 
 
             # now do the smooth:
@@ -130,19 +160,25 @@ class MetricPlotter:
 
 
 
-        metrics =  {} if metrics is None else copy.copy(metrics)
-        metrics['train'] = train
-        metrics['gpu_usage'] = gpu_usage[0]
-        metrics['loss'] = loss
-        metrics['batch'] = self.plot_counter
-        metrics['timestamp'] = datetime.datetime.now()
+        metrics_from_loss =  {} if metrics_from_loss is None else copy.copy(metrics_from_loss)
+        metrics_from_loss['train'] = train
+        metrics_from_loss['gpu_usage'] = gpu_usage[0]
+        metrics_from_loss['loss'] = loss
+        metrics_from_loss['batch'] = self.plot_counter
+        metrics_from_loss['timestamp'] = datetime.datetime.now()
 
-        self.stats = self.stats.append(metrics, ignore_index=True)
+        self.stats = self.stats.append(metrics_from_loss, ignore_index=True)
 
         if True:#not train: # only save to disk during valdation calls for speedup
             with gzip.open(self.save_file,'wb') as f:
                 pickle.dump(self.stats, f)
 
+    def entry_from_dict(self, metrics):
+        return {'type': 'line',
+         'X': np.array([self.plot_counter]),
+         'Y': np.array([[val for key, val in metrics.items()]]),
+         'opts': {'legend': [key for key, val in metrics.items()]},
+         'smooth': self.smooth_weight}
 
 def smooth_data(smoothed, metric, w):
     if 'opts' in metric: # need to match the legend entries, they may vary by batch
@@ -168,3 +204,9 @@ def smooth_data(smoothed, metric, w):
         smoothed['Y'] = w*smoothed['Y'] + (1-w)*metric['Y']
     smoothed['X'] = metric["X"]
     return smoothed
+
+def to_numpy(x):
+    if hasattr(x,'device'): # must be pytorch
+        return x.cpu().detach().numpy()
+    else:
+        return x
