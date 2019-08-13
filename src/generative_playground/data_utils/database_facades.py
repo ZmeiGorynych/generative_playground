@@ -88,9 +88,10 @@ class DBKVStore:
             upper = (i + 1) * MAX_LINES_PER_INSERT
             input_ = query[lower: upper]
             #print('Insert Length: {}'.format(len(input_)))
-            self.conn.execute(
-                self.table.insert().values(input_)
-            )
+            if len(input_):
+                self.conn.execute(
+                    self.table.insert().values(input_)
+                )
 
     def delete_one(self, key: str):
         self.conn.execute(
