@@ -163,10 +163,10 @@ class MCTSNodeLocalThompson(MCTSNodeParent):
         self.updates_since_refresh = 0
 
     def refresh_probabilities(self):
-        # my_repo = self.locals().result_repo
         my_mask = self.locals().mask
         # already the pre-filtered
         glob_wt, glob_rewards = self.globals.experience_repository.get_total_rewards_for_graph(self.locals().graph, my_mask)
+        rule_wt, rule_rewards = self.globals.experience_repository.get_total_rewards_by_rule_for_graph(self.locals().graph, my_mask)
         # my own cache stores experiences by (graph node, rule) combinations directly
 
         my_reward = np.zeros((self.locals().mask_len, self.globals.num_bins))
@@ -179,15 +179,19 @@ class MCTSNodeLocalThompson(MCTSNodeParent):
                 count += 1
 
         max_wt = 1/(1-self.globals.decay)
-        my_glob_wt = np.maximum(0.0, max_wt - my_wt)
-        my_avg_wt = np.maximum(0.0, max_wt - my_wt - my_glob_wt)
-        avg_reward = glob_rewards.mean(axis=0, keepdims=True)
 
-        regularized_rewards = my_reward*my_wt[:, None] + glob_rewards*my_glob_wt[:,None] + avg_reward*my_avg_wt[:, None]
-        regularized_rewards /= my_wt[:, None] + my_glob_wt[:,None] + my_avg_wt[:,None]
+        # TODO: cast the below as a for loop
+        my_glob_wt = np.maximum(0.0, max_wt - my_wt)
+        my_rule_wt = np.maximum(0.0, max_wt - my_wt - my_glob_wt)
+        my_avg_wt = np.maximum(0.0, max_wt - my_wt - my_glob_wt-my_rule_wt)
+        avg_reward = rule_rewards.mean(axis=0, keepdims=True)
+
+        regularized_rewards = my_reward*my_wt[:, None] + glob_rewards*my_glob_wt[:,None] \
+                              + rule_rewards*rule_wt[:, None] + avg_reward*my_avg_wt[:, None]
+        regularized_rewards /= my_wt[:, None] + my_glob_wt[:,None] + rule_wt[:, None] + my_avg_wt[:,None]
 
         log_ps, ps = log_thompson_probabilities(regularized_rewards)
-        self.locals().log_action_probs[my_mask] = 0.2*log_ps
+        self.locals().log_action_probs[my_mask] = 0.25*log_ps
 
         self.generate_probs_from_log_action_probs()
         self.updates_since_refresh = 0

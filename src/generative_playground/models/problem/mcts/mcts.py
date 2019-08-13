@@ -42,7 +42,8 @@ def get_globals(num_bins=50,  # TODO: replace with a Value Distribution object
                   obj_num=4,
                   grammar_cache='hyper_grammar_guac_10k_with_clique_collapse.pickle',  # 'hyper_grammar.pickle'
                   max_seq_length=60,
-                  decay=0.95):
+                  decay=0.95,
+                updates_to_refresh=10):
     reward_fun_ = guacamol_goal_scoring_functions(ver)[obj_num]
     grammar_name = 'hypergraph:' + grammar_cache
     codec = get_codec(True, grammar_name, max_seq_length)
@@ -69,7 +70,7 @@ def get_globals(num_bins=50,  # TODO: replace with a Value Distribution object
                                max_seq_length,
                                exp_repo_,
                                decay=decay,
-                               updates_to_refresh=100,
+                               updates_to_refresh=updates_to_refresh,
                                reward_fun=reward_fun_,
                                reward_proc=reward_proc,
                                rule_choice_repo_factory=rule_choice_repo_factory,
@@ -91,7 +92,8 @@ def run_mcts(num_batches=10000,
              decay=0.95,
              node_type=MCTSNodeGlobalThompson,
              dashboard_name='',
-             compress_data_store=True
+             compress_data_store=True,
+             updates_to_refresh=10
              ):
     plotter = MetricPlotter(plot_prefix='',
                             save_file=None,
@@ -108,7 +110,8 @@ def run_mcts(num_batches=10000,
                                        obj_num=obj_num,
                                        grammar_cache=grammar_cache,
                                        max_seq_length=max_seq_length,
-                                       decay=decay)
+                                       decay=decay,
+                             updates_to_refresh=updates_to_refresh)
 
     temp_dir = tempfile.TemporaryDirectory()
     temp_dir_path = temp_dir.name

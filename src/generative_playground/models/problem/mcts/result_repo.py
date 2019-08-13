@@ -119,7 +119,6 @@ class ExperienceRepository:
             return out
 
     def get_total_rewards_for_graph(self, graph, mask):
-        # TODO: only store the bits where mask is True
         if graph is None:
             cond_tuple = (None, None)
             glob_data = self.conditional_store(cond_tuple)
@@ -149,6 +148,26 @@ class ExperienceRepository:
 
         return total_weights, total_rewards
 
+    def get_total_rewards_by_rule_for_graph(self, graph, mask):
+        rule_wts = self.rewards_by_action.wt_totals
+        rule_rewards = self.rewards_by_action.reward_totals
+        if graph is None:
+            total_weights = rule_wts[mask]
+            total_rewards = rule_rewards[mask]
+        else:
+            mask_len = len(mask[mask])
+            num_bins = self.conditional_store((None, None)).num_bins
+            total_weights = np.zeros(mask_len)
+            total_rewards = np.zeros((mask_len, num_bins))
+            count = 0
+            for ind, this_mask in enumerate(mask):
+                if this_mask:
+                    rule_ind = ind%len(self.grammar)
+                    total_weights[count] = rule_wts[rule_ind]
+                    total_rewards[count] = rule_rewards[rule_ind]
+                    count += 1
+
+        return total_weights, total_rewards
 
 class RuleChoiceRepository:
     """
