@@ -12,6 +12,7 @@ from generative_playground.models.problem.mcts.result_repo import ExperienceRepo
     RuleChoiceRepository
 from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring_functions
 
+
 def explore(root_node, num_sims):
     rewards = []
     infos = []
@@ -29,48 +30,27 @@ def explore(root_node, num_sims):
                 break
     return rewards, infos
 
+class RewardProcessor:
+    def __init__(self, num_bins):
+        self.num_bins = num_bins
 
-# def child_rewards_to_log_probs(child_rewards):
-#     total = 0
-#     counter = 0
-#     for c in child_rewards:
-#         if c is not None:
-#             total += c
-#             counter += 1
-#     if counter == 0:
-#         return np.zeros((len(child_rewards)))
-#     avg_reward = total / counter
-#     for c in range(len(child_rewards)):
-#         if child_rewards[c] is None:
-#             child_rewards[c] = avg_reward
-#
-#     log_probs, probs = log_thompson_probabilities(np.array(child_rewards))
-#     return log_probs
+    def __call__(self, x):
+        return (1, to_bins(x, self.num_bins))
 
-
-# linked tree with nodes
-
-
-if __name__ == '__main__':
-    shelve_fn = 'states'
-    num_bins = 50  # TODO: replace with a Value Distribution object
-    ver = 'trivial'#'v2'#'
-    obj_num = 4
+def get_globals(num_bins=50,  # TODO: replace with a Value Distribution object
+                  ver='trivial',  # 'v2'#'
+                  obj_num=4,
+                  grammar_cache='hyper_grammar_guac_10k_with_clique_collapse.pickle',  # 'hyper_grammar.pickle'
+                  max_seq_length=60,
+                  decay=0.95):
     reward_fun_ = guacamol_goal_scoring_functions(ver)[obj_num]
-    grammar_cache = 'hyper_grammar_guac_10k_with_clique_collapse.pickle'  # 'hyper_grammar.pickle'
     grammar_name = 'hypergraph:' + grammar_cache
-    max_seq_length = 60
-    num_batches = 10000
-    decay = 0.9
     codec = get_codec(True, grammar_name, max_seq_length)
-
-    def reward_proc(x):
-        return (1, to_bins(x, num_bins))
+    reward_proc = RewardProcessor(num_bins)
 
     rule_choice_repo_factory = lambda x: RuleChoiceRepository(reward_proc=reward_proc,
-                                                    mask=x,
-                                                    decay=decay)
-
+                                                              mask=x,
+                                                              decay=decay)
 
     exp_repo_ = ExperienceRepository(grammar=codec.grammar,
                                      reward_preprocessor=reward_proc,
@@ -80,12 +60,11 @@ if __name__ == '__main__':
 
     # TODO: weave this into the nodes to do node-level action averages as regularization
     local_exp_repo_factory = lambda graph: ExperienceRepository(grammar=codec.grammar,
-                                     reward_preprocessor=reward_proc,
-                                     decay=decay,
-                                     conditional_keys=[i for i in range(len(graph))],
-                                     rule_choice_repo_factory=rule_choice_repo_factory)
+                                                                reward_preprocessor=reward_proc,
+                                                                decay=decay,
+                                                                conditional_keys=[i for i in range(len(graph))],
+                                                                rule_choice_repo_factory=rule_choice_repo_factory)
 
-    state_store = {}
     globals = GlobalParameters(codec.grammar,
                                max_seq_length,
                                exp_repo_,
@@ -94,32 +73,55 @@ if __name__ == '__main__':
                                reward_fun=reward_fun_,
                                reward_proc=reward_proc,
                                rule_choice_repo_factory=rule_choice_repo_factory,
-                               state_store=state_store
+                               state_store=None
                                )
 
+
+
+
+    return globals
+
+
+def run_mcts(num_batches=10000,
+             num_bins=50,  # TODO: replace with a Value Distribution object
+             ver='trivial',  # 'v2'#'
+             obj_num=4,
+             grammar_cache='hyper_grammar_guac_10k_with_clique_collapse.pickle',  # 'hyper_grammar.pickle'
+             max_seq_length=60,
+             decay=0.95,
+             node_type=MCTSNodeGlobalThompson,
+             dashboard_name='',
+             compress_data_store=True
+             ):
     plotter = MetricPlotter(plot_prefix='',
-                 save_file=None,
-                 loss_display_cap=4,
-                 dashboard_name='MCTS',
-                 plot_ignore_initial=0,
-                 process_model_fun=model_process_fun,
-                 extra_metric_fun=None,
-                 smooth_weight=0.0,
-                 frequent_calls=False)
+                            save_file=None,
+                            loss_display_cap=4,
+                            dashboard_name=dashboard_name,
+                            plot_ignore_initial=0,
+                            process_model_fun=model_process_fun,
+                            extra_metric_fun=None,
+                            smooth_weight=0.5,
+                            frequent_calls=False)
+
+    my_globals = get_globals(num_bins=num_bins,
+                                       ver=ver,
+                                       obj_num=obj_num,
+                                       grammar_cache=grammar_cache,
+                                       max_seq_length=max_seq_length,
+                                       decay=decay)
 
     temp_dir = tempfile.TemporaryDirectory()
     temp_dir_path = temp_dir.name
     db_path = '/{}/kv_store.db'.format(temp_dir_path)
-    with Shelve(db_path, 'kv_table') as state_store:
-        globals.state_store = state_store
-        root_node = MCTSNodeLocalThompson(globals,
-                             parent=None,
-                             source_action=None,
-                             depth=1)
-        state_store.flush()
+    with Shelve(db_path, 'kv_table', compress=compress_data_store) as state_store:
+        my_globals.state_store = state_store
+        root_node = node_type(my_globals,
+                              parent=None,
+                              source_action=None,
+                              depth=1)
 
         for _ in range(num_batches):
-            rewards, infos = explore(root_node, 10)
+            rewards, infos = explore(root_node, 20)
             state_store.flush()
             # visualisation code goes here
             plotter_input = {'rewards': np.array(rewards),

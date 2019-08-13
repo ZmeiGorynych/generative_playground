@@ -1,4 +1,5 @@
 import collections.abc
+import zlib
 from io import BytesIO
 
 import pickle
@@ -24,10 +25,12 @@ class _ClosedDict(collections.abc.MutableMapping):
 
 
 class Shelve(collections.abc.MutableMapping):
-    def __init__(self, db_url, table_name):
+    def __init__(self, db_url, table_name, compress=True):
         self.db = DBKVStore(db_url, table_name)
         self.cache = {}
         self.is_open = True
+        self.compress = zlib.compress if compress else lambda x:x
+        self.decompress = zlib.decompress if compress else lambda x:x
 
     def __iter__(self):
         raise NotImplementedError
@@ -48,7 +51,7 @@ class Shelve(collections.abc.MutableMapping):
             value = self.cache[key]
         except KeyError:
             f = BytesIO(self.db[str(key)])
-            value = pickle.load(f)
+            value = pickle.loads(self.decompress(f.getvalue()))
             self.cache[key] = value
         return value
 
@@ -91,7 +94,7 @@ class Shelve(collections.abc.MutableMapping):
             raise ValueError('DB is closed!')
         if len(self.cache) > 0:
             self.db.write_many(
-                {str(k): pickle.dumps(v) for k, v in self.cache.items()}
+                {str(k): self.compress(pickle.dumps(v)) for k, v in self.cache.items()}
             )
 
     def flush(self):

@@ -3,7 +3,7 @@ import uuid
 from generative_playground.codec.hypergraph import expand_index_to_id, conditoning_tuple
 from generative_playground.codec.hypergraph_mask_generator import get_log_conditional_freqs, get_full_logit_priors, \
     action_to_node_rule_indices, apply_one_action
-from generative_playground.models.problem.mcts.result_repo import RuleChoiceRepository, log_thompson_probabilities
+from generative_playground.models.problem.mcts.result_repo import log_thompson_probabilities, update_node
 
 
 class GlobalParameters:
@@ -16,6 +16,7 @@ class GlobalParameters:
                  reward_fun=None,
                  reward_proc=None,
                  rule_choice_repo_factory=None,
+                 num_bins=50,
                  state_store={}):
         self.grammar = grammar
         self.max_depth = max_depth
@@ -26,6 +27,7 @@ class GlobalParameters:
         self.reward_proc = reward_proc
         self.rule_choice_repo_factory = rule_choice_repo_factory
         self.state_store = state_store
+        self.num_bins=num_bins
 
 class LocalState:
     def __init__(self):
@@ -57,6 +59,10 @@ class MCTSNodeParent:
         else:
             self.locals().graph = None
 
+        # TODO: implement properly
+        self.locals().total_weight = 0.0
+        self.locals().total_reward = 0.0
+
         if not graph_is_terminal(self.locals().graph):
             num_children = len(global_params.grammar) * (1 if self.locals().graph is None else len(self.locals().graph))
             self.children = np.empty([num_children], dtype=np.dtype(object)) # maps action index to child
@@ -69,7 +75,9 @@ class MCTSNodeParent:
             self.locals().log_priors = (full_logit_priors + log_freqs).reshape((-1,))
 
             mask = full_logit_priors.reshape([-1]) > -1e4
-            self.locals().result_repo = self.globals.rule_choice_repo_factory(mask)
+            self.locals().mask = mask
+            self.locals().mask_len = len(mask[mask])
+            # self.locals().result_repo = self.globals.rule_choice_repo_factory(mask)
 
             self.locals().log_action_probs = None
             self.locals().probs = None
@@ -106,11 +114,19 @@ class MCTSNodeParent:
         # self.process_back_up(reward)
         if self.parent is not None:
             # update the local result cache
-            self.parent.locals().result_repo.update(self.source_action, reward)
+            self.update(reward)
             # update the global result cache
             self.globals.experience_repository.update(self.parent.locals().graph, self.source_action, reward)
             # and recurse
             self.parent.back_up(reward)
+
+    def update(self, reward):
+        self.locals().total_weight, \
+        self.locals().total_reward = update_node(self.locals().total_weight,
+                                                           self.locals().total_reward,
+                                                           reward,
+                                                           self.globals.decay,
+                                                           self.globals.reward_proc)
 
     def generate_probs_from_log_action_probs(self):
         """
@@ -129,11 +145,14 @@ class MCTSNodeParent:
     def init_action_probabilities(self):
         raise NotImplementedError
 
+    def experiences(self):
+        return self.locals().total_weight, self.locals().total_reward
+
 
 class MCTSNodeLocalThompson(MCTSNodeParent):
     def init_action_probabilities(self):
         # gets called on node creation
-        self.locals().log_action_probs = -1e5*np.zeros(len(self.locals().result_repo.bool_mask))
+        self.locals().log_action_probs = -1e5*np.zeros(len(self.locals().mask))
         # self.locals().log_action_probs = self.globals.experience_repository.get_log_probs_for_graph(self.locals().graph).reshape((-1,))
         self.refresh_probabilities()
 
@@ -144,15 +163,21 @@ class MCTSNodeLocalThompson(MCTSNodeParent):
         self.updates_since_refresh = 0
 
     def refresh_probabilities(self):
-        masks, glob_wt, glob_rewards  = self.globals.experience_repository.get_total_rewards_for_graph(self.locals().graph)
+        # my_repo = self.locals().result_repo
+        my_mask = self.locals().mask
+        # already the pre-filtered
+        glob_wt, glob_rewards = self.globals.experience_repository.get_total_rewards_for_graph(self.locals().graph, my_mask)
         # my own cache stores experiences by (graph node, rule) combinations directly
-        my_repo = self.locals().result_repo
-        my_mask = ~my_repo.bool_mask
-        my_wt = my_repo.wt_totals[my_mask]
-        my_reward = my_repo.reward_totals[my_mask]
-        # the local mask could be more stringent because of terminal distance constraints
-        glob_rewards = glob_rewards[my_mask]
-        glob_wt = glob_wt[my_mask]
+
+        my_reward = np.zeros((self.locals().mask_len, self.globals.num_bins))
+        my_wt = np.zeros(self.locals().mask_len)
+        count = 0
+        for ind, this_mask in enumerate(my_mask):
+            if this_mask:
+                if self.children[ind] is not None:
+                    my_wt[count], my_reward[count] = self.children[ind].experiences()
+                count += 1
+
         max_wt = 1/(1-self.globals.decay)
         my_glob_wt = np.maximum(0.0, max_wt - my_wt)
         my_avg_wt = np.maximum(0.0, max_wt - my_wt - my_glob_wt)
@@ -162,17 +187,10 @@ class MCTSNodeLocalThompson(MCTSNodeParent):
         regularized_rewards /= my_wt[:, None] + my_glob_wt[:,None] + my_avg_wt[:,None]
 
         log_ps, ps = log_thompson_probabilities(regularized_rewards)
-        self.locals().log_action_probs[my_mask] = 0.1*log_ps
+        self.locals().log_action_probs[my_mask] = 0.2*log_ps
 
         self.generate_probs_from_log_action_probs()
         self.updates_since_refresh = 0
-
-
-
-
-
-
-
 
 class MCTSNodeGlobalThompson(MCTSNodeParent):
     """

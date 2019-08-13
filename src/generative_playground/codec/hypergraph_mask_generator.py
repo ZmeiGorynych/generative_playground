@@ -244,7 +244,6 @@ def get_full_logit_priors(grammar, steps_left, graphs):
 
     node_priors = -1e5 * (1 - np.array(node_mask))
     full_logit_priors += node_priors[:, :, None] # already add in the node priors so we know which nodes are impossible
-    # TODO: instead, just return probabilities for nonterminal nodes?
     return full_logit_priors, node_priors, node_mask
 
 

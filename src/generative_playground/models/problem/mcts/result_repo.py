@@ -118,34 +118,36 @@ class ExperienceRepository:
             assert out.max() > -1e4, "At least some actions must be allowed"
             return out
 
-    def get_total_rewards_for_graph(self, graph):
+    def get_total_rewards_for_graph(self, graph, mask):
+        # TODO: only store the bits where mask is True
         if graph is None:
             cond_tuple = (None, None)
             glob_data = self.conditional_store(cond_tuple)
             masks = ~(glob_data.bool_mask)
-            total_weights = glob_data.wt_totals
-            total_rewards = glob_data.reward_totals
+            total_weights = glob_data.wt_totals[mask]
+            total_rewards = glob_data.reward_totals[mask]
         else:
-            masks = []
-            total_rewards = []
-            total_weights = []
             child_ids = set(graph.child_ids())
             num_bins = self.conditional_store((None, None)).num_bins
+            mask_len = len(mask[mask])
+            total_weights = np.zeros(mask_len)
+            total_rewards = np.zeros((mask_len, num_bins))
+            count = 0  # index in total weights/rewards
+            ind = 0 # index in mask
             for n, node_id in enumerate(graph.node.keys()):
                 if node_id in child_ids:
                     cond_tuple = conditoning_tuple(graph, node_id)
                     this_cache = self.conditional_store(cond_tuple)
-                    masks.append(~(this_cache.bool_mask))
-                    total_rewards.append(this_cache.reward_totals)
-                    total_weights.append(this_cache.wt_totals)
+                    for wt, reward in zip(this_cache.wt_totals, this_cache.reward_totals):
+                        if mask[ind]:
+                            total_weights[count] = wt
+                            total_rewards[count] = reward
+                            count += 1
+                        ind += 1
                 else:
-                    masks.append(np.full(len(self.grammar), False))
-                    total_weights.append(np.zeros(len(self.grammar)))
-                    total_rewards.append(np.zeros((len(self.grammar), num_bins)))
-            masks = np.concatenate(masks)
-            total_rewards = np.concatenate(total_rewards)
-            total_weights = np.concatenate(total_weights)
-        return masks, total_weights, total_rewards
+                    ind += len(self.grammar)
+
+        return total_weights, total_rewards
 
 
 class RuleChoiceRepository:
