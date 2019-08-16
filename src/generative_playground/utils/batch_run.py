@@ -2,18 +2,19 @@ from fabric import Connection
 
 
 SOURCE_ROOT = '/home/ubuntu/generative_playground/generative_playground/src'
-PYTHON_FILE = '{src_root}/models/problem/mcts/mcts.py'.format(src_root}
+PYTHON_FILE = '{}/models/problem/mcts/mcts.py'.format(SOURCE_ROOT)
 KEY_FILE = '~/keys/mark.pem'
-IPS = []
-job_indices = {}
+job_assignments = {
+    'ip': []
+}
 
 
-for ip in ips:
-    for job in job_indices[ip]:
-        c = Connection(
-            'ubuntu@{}'.format(ip),
-            connect_kwargs={'key_filename': KEY_FILE}
-        )
+for ip, jobs in job_assignments.items():
+    c = Connection(
+        'ubuntu@{}'.format(ip),
+        connect_kwargs={'key_filename': KEY_FILE}
+    )
+    for job in jobs:
         c.run(
             (
                 'screen -d -m '
