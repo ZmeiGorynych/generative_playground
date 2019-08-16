@@ -1,3 +1,4 @@
+import uuid
 from typing import Dict, List
 
 from fabric import Connection
@@ -14,16 +15,22 @@ def batch_run(
             'ubuntu@{}'.format(ip),
             connect_kwargs={'key_filename': key_file}
         )
+        screen_name = str(uuid.uuid4())
         for job in jobs:
             c.run(
                 (
-                    "screen -dmS mols; "
-                    "screen -S mols -X stuff 'source activate pytorch_p36'$(echo -ne '\015'); "
-                    "screen -S mols -X stuff 'export PYTHONPATH=$PYTHONPATH:{src_root}/'$(echo -ne '\015'); "
-                    "screen -S mols -X stuff 'python {python_file} {job_id}'$(echo -ne '\015');"
-                ).format(src_root=source_root, python_file=python_file, job_id=job)
+                    "screen -dmS {screen_name}; "
+                    "screen -S {screen_name} -X stuff 'source activate pytorch_p36'$(echo -ne '\015'); "
+                    "screen -S {screen_name} -X stuff 'export PYTHONPATH=$PYTHONPATH:{src_root}/'$(echo -ne '\015'); "
+                    "screen -S {screen_name} -X stuff 'python {python_file} {job_id}'$(echo -ne '\015');"
+                ).format(
+                    src_root=source_root,
+                    python_file=python_file,
+                    job_id=job,
+                    screen_name=screen_name
+                )
             )
-            print('Started job {}'.format(job))
+            print('Started job {} on screen {}'.format(job, screen_name))
     print('All jobs running')
 
 
