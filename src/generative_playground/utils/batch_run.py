@@ -15,8 +15,8 @@ def batch_run(
             'ubuntu@{}'.format(ip),
             connect_kwargs={'key_filename': key_file}
         )
-        screen_name = str(uuid.uuid4())
         for job in jobs:
+            screen_name = str(uuid.uuid4())
             c.run(
                 (
                     "screen -dmS {screen_name}; "
