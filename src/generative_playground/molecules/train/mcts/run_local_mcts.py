@@ -4,4 +4,6 @@ from generative_playground.models.problem.mcts.node import MCTSNodeLocalThompson
 run_mcts(num_batches=10000,
          node_type=MCTSNodeLocalThompson,
          compress_data_store=True, # 50% faster but really disk-hungry
-         dashboard_name='MCTS_local')
+         base_name='MCTS_local',
+         ver='v2',
+         obj_num=0)

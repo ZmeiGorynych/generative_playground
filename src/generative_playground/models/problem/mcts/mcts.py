@@ -1,5 +1,7 @@
 # have to monkey-patch shelve to replace pickle with dill, for support of saving lambdas
 import tempfile
+import os
+import gzip, dill
 from generative_playground.data_utils.shelve import Shelve
 from generative_playground.utils.persistent_dict import PersistentDict
 from generative_playground.molecules.visualize_molecules import model_process_fun
@@ -84,6 +86,7 @@ def get_globals(num_bins=50,  # TODO: replace with a Value Distribution object
 
 
 def run_mcts(num_batches=10000,
+             batch_size=20,
              num_bins=50,  # TODO: replace with a Value Distribution object
              ver='trivial',  # 'v2'#'
              obj_num=4,
@@ -91,31 +94,39 @@ def run_mcts(num_batches=10000,
              max_seq_length=60,
              decay=0.95,
              node_type=MCTSNodeGlobalThompson,
-             dashboard_name='',
+             base_name='',
              compress_data_store=True,
              updates_to_refresh=10
              ):
+    root_name = base_name + '_' + ver + '_' + str(obj_num)
+
     plotter = MetricPlotter(plot_prefix='',
                             save_file=None,
                             loss_display_cap=4,
-                            dashboard_name=dashboard_name,
+                            dashboard_name=root_name,
                             plot_ignore_initial=0,
                             process_model_fun=model_process_fun,
                             extra_metric_fun=None,
                             smooth_weight=0.5,
                             frequent_calls=False)
 
-    my_globals = get_globals(num_bins=num_bins,
+    # load or create the global variables needed
+    globals_name = os.path.realpath('./data/' + root_name + '.gpkl')
+    try:
+        with gzip.open(globals_name) as f:
+            my_globals = dill.load(f)
+    except:
+        my_globals = get_globals(num_bins=num_bins,
                                        ver=ver,
                                        obj_num=obj_num,
                                        grammar_cache=grammar_cache,
                                        max_seq_length=max_seq_length,
                                        decay=decay,
                              updates_to_refresh=updates_to_refresh)
+        with gzip.open(globals_name, 'wb') as f:
+            dill.dump(my_globals, f)
 
-    temp_dir = tempfile.TemporaryDirectory()
-    temp_dir_path = temp_dir.name
-    db_path = '/{}/kv_store.db'.format(temp_dir_path)
+    db_path = '/' + os.path.realpath('./data/' + root_name + '.db').replace('\\','/')
     with Shelve(db_path, 'kv_table', compress=compress_data_store) as state_store:
         my_globals.state_store = state_store
         root_node = node_type(my_globals,
@@ -124,8 +135,12 @@ def run_mcts(num_batches=10000,
                               depth=1)
 
         for _ in range(num_batches):
-            rewards, infos = explore(root_node, 20)
+            rewards, infos = explore(root_node, batch_size)
             state_store.flush()
+            with gzip.open(globals_name, 'wb') as f:
+                my_globals.state_store = None
+                dill.dump(my_globals, f)
+                my_globals.state_store = state_store
             # visualisation code goes here
             plotter_input = {'rewards': np.array(rewards),
                              'info': [[x['smiles'] for x in infos], np.ones(len(infos))]}
@@ -133,5 +148,5 @@ def run_mcts(num_batches=10000,
             print(max(rewards))
 
     print(root_node.result_repo.avg_reward())
-    temp_dir.cleanup()
+    # temp_dir.cleanup()
     print("done!")

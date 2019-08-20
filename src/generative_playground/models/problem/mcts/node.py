@@ -44,7 +44,11 @@ class MCTSNodeParent:
         Creates a placeholder with just the value distribution guess, to be aggregated by the parent
         :param value_distr:
         """
-        self.id = str(uuid.uuid4())
+        if parent is None:
+            self.id = tuple()
+        else:
+            self.id = tuple(list(parent.id)+[source_action])
+
         global_params.state_store[self.id] = LocalState()
 
         self.globals = global_params
@@ -59,11 +63,53 @@ class MCTSNodeParent:
         else:
             self.locals().graph = None
 
-        # TODO: implement properly
+    def locals(self):
+        return self.globals.state_store[self.id]
+
+    def is_terminal(self):
+        return graph_is_terminal(self.locals().graph)
+
+    def apply_action(self, action):
+        if self.children[action] is None:
+            self.children[action] = self.make_child(action)
+        chosen_child = self.children[action]
+        reward, info = get_reward(chosen_child.locals().graph, self.globals.reward_fun)
+        return chosen_child, reward, info
+
+    def make_child(self, action):
+        return type(self)(global_params=self.globals,
+                                           parent=self,
+                                           source_action=action,
+                                           depth=self.depth + 1)
+
+
+    def update(self, reward): #it makes sense to call this as part of back up, perhaps
+        raise NotImplementedError
+
+    def back_up(self, reward):
+        raise NotImplementedError
+
+    def action_probabilities(self):
+        raise NotImplementedError
+
+
+class MCTSThompsonParent(MCTSNodeParent):
+    def __init__(self,
+                 global_params,
+                 parent,
+                 source_action,
+                 depth):
+        """
+        Creates a placeholder with just the value distribution guess, to be aggregated by the parent
+        :param value_distr:
+
+        """
+        super().__init__(global_params, parent, source_action, depth)
+
         self.locals().total_weight = 0.0
         self.locals().total_reward = 0.0
 
-        if not graph_is_terminal(self.locals().graph):
+        if not self.is_terminal():
             num_children = len(global_params.grammar) * (1 if self.locals().graph is None else len(self.locals().graph))
             self.children = np.empty([num_children], dtype=np.dtype(object)) # maps action index to child
             # the full_logit_priors at this stage merely store the information about which actions are allowed
@@ -85,30 +131,11 @@ class MCTSNodeParent:
             self.init_action_probabilities()
         assert hasattr(self.locals(), 'graph')
 
-    def locals(self):
-        return self.globals.state_store[self.id]
-
-    def is_terminal(self):
-        return graph_is_terminal(self.locals().graph)
-
     def action_probabilities(self):
         if self.updates_since_refresh > self.globals.updates_to_refresh:
             self.refresh_probabilities()
         self.updates_since_refresh += 1
         return self.locals().probs
-
-    def apply_action(self, action):
-        if self.children[action] is None:
-            self.children[action] = self.make_child(action)
-        chosen_child = self.children[action]
-        reward, info = get_reward(chosen_child.locals().graph, self.globals.reward_fun)
-        return chosen_child, reward, info
-
-    def make_child(self, action):
-        return type(self)(global_params=self.globals,
-                                           parent=self,
-                                           source_action=action,
-                                           depth=self.depth + 1)
 
     def back_up(self, reward):
         # self.process_back_up(reward)
@@ -148,8 +175,7 @@ class MCTSNodeParent:
     def experiences(self):
         return self.locals().total_weight, self.locals().total_reward
 
-
-class MCTSNodeLocalThompson(MCTSNodeParent):
+class MCTSNodeLocalThompson(MCTSThompsonParent):
     def init_action_probabilities(self):
         # gets called on node creation
         self.locals().log_action_probs = -1e5*np.zeros(len(self.locals().mask))
