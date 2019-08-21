@@ -1,12 +1,39 @@
 import numpy as np
 import uuid
+import torch.nn.functional as F
+from generative_playground.utils.gpu_utils import device
 from generative_playground.codec.hypergraph import expand_index_to_id, conditoning_tuple
 from generative_playground.codec.hypergraph_mask_generator import get_log_conditional_freqs, get_full_logit_priors, \
     action_to_node_rule_indices, apply_one_action
 from generative_playground.models.problem.mcts.result_repo import log_thompson_probabilities, update_node
+import torch
+
+class GlobalParametersParent:
+    def __init__(self,
+                 grammar,
+                 max_depth,
+                 reward_fun=None,
+                 state_store={}):
+        self.grammar = grammar
+        self.max_depth = max_depth
+        self.reward_fun = reward_fun
+        self.state_store = state_store
+
+class GlobalParametersModel(GlobalParametersParent):
+    def __init__(self,
+                 grammar,
+                 max_depth,
+                 reward_fun=None,
+                 state_store={},
+                 model=None,
+                 process_reward=None
+                 ):
+        super().__init__(grammar, max_depth, reward_fun, state_store)
+        self.model = model
+        self.process_reward = process_reward
 
 
-class GlobalParameters:
+class GlobalParametersThompson(GlobalParametersParent):
     def __init__(self,
                  grammar,
                  max_depth,
@@ -18,16 +45,15 @@ class GlobalParameters:
                  rule_choice_repo_factory=None,
                  num_bins=50,
                  state_store={}):
-        self.grammar = grammar
-        self.max_depth = max_depth
+        super().__init__(grammar, max_depth, reward_fun, state_store)
         self.experience_repository = exp_repo
         self.decay = decay
         self.updates_to_refresh = updates_to_refresh
-        self.reward_fun = reward_fun
         self.reward_proc = reward_proc
         self.rule_choice_repo_factory = rule_choice_repo_factory
-        self.state_store = state_store
         self.num_bins=num_bins
+
+
 
 class LocalState:
     def __init__(self):
@@ -56,12 +82,23 @@ class MCTSNodeParent:
         self.parent = parent
         self.source_action = source_action
         self.depth = depth
-        self.updates_since_refresh = 0
 
         if self.parent is not None:
             self.locals().graph = apply_rule(self.parent.locals().graph, source_action, global_params.grammar)
         else:
             self.locals().graph = None
+
+        if not self.is_terminal():
+            num_children = len(global_params.grammar) * (1 if self.locals().graph is None else len(self.locals().graph))
+            self.children = np.empty([num_children], dtype=np.dtype(object))  # maps action index to child
+            # the full_logit_priors at this stage merely store the information about which actions are allowed
+            full_logit_priors, _, node_mask = get_full_logit_priors(self.globals.grammar,
+                                                                    self.globals.max_depth - self.depth,
+                                                                    [self.locals().graph])
+            # these are the emprirical priors from the original dataset
+            log_freqs = get_log_conditional_freqs(self.globals.grammar, [self.locals().graph])
+
+            self.locals().log_priors = (full_logit_priors + log_freqs).reshape((-1,))
 
     def locals(self):
         return self.globals.state_store[self.id]
@@ -82,7 +119,6 @@ class MCTSNodeParent:
                                            source_action=action,
                                            depth=self.depth + 1)
 
-
     def update(self, reward): #it makes sense to call this as part of back up, perhaps
         raise NotImplementedError
 
@@ -92,6 +128,51 @@ class MCTSNodeParent:
     def action_probabilities(self):
         raise NotImplementedError
 
+
+class MCTSModelParent(MCTSNodeParent):
+    def apply_action(self, action):
+        chosen_child, reward, info = super().apply_action(action)
+        self.used_logp = self.logp[action]
+        return chosen_child, reward, info
+
+    def back_up(self, reward, log_ps=None):
+        if log_ps is None:  # terminal node
+            log_ps = []
+        else:
+            log_ps += [self.used_logp]
+
+        if self.parent is None:
+            self.globals.process_reward(reward, log_ps, self.globals.model.parameters())
+        else:
+            self.parent.back_up(reward, log_ps)
+
+    def action_probabilities(self):
+        locals = self.locals()
+        action_logits = self.globals.model([locals.graph], locals.log_priors)['masked_policy_logits'][0]
+        if hasattr(locals, 'local_logits'):
+            action_logits += locals.local_logits
+        action_probs = F.softmax(action_logits)
+        self.logp = torch.log(action_probs + 1e-5)
+        np_probs = action_probs.cpu().detach().numpy()
+        return np_probs
+
+    def parameters(self):
+        return NotImplementedError
+
+
+class MCTSNodeGlobalModel(MCTSModelParent):
+    def parameters(self):
+        return self.globals.model.parameters()
+
+
+class MCTSNodeLocalModel(MCTSModelParent):
+    def __init__(self, global_params, parent, source_action, depth):
+        super().__init__(global_params, parent, source_action, depth)
+        if not self.is_terminal():
+            self.locals().local_logits = torch.zeros(self.locals().log_priors.shape, device=device)
+
+    def parameters(self):
+        return self.globals.model.parameters() + [self.locals().local_logits]
 
 class MCTSThompsonParent(MCTSNodeParent):
     def __init__(self,
@@ -106,21 +187,12 @@ class MCTSThompsonParent(MCTSNodeParent):
         """
         super().__init__(global_params, parent, source_action, depth)
 
+        self.updates_since_refresh = 0
         self.locals().total_weight = 0.0
         self.locals().total_reward = 0.0
 
         if not self.is_terminal():
-            num_children = len(global_params.grammar) * (1 if self.locals().graph is None else len(self.locals().graph))
-            self.children = np.empty([num_children], dtype=np.dtype(object)) # maps action index to child
-            # the full_logit_priors at this stage merely store the information about which actions are allowed
-            full_logit_priors, _, node_mask = get_full_logit_priors(self.globals.grammar,
-                                                                    self.globals.max_depth - self.depth,
-                                                                    [self.locals().graph])
-            log_freqs = get_log_conditional_freqs(self.globals.grammar, [self.locals().graph])
-            # these are the emprirical priors from the original dataset
-            self.locals().log_priors = (full_logit_priors + log_freqs).reshape((-1,))
-
-            mask = full_logit_priors.reshape([-1]) > -1e4
+            mask = self.locals().log_priors.reshape([-1]) > -1e4
             self.locals().mask = mask
             self.locals().mask_len = len(mask[mask])
             # self.locals().result_repo = self.globals.rule_choice_repo_factory(mask)

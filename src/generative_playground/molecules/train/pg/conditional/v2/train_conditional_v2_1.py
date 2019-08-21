@@ -1,10 +1,12 @@
+import sys
+sys.path.remove('/home/ubuntu/shared/GitHub')
 try:
     import generative_playground
 except:
     import sys, os, inspect
 
     my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-    sys.path.append('../../../../../..')
+    # sys.path.append('../../../../../..')
     # sys.path.append('../../../../DeepRL')
     # sys.path.append('../../../../../transformer_pytorch')
 
@@ -35,7 +37,7 @@ reward_fun = reward_funs[obj_num]
 # gi = GrammarInitializer(grammar_cache)
 
 
-root_name = 'test_conditional_c_' + ver + '_' + str(obj_num) + '_lr4e-5'
+root_name = 'test_conditional_c1_' + ver + '_' + str(obj_num) + '_lr4e-5'
 max_steps = 30
 model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        grammar,
