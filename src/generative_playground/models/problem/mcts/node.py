@@ -133,6 +133,7 @@ class MCTSModelParent(MCTSNodeParent):
     def apply_action(self, action):
         chosen_child, reward, info = super().apply_action(action)
         self.used_logp = self.logp[action]
+        self.logp = None
         return chosen_child, reward, info
 
     def back_up(self, reward, log_ps=None):
@@ -140,6 +141,7 @@ class MCTSModelParent(MCTSNodeParent):
             log_ps = []
         else:
             log_ps += [self.used_logp]
+            self.used_logp = None
 
         if self.parent is None:
             self.globals.process_reward(reward, log_ps, self.globals.model.parameters())
@@ -311,7 +313,7 @@ class MCTSNodeGlobalThompson(MCTSNodeParent):
 def get_reward(graph, reward_fun):
     if graph_is_terminal(graph):
         smiles = graph.to_smiles()
-        return reward_fun([smiles])[0], {'smiles': smiles}
+        return reward_fun(smiles), {'smiles': smiles}
     else:
         return 0.0, None
 

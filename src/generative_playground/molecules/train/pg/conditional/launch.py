@@ -2,8 +2,8 @@ from generative_playground.utils.batch_run import batch_run
 import os
 
 here = os.path.realpath(__file__)
-ohio = True
-file = 'mcts_global'#'conditional'
+ohio = False#True
+file = 'mcts_local'#'conditional'
 source_root = "/home/ubuntu/shared/GitHub/generative_playground/src"
 train_root = source_root + "/generative_playground/molecules/train"
 
@@ -31,8 +31,8 @@ job_assignments = {}
 # redo = [0]
 # job_assignments = {key: [v for v in value if v in redo] for key, value in job_assignments.items()}
 # job_assignments = {key: value for key, value in job_assignments.items() if value }
-job_assignments = {'18.222.63.74': [0]}
-
+# job_assignments = {'3.15.182.107': [0]}
+job_assignments = {'34.254.195.73': [0]}
 batch_run(source_root, python_file, key_file, job_assignments)
 
 # screen -ls

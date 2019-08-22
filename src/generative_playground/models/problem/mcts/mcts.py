@@ -14,6 +14,7 @@ from generative_playground.models.problem.mcts.result_repo import ExperienceRepo
     RuleChoiceRepository
 from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring_functions
 from generative_playground.models.problem.mcts.main_mcts_model import get_model_globals
+from generative_playground.models.reward_adjuster import CountRewardAdjuster
 
 def explore(root_node, num_sims):
     rewards = []
@@ -44,13 +45,11 @@ class RewardProcessor:
 
 
 def get_thompson_globals(num_bins=50,  # TODO: replace with a Value Distribution object
-                         ver='trivial',  # 'v2'#'
-                         obj_num=4,
+                         reward_fun_ = None,
                          grammar_cache='hyper_grammar_guac_10k_with_clique_collapse.pickle',  # 'hyper_grammar.pickle'
                          max_seq_length=60,
                          decay=0.95,
                          updates_to_refresh=10):
-    reward_fun_ = guacamol_goal_scoring_functions(ver)[obj_num]
     grammar_name = 'hypergraph:' + grammar_cache
     codec = get_codec(True, grammar_name, max_seq_length)
     reward_proc = RewardProcessor(num_bins)
@@ -112,16 +111,21 @@ def run_mcts(num_batches=10000,
              decay=0.95,
 
              lr=0.05,
-             grad_clip=5
+             grad_clip=5,
+             entropy_weight=1,
              ):
     root_name = base_name + '_' + ver + '_' + str(obj_num)
 
-
+    pre_reward_fun = lambda x: guacamol_goal_scoring_functions(ver)[obj_num]([x])[0]
+    if 'model' in kind:
+        reward_fun_ = CountRewardAdjuster(pre_reward_fun)
+    else:
+        reward_fun_ = pre_reward_fun
 
     plotter = MetricPlotter(plot_prefix='',
                             save_file=None,
                             loss_display_cap=4,
-                            dashboard_name=None,#root_name,
+                            dashboard_name=root_name,
                             plot_ignore_initial=0,
                             process_model_fun=model_process_fun,
                             extra_metric_fun=None,
@@ -138,14 +142,19 @@ def run_mcts(num_batches=10000,
     except:
         if 'thompson' in kind:
             my_globals = get_thompson_globals(num_bins=num_bins,
-                                              ver=ver,
-                                              obj_num=obj_num,
+                                              reward_fun_=reward_fun_,
                                               grammar_cache=grammar_cache,
                                               max_seq_length=max_seq_length,
                                               decay=decay,
                                               updates_to_refresh=updates_to_refresh)
         elif 'model' in kind:
-            my_globals = get_model_globals(batch_size, ver, obj_num, grammar_cache, max_seq_length, lr, grad_clip)
+            my_globals = get_model_globals(batch_size,
+                                           reward_fun_,
+                                           grammar_cache,
+                                           max_seq_length,
+                                           lr,
+                                           grad_clip,
+                                           entropy_weight)
 
         with gzip.open(globals_name, 'wb') as f:
             dill.dump(my_globals, f)

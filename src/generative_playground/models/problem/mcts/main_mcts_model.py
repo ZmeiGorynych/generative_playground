@@ -9,13 +9,12 @@ from generative_playground.utils.gpu_utils import device
 
 # TODO: merge with get_globals
 def get_model_globals(batch_size=20,
-                      ver='trivial',  # 'v2'#'
-                      obj_num=4,
+                      reward_fun_=None,
                       grammar_cache='hyper_grammar_guac_10k_with_clique_collapse.pickle',  # 'hyper_grammar.pickle'
                       max_depth=60,
                       lr=0.05,
-                      grad_clip=5):
-    reward_fun_ = guacamol_goal_scoring_functions(ver)[obj_num]
+                      grad_clip=5,
+                      entropy_weight=1):
     grammar_name = 'hypergraph:' + grammar_cache
     codec = get_codec(True, grammar_name, max_depth)
     # create optimizer factory
@@ -24,7 +23,7 @@ def get_model_globals(batch_size=20,
     model = CondtionalProbabilityModel(codec.grammar).to(device)
     # create loss object
     loss_type = 'advantage_record'
-    loss_fun = PolicyGradientLoss(loss_type)
+    loss_fun = PolicyGradientLoss(loss_type, entropy_wgt=entropy_weight)
     process_reward = MCTSRewardProcessor(loss_fun, model, optimizer_factory, batch_size)
     globals =  GlobalParametersModel(
                  codec.grammar,
