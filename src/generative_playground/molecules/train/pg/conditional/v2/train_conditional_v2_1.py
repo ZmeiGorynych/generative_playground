@@ -1,5 +1,6 @@
 import sys
-sys.path.remove('/home/ubuntu/shared/GitHub')
+if '/home/ubuntu/shared/GitHub' in sys.path:
+    sys.path.remove('/home/ubuntu/shared/GitHub')
 try:
     import generative_playground
 except:
