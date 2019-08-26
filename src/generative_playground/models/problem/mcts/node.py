@@ -1,58 +1,11 @@
 import numpy as np
-import uuid
 import torch.nn.functional as F
 from generative_playground.utils.gpu_utils import device
-from generative_playground.codec.hypergraph import expand_index_to_id, conditoning_tuple
+from generative_playground.codec.hypergraph import expand_index_to_id
 from generative_playground.codec.hypergraph_mask_generator import get_log_conditional_freqs, get_full_logit_priors, \
     action_to_node_rule_indices, apply_one_action
 from generative_playground.models.problem.mcts.result_repo import log_thompson_probabilities, update_node
 import torch
-
-class GlobalParametersParent:
-    def __init__(self,
-                 grammar,
-                 max_depth,
-                 reward_fun=None,
-                 state_store={}):
-        self.grammar = grammar
-        self.max_depth = max_depth
-        self.reward_fun = reward_fun
-        self.state_store = state_store
-
-class GlobalParametersModel(GlobalParametersParent):
-    def __init__(self,
-                 grammar,
-                 max_depth,
-                 reward_fun=None,
-                 state_store={},
-                 model=None,
-                 process_reward=None
-                 ):
-        super().__init__(grammar, max_depth, reward_fun, state_store)
-        self.model = model
-        self.process_reward = process_reward
-
-
-class GlobalParametersThompson(GlobalParametersParent):
-    def __init__(self,
-                 grammar,
-                 max_depth,
-                 exp_repo,
-                 decay=0.99,
-                 updates_to_refresh=100,
-                 reward_fun=None,
-                 reward_proc=None,
-                 rule_choice_repo_factory=None,
-                 num_bins=50,
-                 state_store={}):
-        super().__init__(grammar, max_depth, reward_fun, state_store)
-        self.experience_repository = exp_repo
-        self.decay = decay
-        self.updates_to_refresh = updates_to_refresh
-        self.reward_proc = reward_proc
-        self.rule_choice_repo_factory = rule_choice_repo_factory
-        self.num_bins=num_bins
-
 
 
 class LocalState:
@@ -143,6 +96,8 @@ class MCTSModelParent(MCTSNodeParent):
             log_ps += [self.used_logp]
             self.used_logp = None
 
+        self.update(reward)
+
         if self.parent is None:
             self.globals.process_reward(reward, log_ps, self.globals.model.parameters())
         else:
@@ -161,6 +116,8 @@ class MCTSModelParent(MCTSNodeParent):
     def parameters(self):
         return NotImplementedError
 
+    def update(self, reward):
+        pass
 
 class MCTSNodeGlobalModel(MCTSModelParent):
     def parameters(self):
@@ -175,6 +132,66 @@ class MCTSNodeLocalModel(MCTSModelParent):
 
     def parameters(self):
         return self.globals.model.parameters() + [self.locals().local_logits]
+
+class MCTSNodeGlobalModelLocalThompson(MCTSNodeGlobalModel):
+    def __init__(self, global_params, parent, source_action, depth):
+        super().__init__(global_params, parent, source_action, depth)
+        self.updates_since_refresh = 0
+        self.locals().total_weight = 0.0
+        self.locals().total_reward = 0.0
+
+        if not self.is_terminal():
+            mask = self.locals().log_priors.reshape([-1]) > -1e4
+            self.locals().mask = mask
+            self.locals().mask_len = len(mask[mask])
+            self.locals().local_logits = torch.zeros(self.locals().log_priors.shape,
+                                                     device=device,
+                                                     requires_grad=False)# we'll update them using Thompson probabilities
+
+    def experiences(self):
+        return self.locals().total_weight, self.locals().total_reward
+
+    def update(self, reward):
+        self.locals().total_weight, \
+        self.locals().total_reward = update_node(self.locals().total_weight,
+                                                           self.locals().total_reward,
+                                                           reward,
+                                                           self.globals.decay,
+                                                           self.globals.reward_proc)
+        self.updates_since_refresh +=1
+        if self.updates_since_refresh > self.globals.updates_to_refresh:
+            self.update_local_logits()
+
+    # this flavor uses a model globally, but adds thompson-generated local logits in each node
+    def update_local_logits(self):
+        # already the pre-filtered
+        my_total_reward = np.zeros((self.locals().mask_len,
+                                    self.globals.reward_proc.num_bins))
+        my_total_wt = np.zeros(self.locals().mask_len)
+        count = 0
+        for ind, this_mask in enumerate(self.locals().mask):
+            if this_mask:
+                if self.children[ind] is not None:
+                    my_total_wt[count], my_total_reward[count] = self.children[ind].experiences()
+                count += 1
+
+        max_wt = 1/(1-self.globals.decay)
+
+        # Get my own average reward distribution, this is a fallback if we don't have enough observations
+        my_avg_wt = np.maximum(0.0, max_wt - my_total_wt)
+        avg_wt, avg_reward = self.experiences()
+        avg_reward /= avg_wt
+
+        regularized_rewards = my_total_reward + avg_reward[None,:]*my_avg_wt[:, None]
+        regularized_rewards /= my_total_wt[:, None] + my_avg_wt[:, None]
+
+        log_ps, ps = log_thompson_probabilities(regularized_rewards)
+        count = 0
+        for i, m in enumerate(self.locals().mask):
+            if m:
+                self.locals().local_logits[i] = log_ps[count]
+                count += 1
+        self.updates_since_refresh = 0
 
 class MCTSThompsonParent(MCTSNodeParent):
     def __init__(self,
@@ -309,6 +326,8 @@ class MCTSNodeGlobalThompson(MCTSNodeParent):
     def refresh_probabilities(self):
         # gets called each time a node decides to refresh its probability vector
         self.init_action_probabilities()
+
+
 
 def get_reward(graph, reward_fun):
     if graph_is_terminal(graph):

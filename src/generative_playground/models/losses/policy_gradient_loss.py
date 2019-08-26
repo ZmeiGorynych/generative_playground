@@ -34,6 +34,8 @@ class PolicyGradientLoss(nn.Module):
         # actions, logits, rewards, terminals, info = model_out
         smiles, valid = model_out['info']
 
+
+
         if 'logp' in model_out:
             logp = model_out['logp']
             entropy = torch.exp(logp)*logp
@@ -61,14 +63,17 @@ class PolicyGradientLoss(nn.Module):
             total_rewards = model_out['rewards'].sum(1).to(dtype=total_logp.dtype)
         else:
             total_rewards = model_out['rewards'].to(dtype=total_logp.dtype)
-
-
-
-        my_loss = self.entropy_wgt*total_entropy.mean()
-        # loss_cutoff causes us to ignore off-policy examples that are grammatically possible but masked away
         best_ind = torch.argmax(total_rewards)
-        best_loss = total_logp[best_ind]
+
+
+
+
+
+
+
+        my_loss = self.entropy_wgt * total_entropy.mean()
         if 'mean' in self.loss_type:
+            # loss_cutoff causes us to ignore off-policy examples that are grammatically possible but masked away
             rewardloss = (total_logp * total_rewards)[total_logp < self.loss_cutoff]
             mean_loss = rewardloss.mean()/(total_rewards.abs().mean()+1e-6)
             my_loss += mean_loss
@@ -85,7 +90,7 @@ class PolicyGradientLoss(nn.Module):
         first_time = len(self.best_rewards) == 1
         min_record = min(self.best_rewards)
         for i, reward in enumerate(total_rewards):
-            if reward > min_record:
+            if reward >= min_record: #note: >= or > makes a big difference?
                 # all rewards that exceed the best 10 observed so far, get their own loss contrib
                 if 'record' in self.loss_type:
                     if not first_time:
@@ -94,6 +99,7 @@ class PolicyGradientLoss(nn.Module):
 
 
         if 'best' in self.loss_type:
+            best_loss = total_logp[best_ind]
             if valid[best_ind] == 0:
                 best_loss *= 0.0
             my_loss += best_loss
@@ -104,11 +110,12 @@ class PolicyGradientLoss(nn.Module):
         # check for NaNs
         assert(my_loss == my_loss)
         if sum(valid) > 0:
-            # self.metrics = {'rec rwd': max(self.best_rewards) if 'inf' not in str(max(self.best_rewards)) else 0,
-            #                 'avg rwd': total_rewards.mean().data.item(),
-            #                 'max rwd': total_rewards.max().data.item(),
-            #                 'med rwd': total_rewards.median().data.item(),
-            self.metrics = {'entropy': total_entropy.mean().data.item()}
+            self.metrics = {'entropy': {'avg_entropy': total_entropy.mean().data.item(),
+                                       'best_entropy': total_entropy[best_ind].data.item()}}
+            if len(logp.shape) > 1:
+                best_logp = logp[best_ind,:]
+                self.metrics['logp'] = {'max_logp': logp[logp<-1e-5].max().data.item(),
+                                        'max_best_logp': best_logp[best_logp<-1e-5].max().data.item()}
         else:
             self.metrics = {}
 

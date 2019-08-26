@@ -2,12 +2,11 @@ import os, inspect
 from collections import deque
 import torch.optim as optim
 from torch.optim import lr_scheduler
-import numpy as np
 import torch.nn as nn
-import torch.nn.functional as F
 import torch
-import math
 from torch.utils.data import DataLoader
+
+from generative_playground.models.reward_adjuster import adj_reward
 from generative_playground.molecules.molecule_saver_callback import MoleculeSaver
 from generative_playground.molecules.visualize_molecules import model_process_fun
 
@@ -65,7 +64,10 @@ def train_policy_gradient(molecules=True,
     def full_path(x):
         return os.path.realpath(root_location + 'pretrained/' + x)
 
-
+    zinc_data = get_smiles_from_database(source=smiles_source)
+    zinc_set = set(zinc_data)
+    lookbacks = [BATCH_SIZE, 10 * BATCH_SIZE, 100 * BATCH_SIZE]
+    history_data = [deque(['O'], maxlen=lb) for lb in lookbacks]
 
     if save_file_root_name is not None:
         gen_save_file = save_file_root_name + '_gen.h5'
@@ -86,85 +88,17 @@ def train_policy_gradient(molecules=True,
             print('failed to load discriminator weights ' + str(e))
 
 
-    zinc_data = get_smiles_from_database(source=smiles_source)
-    zinc_set = set(zinc_data)
-    lookbacks = [BATCH_SIZE, 10*BATCH_SIZE, 100*BATCH_SIZE]
-    history_data = [deque(['O'], maxlen=lb) for lb in lookbacks]
-
-    def originality_mult(smiles_list):
-        out = []
-        for s in smiles_list:
-            if s in zinc_set:
-                out.append(0.5)
-            elif s in history_data[0]:
-                out.append(0.5)
-            elif s in history_data[1]:
-                out.append(0.70)
-            elif s in history_data[2]:
-                out.append(0.85)
-            else:
-                out.append(1.0)
-        return np.array(out)
-
-
-    def sigmoid(x):
-        return 1/(1+np.exp(-x))
-
-    def discriminator_reward_mult(smiles_list):
-        orig_state = discrim_model.training
-        discrim_model.eval()
-        discrim_out_logits = discrim_model(smiles_list)['p_zinc']
-        discrim_probs = F.softmax(discrim_out_logits, dim=1)
-        prob_zinc = discrim_probs[:,1].detach().cpu().numpy()
-        if orig_state:
-            discrim_model.train()
-        return prob_zinc
-
-
-    def apply_originality_penalty(x, orig_mult):
-        assert x <= 1, "Reward must be no greater than 0"
-        if x > 0.5: # want to punish nearly-perfect scores less and less
-            out = math.pow(x, 1/orig_mult)
-        else: # continuous join at 0.5
-            penalty = math.pow(0.5, 1/orig_mult) - 0.5
-            out = x + penalty
-
-        out -= extra_repetition_penalty*(1-1/orig_mult)
-        return out
-
-
-    def adj_reward(x):
-        if discrim_wt > 1e-5:
-            p = discriminator_reward_mult(x)
-        else:
-            p = 0
-        rwd = np.array(reward_fun_on(x))
-        orig_mult = originality_mult(x)
-        # we assume the reward is <=1, first term will dominate for reward <0, second for 0 < reward < 1
-        # reward = np.minimum(rwd/orig_mult, np.power(np.abs(rwd),1/orig_mult))
-        reward = np.array([apply_originality_penalty(x, om) for x, om in zip(rwd, orig_mult)])
-        out = reward + discrim_wt*p*orig_mult
-        return out
-
-    def adj_reward_old(x):
-        p = discriminator_reward_mult(x)
-        w = sigmoid(-(p-p_thresh)/0.01)
-        if randomize_reward:
-            rand = np.random.uniform(size=p.shape)
-            w *= rand
-        reward = np.maximum(reward_fun_on(x), p_thresh)
-        weighted_reward = w * p + (1 - w) * reward
-        out = weighted_reward * originality_mult(x) #
-        return out
 
     if EPOCHS is not None:
         settings['EPOCHS'] = EPOCHS
     if BATCH_SIZE is not None:
         settings['BATCH_SIZE'] = BATCH_SIZE
 
+    reward_fun = lambda x: adj_reward(discrim_wt, discrim_model, reward_fun_on, zinc_set, history_data, extra_repetition_penalty, x)
+
     task = SequenceGenerationTask(molecules=molecules,
                                   grammar=grammar,
-                                  reward_fun=adj_reward,
+                                  reward_fun=reward_fun,
                                   batch_size=BATCH_SIZE,
                                   max_steps=max_steps,
                                   save_dataset=None)
@@ -181,7 +115,7 @@ def train_policy_gradient(molecules=True,
                         drop_rate=drop_rate,
                         batch_size=BATCH_SIZE,
                         decoder_type=decoder_type,
-                        reward_fun=adj_reward,
+                        reward_fun=reward_fun,
                         task=task,
                         node_policy=node_policy,
                         rule_policy=rule_policy,
@@ -316,7 +250,7 @@ def train_policy_gradient(molecules=True,
     #
     # # get existing molecule data to add training
     pre_dataset = EvenlyBlendedDataset(2 * [history_data[0]] + history_data[1:] , labels=False)  # a blend of 3 time horizons
-    dataset = EvenlyBlendedDataset([pre_dataset,zinc_data], labels=True)
+    dataset = EvenlyBlendedDataset([pre_dataset, zinc_data], labels=True)
     discrim_loader = DataLoader(dataset, shuffle=True, batch_size=50)
 
     class MyLoss(nn.Module):

@@ -21,9 +21,12 @@ except:
     obj_num = 0
 
 
-run_mcts(kind='model_local',
+run_mcts(kind='model_mixed',
          compress_data_store=True,
-         base_name='MCTS_local_model_2',
+         base_name='MCTS_mixed_model',
          obj_num=obj_num,
          ver='v2',
-         reset_cache=True)
+         reset_cache=True,
+         decay=0.95,
+         updates_to_refresh=1,
+         batch_size=3)

@@ -1,3 +1,8 @@
+<<<<<<< Updated upstream
+# basic_pytorch
+Some simple demos/wrappers showing how to make things work in pytorch
+run `run.py` to see how it all fits together.
+=======
 # Introduction
 
 In this repo I intend to provide a complete Pytorch port of https://github.com/mkusner/grammarVAE, 
@@ -52,3 +57,4 @@ the original code. If you want to amend that, please edit `models/model_settings
 * Add (optional) dropout to all layers of the model
 * Provide alternative encoder using RNN + attention
 * Version of the model with no sampling of latent variable, and alternative regularization instead of KL
+>>>>>>> Stashed changes

@@ -31,6 +31,8 @@ class MCTSRewardProcessor:
         opt = self.optimizer_factory(list(self.params))
         loss = self.loss_fun(self.compose_loss_input())
         opt.step(loss)
+        del opt
+        del loss
 
     def compose_loss_input(self):
         rewards = torch.tensor(self.rewards, device=device)
@@ -38,7 +40,7 @@ class MCTSRewardProcessor:
         max_len = 0
         for p in self.log_ps:
             max_len = max(max_len, len(p))
-        log_ps = torch.ones(self.batch_size, max_len, device = device, dtype = self.log_ps[0].dtype)
+        log_ps = torch.zeros(self.batch_size, max_len, device = device, dtype = self.log_ps[0].dtype)
         for ip, p in enumerate(self.log_ps):
             log_ps[ip, :len(p)] = p
 

@@ -1,20 +1,16 @@
 # have to monkey-patch shelve to replace pickle with dill, for support of saving lambdas
-import tempfile
 import os
 import gzip, dill
 from generative_playground.data_utils.shelve import Shelve
-from generative_playground.utils.persistent_dict import PersistentDict
 from generative_playground.molecules.visualize_molecules import model_process_fun
 from generative_playground.codec.hypergraph_mask_generator import *
-from generative_playground.codec.codec import get_codec
-from generative_playground.models.problem.mcts.node import GlobalParametersThompson, \
-    MCTSNodeLocalThompson, MCTSNodeGlobalThompson, MCTSNodeGlobalModel, MCTSNodeLocalModel
+from generative_playground.models.problem.mcts.node import MCTSNodeLocalThompson, MCTSNodeGlobalThompson, \
+    MCTSNodeGlobalModel, MCTSNodeLocalModel, MCTSNodeGlobalModelLocalThompson
 from generative_playground.metrics.metric_monitor import MetricPlotter
-from generative_playground.models.problem.mcts.result_repo import ExperienceRepository, to_bins, \
-    RuleChoiceRepository
 from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring_functions
-from generative_playground.models.problem.mcts.main_mcts_model import get_model_globals
+from generative_playground.models.problem.mcts.get_mcts_globals import get_thompson_globals, GlobalParametersModel
 from generative_playground.models.reward_adjuster import CountRewardAdjuster
+
 
 def explore(root_node, num_sims):
     rewards = []
@@ -36,55 +32,6 @@ def explore(root_node, num_sims):
     return rewards, infos
 
 
-class RewardProcessor:
-    def __init__(self, num_bins):
-        self.num_bins = num_bins
-
-    def __call__(self, x):
-        return (1, to_bins(x, self.num_bins))
-
-
-def get_thompson_globals(num_bins=50,  # TODO: replace with a Value Distribution object
-                         reward_fun_ = None,
-                         grammar_cache='hyper_grammar_guac_10k_with_clique_collapse.pickle',  # 'hyper_grammar.pickle'
-                         max_seq_length=60,
-                         decay=0.95,
-                         updates_to_refresh=10):
-    grammar_name = 'hypergraph:' + grammar_cache
-    codec = get_codec(True, grammar_name, max_seq_length)
-    reward_proc = RewardProcessor(num_bins)
-
-    rule_choice_repo_factory = lambda x: RuleChoiceRepository(reward_proc=reward_proc,
-                                                              mask=x,
-                                                              decay=decay)
-
-    exp_repo_ = ExperienceRepository(grammar=codec.grammar,
-                                     reward_preprocessor=reward_proc,
-                                     decay=decay,
-                                     conditional_keys=[key for key in codec.grammar.conditional_frequencies.keys()],
-                                     rule_choice_repo_factory=rule_choice_repo_factory)
-
-    # TODO: weave this into the nodes to do node-level action averages as regularization
-    local_exp_repo_factory = lambda graph: ExperienceRepository(grammar=codec.grammar,
-                                                                reward_preprocessor=reward_proc,
-                                                                decay=decay,
-                                                                conditional_keys=[i for i in range(len(graph))],
-                                                                rule_choice_repo_factory=rule_choice_repo_factory)
-
-    globals = GlobalParametersThompson(codec.grammar,
-                                       max_seq_length,
-                                       exp_repo_,
-                                       decay=decay,
-                                       updates_to_refresh=updates_to_refresh,
-                                       reward_fun=reward_fun_,
-                                       reward_proc=reward_proc,
-                                       rule_choice_repo_factory=rule_choice_repo_factory,
-                                       state_store=None
-                                       )
-
-    return globals
-
-
 def class_from_kind(kind):
     if kind == 'thompson_local':
         return MCTSNodeLocalThompson
@@ -94,6 +41,8 @@ def class_from_kind(kind):
         return MCTSNodeGlobalModel
     if kind == 'model_local':
         return MCTSNodeLocalModel
+    if kind == 'model_mixed':
+        return MCTSNodeGlobalModelLocalThompson
 
 
 def run_mcts(num_batches=10000,
@@ -105,6 +54,7 @@ def run_mcts(num_batches=10000,
              base_name='',
              compress_data_store=True,
              kind='thompson_local',
+             reset_cache=False,
 
              num_bins=50,  # TODO: replace with a Value Distribution object
              updates_to_refresh=10,
@@ -117,7 +67,7 @@ def run_mcts(num_batches=10000,
     root_name = base_name + '_' + ver + '_' + str(obj_num)
 
     pre_reward_fun = lambda x: guacamol_goal_scoring_functions(ver)[obj_num]([x])[0]
-    if 'model' in kind:
+    if False:  # 'model' in kind:
         reward_fun_ = CountRewardAdjuster(pre_reward_fun)
     else:
         reward_fun_ = pre_reward_fun
@@ -125,7 +75,7 @@ def run_mcts(num_batches=10000,
     plotter = MetricPlotter(plot_prefix='',
                             save_file=None,
                             loss_display_cap=4,
-                            dashboard_name=root_name,
+                            dashboard_name=None,  # root_name,
                             plot_ignore_initial=0,
                             process_model_fun=model_process_fun,
                             extra_metric_fun=None,
@@ -136,6 +86,20 @@ def run_mcts(num_batches=10000,
     here = os.path.dirname(__file__)
     save_path = os.path.realpath(here + '../../../../molecules/train/mcts/data/') + '/'
     globals_name = os.path.realpath(save_path + root_name + '.gpkl')
+    db_path = '/' + os.path.realpath(save_path + root_name + '.db').replace('\\', '/')
+    if reset_cache:
+        try:
+            os.remove(globals_name)
+            print('removed globals cache ' + globals_name)
+        except:
+            print("Could not remove globals cache" + globals_name)
+
+        try:
+            os.remove(db_path)
+            print('removed locals cache ' + db_path)
+        except:
+            print("Could not remove locals cache" + db_path)
+
     try:
         with gzip.open(globals_name) as f:
             my_globals = dill.load(f)
@@ -148,20 +112,23 @@ def run_mcts(num_batches=10000,
                                               decay=decay,
                                               updates_to_refresh=updates_to_refresh)
         elif 'model' in kind:
-            my_globals = get_model_globals(batch_size,
-                                           reward_fun_,
-                                           grammar_cache,
-                                           max_seq_length,
-                                           lr,
-                                           grad_clip,
-                                           entropy_weight)
+            my_globals = GlobalParametersModel(batch_size=batch_size,
+                                               reward_fun_=reward_fun_,
+                                               grammar_cache=grammar_cache,  # 'hyper_grammar.pickle'
+                                               max_depth=max_seq_length,
+                                               lr=lr,
+                                               grad_clip=grad_clip,
+                                               entropy_weight=entropy_weight,
+                                               decay=decay,
+                                               num_bins=num_bins,
+                                               updates_to_refresh=updates_to_refresh
+                                               )
 
         with gzip.open(globals_name, 'wb') as f:
             dill.dump(my_globals, f)
 
     node_type = class_from_kind(kind)
-    db_path = '/' + os.path.realpath(save_path + root_name + '.db').replace('\\', '/')
-
+    from generative_playground.utils.deep_getsizeof import memory_by_type
     with Shelve(db_path, 'kv_table', compress=compress_data_store) as state_store:
         my_globals.state_store = state_store
         root_node = node_type(my_globals,
@@ -170,8 +137,12 @@ def run_mcts(num_batches=10000,
                               depth=1)
 
         for _ in range(num_batches):
+            mem = memory_by_type()
+            print("memory pre-explore", sum([x[2] for x in mem]), mem[:5])
             rewards, infos = explore(root_node, batch_size)
             state_store.flush()
+            mem = memory_by_type()
+            print("memory post-explore", sum([x[2] for x in mem]), mem[:5])
             with gzip.open(globals_name, 'wb') as f:
                 my_globals.state_store = None
                 dill.dump(my_globals, f)
