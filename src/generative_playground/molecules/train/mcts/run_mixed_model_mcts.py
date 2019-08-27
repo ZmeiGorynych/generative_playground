@@ -28,5 +28,5 @@ run_mcts(kind='model_mixed',
          ver='v2',
          reset_cache=True,
          decay=0.95,
-         updates_to_refresh=1,
-         batch_size=3)
+         updates_to_refresh=10,
+         batch_size=20)

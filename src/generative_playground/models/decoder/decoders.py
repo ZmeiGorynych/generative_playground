@@ -85,6 +85,8 @@ class DecoderWithEnvironmentNew(nn.Module):
             except StopIteration as e:
                 break
 
+        actions = torch.stack(actions, dim=1)
+
         out = {'rewards':  torch.cat(out_rewards, dim=1),
                'actions': actions,
                'env_outputs': env_outputs,

@@ -57,7 +57,8 @@ def train_policy_gradient(molecules=True,
                           rule_temperature_schedule=lambda x: 1.0,
                           eps=0.0,
                           half_float=False,
-                          extra_repetition_penalty=0.0):
+                          extra_repetition_penalty=0.0,
+                          entropy_wgt=1.0):
     root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     root_location = root_location + '/../../'
 
@@ -238,7 +239,7 @@ def train_policy_gradient(molecules=True,
         gen_extra_callbacks.append(TemperatureCallback(rule_policy, rule_temperature_schedule))
 
     fitter1 = get_rl_fitter(model,
-                            PolicyGradientLoss(on_policy_loss_type),# last_reward_wgt=reward_sm),
+                            PolicyGradientLoss(on_policy_loss_type, entropy_wgt=entropy_wgt),# last_reward_wgt=reward_sm),
                             GeneratorToIterable(my_gen),
                             full_path(gen_save_file),
                             plot_prefix + 'on-policy',

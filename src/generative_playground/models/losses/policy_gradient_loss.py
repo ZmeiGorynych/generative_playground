@@ -1,6 +1,18 @@
+import math
 import torch
 from torch import nn as nn
 import torch.nn.functional as F
+
+def truncated_entropy(x):
+    """
+    Calculates the entropy capped to
+    :param x: matrix of log-probabilities
+    :return: capped entropy
+    """
+    entropy = torch.zeros_like(x)
+    big_x = x[x>-1.0]
+    entropy[x>-1.0] = torch.exp(big_x)*big_x + math.exp(-1.0)
+    return entropy
 
 
 class PolicyGradientLoss(nn.Module):
@@ -33,12 +45,14 @@ class PolicyGradientLoss(nn.Module):
         '''
         # actions, logits, rewards, terminals, info = model_out
         smiles, valid = model_out['info']
-
+        actions = model_out['actions']
 
 
         if 'logp' in model_out:
             logp = model_out['logp']
-            entropy = torch.exp(logp)*logp
+            entropy = truncated_entropy(logp)[:, :-1]
+            entropy[actions == 0] = 0.0 # ignore padding
+
             if len(logp.shape) > 1:
                 total_logp = -logp.sum(1)
                 total_entropy = entropy.sum(1)
@@ -113,9 +127,13 @@ class PolicyGradientLoss(nn.Module):
             self.metrics = {'entropy': {'avg_entropy': total_entropy.mean().data.item(),
                                        'best_entropy': total_entropy[best_ind].data.item()}}
             if len(logp.shape) > 1:
-                best_logp = logp[best_ind,:]
-                self.metrics['logp'] = {'max_logp': logp[logp<-1e-5].max().data.item(),
-                                        'max_best_logp': best_logp[best_logp<-1e-5].max().data.item()}
+                best_actions = actions[best_ind, :]
+                best_logp = logp[best_ind,:-1][best_actions != 0] # ignore padding
+
+                self.metrics['logp'] = {'med_all': logp[:,:-1][actions != 0].median().data.item(),
+                                        'max': best_logp.max().data.item(),
+                                        'min': best_logp.min().data.item(),
+                                        'median':best_logp.median().data.item()}
         else:
             self.metrics = {}
 

@@ -38,7 +38,7 @@ reward_fun = reward_funs[obj_num]
 # gi = GrammarInitializer(grammar_cache)
 
 
-root_name = 'test_cond_d_' + ver + '_' + str(obj_num) + '_lr4e-5'
+root_name = 'test__cond_d_' + ver + '_' + str(obj_num) + '_lr4e-5'
 max_steps = 30
 model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        grammar,
@@ -61,7 +61,8 @@ model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        on_policy_loss_type='advantage_record',
                                                        node_temperature_schedule=lambda x: 100,
                                                        eps=0.0,
-                                                       priors='conditional')
+                                                       priors='conditional',
+                                                       entropy_wgt=10.0)
 # preload_file='policy_gradient_run.h5')
 
 while True:
