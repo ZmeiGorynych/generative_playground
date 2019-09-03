@@ -59,6 +59,7 @@ class MetricPlotter:
         self.stats = pd.DataFrame(columns=['batch', 'timestamp', 'gpu_usage', 'train', 'loss'])
         self.smooth_weight = smooth_weight
         self.smooth = {}
+        self.last_timestamp = None
         try:
             from generative_playground.utils.visdom_helper import Dashboard
             if dashboard_name is not None:
@@ -125,6 +126,13 @@ class MetricPlotter:
                     else: # just one dict with data, old-style
                         all_metrics[loss_name + ' metrics'] = self.entry_from_dict(metrics_from_loss)
                         break
+            now = datetime.datetime.now()
+            if self.last_timestamp is not None:
+                batch_duration = (now - self.last_timestamp).total_seconds()
+                all_metrics['seconds_per_batch'] = {'type':'line',
+                            'X': np.array([self.plot_counter]),
+                            'Y':np.array([batch_duration])}
+            self.last_timestamp = now
 
             try:
                 smiles = outputs['info'][0]
@@ -147,10 +155,12 @@ class MetricPlotter:
             # now do the smooth:
             smoothed_metrics = {}
             for title, metric in all_metrics.items():
-                if title not in self.smooth or 'smooth' not in metric:
+                if 'smooth' not in metric:
                     self.smooth[title] = metric
                 else:
-                    self.smooth[title] = smooth_data(self.smooth[title], metric, metric['smooth'])
+                    self.smooth[title] = smooth_data(self.smooth[title] if title in self.smooth else metric,
+                                                     metric,
+                                                     metric['smooth'])
 
             self.vis.plot_metric_dict({title: value for title, value in self.smooth.items() if title in all_metrics.keys()})
 

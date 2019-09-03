@@ -11,7 +11,7 @@ class Dashboard(Visdom):
     def __init__(self,
                  name,
                  server='http://52.213.134.161',
-                 call_every=1):
+                 call_every=0):
         super(Dashboard, self).__init__(server=server)
         self.env = name
         self.plots = {}
@@ -48,9 +48,8 @@ class Dashboard(Visdom):
                           **{key:value for key, value in metric.items() if key not in ['type','smooth']})
 
     def plot_metric_dict(self, metric_dict):
-        if len(self.metric_cache) < self.call_every:
-            self.metric_cache.append(frozendict({key: frozendict(value) for key, value in metric_dict.items()}))
-        else:
+        self.metric_cache.append(frozendict({key: frozendict(value) for key, value in metric_dict.items()}))
+        if len(self.metric_cache) >= self.call_every:
             metrics = collapse_metrics(self.metric_cache)
             self.metric_cache = []
             self._plot_metric_dict(metrics)
