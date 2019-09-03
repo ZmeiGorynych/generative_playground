@@ -86,22 +86,26 @@ class MCTSModelParent(MCTSNodeParent):
     def apply_action(self, action):
         chosen_child, reward, info = super().apply_action(action)
         self.used_logp = self.logp[action]
+        self.last_action = action
         self.logp = None
         return chosen_child, reward, info
 
-    def back_up(self, reward, log_ps=None):
+    def back_up(self, reward, log_ps=None, actions=None):
         if log_ps is None:  # terminal node
             log_ps = []
+            actions = []
         else:
             log_ps += [self.used_logp]
+            actions += [self.last_action]
             self.used_logp = None
+            self.last_action = None
 
         self.update(reward)
 
         if self.parent is None:
-            self.globals.process_reward(reward, log_ps, self.globals.model.parameters())
+            self.globals.process_reward(reward, log_ps, actions, self.parameters())
         else:
-            self.parent.back_up(reward, log_ps)
+            self.parent.back_up(reward, log_ps, actions)
 
     def action_probabilities(self):
         locals = self.locals()

@@ -16,4 +16,5 @@ run_mcts(num_batches=10000,
          compress_data_store=True,
          base_name='MCTS_global_model_2',
          obj_num=obj_num,
-            ver='v2' )
+            ver='v2',
+         reset_cache=True)

@@ -8,8 +8,15 @@ def batch_run(
     source_root: str,
     python_file: str,
     key_file: str,
-    job_assignments: Dict[str, List[str]]
+    job_assignments: Dict[str, List[str]],
+        respawner = False
 ) -> None:
+    if respawner:
+        respawner_file = source_root + "/generative_playground/molecules/train/respawner.py"
+        respawner_prefix = 'python ' + respawner_file + ' '
+    else:
+        respawner_prefix = ''
+
     for ip, jobs in job_assignments.items():
         c = Connection(
             'ubuntu@{}'.format(ip),
@@ -22,12 +29,13 @@ def batch_run(
                     "screen -dmS {screen_name}; "
                     "screen -S {screen_name} -X stuff 'source activate pytorch_p36'$(echo -ne '\015'); "
                     "screen -S {screen_name} -X stuff 'export PYTHONPATH=$PYTHONPATH:{src_root}/'$(echo -ne '\015'); "
-                    "screen -S {screen_name} -X stuff 'python {python_file} {job_id}'$(echo -ne '\015');"
+                    "screen -S {screen_name} -X stuff '{respawner_prefix}python {python_file} {job_id}'$(echo -ne '\015');"
                 ).format(
                     src_root=source_root,
                     python_file=python_file,
                     job_id=job,
-                    screen_name=screen_name
+                    screen_name=screen_name,
+                    respawner_prefix=respawner_prefix
                 )
             )
             print('Started job {} on screen {}'.format(job, screen_name))

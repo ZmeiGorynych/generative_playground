@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import defaultdict, deque
 import math
 import numpy as np
 from torch.nn import functional as F
@@ -19,8 +19,6 @@ class CountRewardAdjuster:
         else:
             raise ValueError("Reward is supposed to be <=1, got " + str(raw_reward))
         return reward
-
-
 
 
 def originality_mult(zinc_set, history_data, smiles_list):
@@ -66,7 +64,7 @@ def apply_originality_penalty(extra_repetition_penalty, x, orig_mult):
     return out
 
 
-def adj_reward(discrim_wt, discrim_model, reward_fun_on, zinc_set, history_data, extra_repetition_penalty, x):
+def adj_reward(discrim_wt, discrim_model, reward_fun_on, zinc_set, history_data, extra_repetition_penalty, x, alt_calc=None):
     if discrim_wt > 1e-5:
         p = discriminator_reward_mult(discrim_model, x)
     else:
@@ -77,6 +75,9 @@ def adj_reward(discrim_wt, discrim_model, reward_fun_on, zinc_set, history_data,
     # reward = np.minimum(rwd/orig_mult, np.power(np.abs(rwd),1/orig_mult))
     reward = np.array([apply_originality_penalty(extra_repetition_penalty, x, om) for x, om in zip(rwd, orig_mult)])
     out = reward + discrim_wt*p*orig_mult
+    # if alt_calc is not None:
+    #     alt_out = alt_calc(x)
+    #     assert alt_out[0] == out[0]
     return out
 
 
@@ -90,3 +91,28 @@ def adj_reward_old(discrim_model, p_thresh, randomize_reward, reward_fun_on, zin
     weighted_reward = w * p + (1 - w) * reward
     out = weighted_reward * originality_mult(zinc_set, history_data, x)  #
     return out
+
+
+class AdjustedRewardCalculator:
+    def __init__(self, reward_fun, zinc_set, lookbacks, extra_repetition_penalty=0.0, discrim_wt=0, discrim_model=None):
+        self.reward_fun = reward_fun
+        self.history_data = [deque(['O'], maxlen=lb) for lb in lookbacks]
+        self.zinc_set = zinc_set
+        self.repetition_penalty = extra_repetition_penalty
+        self.discrim_wt = discrim_wt
+        self.discrim_model = discrim_model
+
+    def __call__(self, smiles):
+        """
+        Converts from SMILES inputs to adjusted rewards, keeping track of the molecules observed so far
+        :param x: list of SMILES strings
+        :return:
+        """
+
+        reward = adj_reward(self.discrim_wt, self.discrim_model, self.reward_fun, self.zinc_set, self.history_data, self.repetition_penalty, smiles)
+        for s in smiles:  # only store unique instances of molecules so discriminator can't guess on frequency
+            for data in self.history_data:
+                if s not in data:
+                    data.append(s)
+        return reward
+

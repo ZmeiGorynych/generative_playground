@@ -23,13 +23,19 @@ parser = argparse.ArgumentParser(description='Run simple model against guac')
 parser.add_argument('objective', type=int, help="Guacamol objective index to target")
 parser.add_argument('--attempt', help="Attempt number (used for multiple runs)", default='')
 parser.add_argument('--lr', help="learning rate", default='')
+parser.add_argument('--entropy_wgt', help="weight of the entropy penalty", default='')
 
 args = parser.parse_args()
 lr_str = args.lr
 if not lr_str:
     lr_str = '0.05'
-
 lr = float(lr_str)
+
+ew_str = args.entropy_wgt
+if not ew_str:
+    ew_str = '1.0'
+entropy_wgt= float(ew_str)
+
 
 batch_size = 100# 20
 drop_rate = 0.5
@@ -45,8 +51,9 @@ reward_fun = reward_funs[obj_num]
 # # later will run this ahead of time
 # gi = GrammarInitializer(grammar_cache)
 attempt = '_' + args.attempt if args.attempt else ''
-
-root_name = 'bench5_conditional_' + ver + '_' + str(obj_num) + '_lr_' + lr_str + '_' + attempt
+# 'bench8obj' +
+root_name = 'test' + \
+             str(obj_num) + '_' + ver + '_lr_' + lr_str + '_ew_' + ew_str +'_' + attempt
 max_steps = 70
 model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        grammar,
@@ -69,10 +76,12 @@ model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        on_policy_loss_type='advantage_record',
                                                        node_temperature_schedule=lambda x: 100,
                                                        eps=0.0,
-                                                       priors='conditional')
+                                                       priors='conditional',
+                                                       entropy_wgt=entropy_wgt)
 # preload_file='policy_gradient_run.h5')
 
 while True:
     next(gen_fitter)
+    break
     # for _ in range(1):
     #     next(disc_fitter)

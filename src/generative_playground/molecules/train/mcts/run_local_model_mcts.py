@@ -23,7 +23,7 @@ except:
 
 run_mcts(kind='model_local',
          compress_data_store=True,
-         base_name='MCTS_local_model_2',
+         base_name='MCTS_local_model_3',
          obj_num=obj_num,
          ver='v2',
          reset_cache=True)

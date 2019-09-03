@@ -45,7 +45,7 @@ def class_from_kind(kind):
         return MCTSNodeGlobalModelLocalThompson
 
 
-def run_mcts(num_batches=10000,
+def run_mcts(num_batches=50, # respawn after that - workaround for memory leak
              batch_size=20,
              ver='trivial',  # 'v2'#'
              obj_num=4,
@@ -62,7 +62,7 @@ def run_mcts(num_batches=10000,
 
              lr=0.05,
              grad_clip=5,
-             entropy_weight=1,
+             entropy_weight=3,
              ):
     root_name = base_name + '_' + ver + '_' + str(obj_num)
 
@@ -95,10 +95,10 @@ def run_mcts(num_batches=10000,
             print("Could not remove globals cache" + globals_name)
 
         try:
-            os.remove(db_path)
-            print('removed locals cache ' + db_path)
+            os.remove(db_path[1:])
+            print('removed locals cache ' + db_path[1:])
         except:
-            print("Could not remove locals cache" + db_path)
+            print("Could not remove locals cache" + db_path[1:])
 
     try:
         with gzip.open(globals_name) as f:

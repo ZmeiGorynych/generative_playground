@@ -10,16 +10,19 @@ class MCTSRewardProcessor:
         self.batch_size = batch_size
         self.rewards = None
         self.log_ps = None
+        self.actions = None
         self.params = None
         self.reset()
 
     def reset(self):
         self.rewards = []
         self.log_ps = []
+        self.actions = []
         self.params = set()
 
-    def __call__(self, reward, log_ps, params):
+    def __call__(self, reward, log_ps, actions, params):
         self.log_ps.append(torch.stack(log_ps))
+        self.actions.append(torch.tensor(actions))
         self.rewards.append(reward)
         for p in params:
             self.params.add(p)
@@ -44,9 +47,14 @@ class MCTSRewardProcessor:
         for ip, p in enumerate(self.log_ps):
             log_ps[ip, :len(p)] = p
 
+        actions = torch.zeros(self.batch_size, max_len, device=device, dtype=self.actions[0].dtype)
+        for ip, p in enumerate(self.actions):
+            actions[ip, :len(p)] = p
+
         valid = torch.ones_like(rewards)
         loss_input = {'rewards': rewards,
                       'logp': log_ps,
+                      'actions': actions,
                       'info': (None, valid)}
         return loss_input
 

@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch
 from torch.utils.data import DataLoader
 
-from generative_playground.models.reward_adjuster import adj_reward
+from generative_playground.models.reward_adjuster import adj_reward, AdjustedRewardCalculator
 from generative_playground.molecules.molecule_saver_callback import MoleculeSaver
 from generative_playground.molecules.visualize_molecules import model_process_fun
 
@@ -95,7 +95,10 @@ def train_policy_gradient(molecules=True,
     if BATCH_SIZE is not None:
         settings['BATCH_SIZE'] = BATCH_SIZE
 
-    reward_fun = lambda x: adj_reward(discrim_wt, discrim_model, reward_fun_on, zinc_set, history_data, extra_repetition_penalty, x)
+    alt_reward_calc = AdjustedRewardCalculator(reward_fun_on, zinc_set, lookbacks, extra_repetition_penalty, discrim_wt,
+                     discrim_model=None)
+
+    reward_fun = lambda x: adj_reward(discrim_wt, discrim_model, reward_fun_on, zinc_set, history_data, extra_repetition_penalty, x, alt_calc=alt_reward_calc)
 
     task = SequenceGenerationTask(molecules=molecules,
                                   grammar=grammar,
