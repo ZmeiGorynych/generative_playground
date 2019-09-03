@@ -59,7 +59,7 @@ class MetricPlotter:
         self.stats = pd.DataFrame(columns=['batch', 'timestamp', 'gpu_usage', 'train', 'loss'])
         self.smooth_weight = smooth_weight
         self.smooth = {}
-        self.last_timestamp = None
+        self.last_timestamp = datetime.datetime.now()
         try:
             from generative_playground.utils.visdom_helper import Dashboard
             if dashboard_name is not None:

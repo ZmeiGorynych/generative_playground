@@ -23,7 +23,7 @@ from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring
 
 
 
-batch_size = 10# 20
+batch_size = 100# 20
 drop_rate = 0.5
 molecules = True
 grammar_cache = 'hyper_grammar_guac_10k_with_clique_collapse.pickle'#'hyper_grammar.pickle'

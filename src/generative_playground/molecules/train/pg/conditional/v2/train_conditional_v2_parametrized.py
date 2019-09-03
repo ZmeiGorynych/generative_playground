@@ -82,6 +82,6 @@ model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
 
 while True:
     next(gen_fitter)
-    break
+    # break
     # for _ in range(1):
     #     next(disc_fitter)

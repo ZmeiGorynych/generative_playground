@@ -23,22 +23,29 @@ def batch_run(
             connect_kwargs={'key_filename': key_file}
         )
         for job in jobs:
-            screen_name = str(uuid.uuid4())
-            c.run(
-                (
-                    "screen -dmS {screen_name}; "
-                    "screen -S {screen_name} -X stuff 'source activate pytorch_p36'$(echo -ne '\015'); "
-                    "screen -S {screen_name} -X stuff 'export PYTHONPATH=$PYTHONPATH:{src_root}/'$(echo -ne '\015'); "
-                    "screen -S {screen_name} -X stuff '{respawner_prefix}python {python_file} {job_id}'$(echo -ne '\015');"
-                ).format(
-                    src_root=source_root,
-                    python_file=python_file,
-                    job_id=job,
-                    screen_name=screen_name,
-                    respawner_prefix=respawner_prefix
-                )
-            )
-            print('Started job {} on screen {}'.format(job, screen_name))
+            for _ in range(5):
+                try:
+                    # sometimes this fails for no discernible reason, and succeeds on second try
+                    screen_name = str(uuid.uuid4())
+                    c.run(
+                        (
+                            "screen -dmS {screen_name}; "
+                            "screen -S {screen_name} -X stuff 'source activate pytorch_p36'$(echo -ne '\015'); "
+                            "screen -S {screen_name} -X stuff 'export PYTHONPATH=$PYTHONPATH:{src_root}/'$(echo -ne '\015'); "
+                            "screen -S {screen_name} -X stuff '{respawner_prefix}python {python_file} {job_id}'$(echo -ne '\015');"
+                        ).format(
+                            src_root=source_root,
+                            python_file=python_file,
+                            job_id=job,
+                            screen_name=screen_name,
+                            respawner_prefix=respawner_prefix
+                        )
+                    )
+                    print('Started job {} on screen {}'.format(job, screen_name))
+                    break
+                except:
+                    pass
+
     print('All jobs running')
 
 

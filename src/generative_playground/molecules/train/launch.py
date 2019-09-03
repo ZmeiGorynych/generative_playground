@@ -3,7 +3,7 @@ import os
 
 here = os.path.realpath(__file__)
 ohio = False  # True
-file = 'mcts_local'#'conditional'  #
+file = 'conditional'  #'mcts_local'#
 source_root = "/home/ubuntu/shared/GitHub/generative_playground/src"
 train_root = source_root + "/generative_playground/molecules/train"
 
@@ -46,7 +46,7 @@ for i in range(74, 4 * 20):
                                     + ' --entropy_wgt ' + ews[0]
                                     + ' ' + str(obj))
 
-job_assignments = {'34.255.97.22': ['0']}
+job_assignments = {'34.250.50.229': ['--attempt ' + str(i) + ' 0' for i in range(4)]}
 
 batch_run(source_root, python_file, key_file, job_assignments, respawner=True)
 
