@@ -9,8 +9,8 @@ from generative_playground.models.problem.mcts.node import MCTSNodeLocalThompson
 from generative_playground.metrics.metric_monitor import MetricPlotter
 from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring_functions
 from generative_playground.models.problem.mcts.get_mcts_globals import get_thompson_globals, GlobalParametersModel
-from generative_playground.models.reward_adjuster import CountRewardAdjuster
-
+from generative_playground.models.reward_adjuster import CountRewardAdjuster, AdjustedRewardCalculator
+from generative_playground.molecules.data_utils.zinc_utils import get_smiles_from_database
 
 def explore(root_node, num_sims):
     rewards = []
@@ -67,8 +67,11 @@ def run_mcts(num_batches=10, # respawn after that - workaround for memory leak
     root_name = base_name + '_' + ver + '_' + str(obj_num)
 
     pre_reward_fun = lambda x: guacamol_goal_scoring_functions(ver)[obj_num]([x])[0]
-    if False:  # 'model' in kind:
-        reward_fun_ = CountRewardAdjuster(pre_reward_fun)
+    if True:  # 'model' in kind:
+        zinc_set = set(get_smiles_from_database(source='ChEMBL:train'))
+        lookbacks = [batch_size, 10 * batch_size, 100 * batch_size]
+        reward_fun_ = AdjustedRewardCalculator(pre_reward_fun, zinc_set, lookbacks)
+        # reward_fun_ = CountRewardAdjuster(pre_reward_fun)
     else:
         reward_fun_ = pre_reward_fun
 
