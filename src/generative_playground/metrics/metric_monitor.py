@@ -60,11 +60,18 @@ class MetricPlotter:
         self.smooth_weight = smooth_weight
         self.smooth = {}
         self.last_timestamp = datetime.datetime.now()
+        self.dashboard_name = dashboard_name
+        self.frequent_calls = frequent_calls
+        self.vis = None
+        self.have_visdom = False
+        self.init_visdom()
+
+    def init_visdom(self):
         try:
             from generative_playground.utils.visdom_helper import Dashboard
-            if dashboard_name is not None:
-                self.vis = Dashboard(dashboard_name,
-                                     call_every=10 if frequent_calls else 1)
+            if self.dashboard_name is not None:
+                self.vis = Dashboard(self.dashboard_name,
+                                     call_every=10 if self.frequent_calls else 1)
                 self.have_visdom = True
             else:
                 self.vis = None
@@ -72,6 +79,17 @@ class MetricPlotter:
         except:
             self.have_visdom = False
             self.vis = None
+
+    def __getstate__(self):
+        state = {key:value for key, value in self.__dict__.items() if key != 'vis'}
+        state['plots'] = self.vis.plots
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.init_visdom()
+        self.vis.plots = state['plots']
+        self.plot_counter += 1
 
     def __call__(self,
                  _, #inputs

@@ -65,11 +65,13 @@ class GlobalParametersParent:
                  grammar,
                  max_depth,
                  reward_fun=None,
-                 state_store={}):
+                 state_store={},
+                 plotter=None):
         self.grammar = grammar
         self.max_depth = max_depth
         self.reward_fun = reward_fun
         self.state_store = state_store
+        self.plotter = plotter
 
 
 class GlobalParametersModel(GlobalParametersParent):
@@ -80,14 +82,15 @@ class GlobalParametersModel(GlobalParametersParent):
                  max_depth=60,
                  lr=0.05,
                  grad_clip=5,
-                 entropy_weight=1,
+                 entropy_weight=3,
                  decay=None,
                  num_bins=None,
-                 updates_to_refresh=None
+                 updates_to_refresh=None,
+                 plotter=None
                  ):
         grammar_name = 'hypergraph:' + grammar_cache
         codec = get_codec(True, grammar_name, max_depth)
-        super().__init__(codec.grammar, max_depth, reward_fun_, {})
+        super().__init__(codec.grammar, max_depth, reward_fun_, {}, plotter=plotter)
         # create optimizer factory
         optimizer_factory = optimizer_factory_gen(lr, grad_clip)
         # create model
@@ -113,8 +116,9 @@ class GlobalParametersThompson(GlobalParametersParent):
                  reward_proc=None,
                  rule_choice_repo_factory=None,
                  num_bins=50,
-                 state_store={}):
-        super().__init__(grammar, max_depth, reward_fun, state_store)
+                 state_store={},
+                 plotter=None):
+        super().__init__(grammar, max_depth, reward_fun, state_store, plotter=plotter)
         self.experience_repository = exp_repo
         self.decay = decay
         self.updates_to_refresh = updates_to_refresh

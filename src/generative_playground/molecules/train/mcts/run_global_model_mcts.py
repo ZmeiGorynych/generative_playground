@@ -11,10 +11,10 @@ try:
 except:
     obj_num = 0
 
-run_mcts(num_batches=10000,
+run_mcts(num_batches=10,
          kind='model_global',
          compress_data_store=True,
-         base_name='MCTS_global_model_2',
+         base_name='MCTS_global_model_test',
          obj_num=obj_num,
             ver='v2',
-         reset_cache=True)
+         reset_cache=False)

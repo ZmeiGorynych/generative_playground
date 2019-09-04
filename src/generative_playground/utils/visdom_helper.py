@@ -14,8 +14,9 @@ class Dashboard(Visdom):
                  call_every=0):
         super(Dashboard, self).__init__(server=server)
         self.env = name
+        self.server = server
         self.plots = {}
-        self.plot_data = {}
+        # self.plot_data = {}
         self.call_every = call_every
         self.metric_cache = []
 

@@ -46,7 +46,7 @@ for i in range(74, 4 * 20):
                                     + ' --entropy_wgt ' + ews[0]
                                     + ' ' + str(obj))
 
-job_assignments = {'34.250.50.229': ['--attempt ' + str(i) + ' 0' for i in range(4)]}
+job_assignments = {'18.224.53.209': ['--attempt ' + str(i) + ' 2' for i in range(4)]}
 
 batch_run(source_root, python_file, key_file, job_assignments, respawner=True)
 

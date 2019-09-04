@@ -45,7 +45,7 @@ def class_from_kind(kind):
         return MCTSNodeGlobalModelLocalThompson
 
 
-def run_mcts(num_batches=50, # respawn after that - workaround for memory leak
+def run_mcts(num_batches=10, # respawn after that - workaround for memory leak
              batch_size=20,
              ver='trivial',  # 'v2'#'
              obj_num=4,
@@ -72,15 +72,7 @@ def run_mcts(num_batches=50, # respawn after that - workaround for memory leak
     else:
         reward_fun_ = pre_reward_fun
 
-    plotter = MetricPlotter(plot_prefix='',
-                            save_file=None,
-                            loss_display_cap=4,
-                            dashboard_name=None,  # root_name,
-                            plot_ignore_initial=0,
-                            process_model_fun=model_process_fun,
-                            extra_metric_fun=None,
-                            smooth_weight=0.5,
-                            frequent_calls=False)
+
 
     # load or create the global variables needed
     here = os.path.dirname(__file__)
@@ -100,17 +92,31 @@ def run_mcts(num_batches=50, # respawn after that - workaround for memory leak
         except:
             print("Could not remove locals cache" + db_path[1:])
 
+
+
     try:
         with gzip.open(globals_name) as f:
             my_globals = dill.load(f)
     except:
+        plotter = MetricPlotter(plot_prefix='',
+                                save_file=None,
+                                loss_display_cap=4,
+                                dashboard_name=root_name,
+                                plot_ignore_initial=0,
+                                process_model_fun=model_process_fun,
+                                extra_metric_fun=None,
+                                smooth_weight=0.5,
+                                frequent_calls=False)
+
         if 'thompson' in kind:
             my_globals = get_thompson_globals(num_bins=num_bins,
                                               reward_fun_=reward_fun_,
                                               grammar_cache=grammar_cache,
                                               max_seq_length=max_seq_length,
                                               decay=decay,
-                                              updates_to_refresh=updates_to_refresh)
+                                              updates_to_refresh=updates_to_refresh,
+                                              plotter = plotter
+                                              )
         elif 'model' in kind:
             my_globals = GlobalParametersModel(batch_size=batch_size,
                                                reward_fun_=reward_fun_,
@@ -121,11 +127,16 @@ def run_mcts(num_batches=50, # respawn after that - workaround for memory leak
                                                entropy_weight=entropy_weight,
                                                decay=decay,
                                                num_bins=num_bins,
-                                               updates_to_refresh=updates_to_refresh
+                                               updates_to_refresh=updates_to_refresh,
+                                               plotter=plotter
                                                )
 
         with gzip.open(globals_name, 'wb') as f:
             dill.dump(my_globals, f)
+
+
+
+    # plotter.vis.plots = my_globals.plots
 
     node_type = class_from_kind(kind)
     from generative_playground.utils.deep_getsizeof import memory_by_type
@@ -145,13 +156,14 @@ def run_mcts(num_batches=50, # respawn after that - workaround for memory leak
             print("memory post-explore", sum([x[2] for x in mem]), mem[:5])
             with gzip.open(globals_name, 'wb') as f:
                 my_globals.state_store = None
+                # my_globals.plotter = plotter
                 dill.dump(my_globals, f)
                 my_globals.state_store = state_store
 
             # visualisation code goes here
             plotter_input = {'rewards': np.array(rewards),
                              'info': [[x['smiles'] for x in infos], np.ones(len(infos))]}
-            plotter(None, None, plotter_input, None, None)
+            my_globals.plotter(None, None, plotter_input, None, None)
             print(max(rewards))
 
     print(root_node.result_repo.avg_reward())

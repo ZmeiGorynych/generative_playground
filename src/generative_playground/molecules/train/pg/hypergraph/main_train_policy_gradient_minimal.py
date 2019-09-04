@@ -188,7 +188,7 @@ def train_policy_gradient(molecules=True,
         else:
             metric_monitor = None
 
-        checkpointer = Checkpointer(valid_batches_to_checkpoint=1,
+        checkpointer = Checkpointer(valid_batches_to_checkpoint=10,
                                     save_path=save_path,
                                     save_always=True)
 
