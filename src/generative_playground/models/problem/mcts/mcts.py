@@ -51,7 +51,7 @@ def run_mcts(num_batches=10, # respawn after that - workaround for memory leak
              obj_num=4,
              grammar_cache='hyper_grammar_guac_10k_with_clique_collapse.pickle',  # 'hyper_grammar.pickle'
              max_seq_length=60,
-             base_name='',
+             root_name='',
              compress_data_store=True,
              kind='thompson_local',
              reset_cache=False,
@@ -66,7 +66,7 @@ def run_mcts(num_batches=10, # respawn after that - workaround for memory leak
              grad_clip=5,
              entropy_weight=3,
              ):
-    root_name = base_name + '_' + ver + '_' + str(obj_num)
+
 
 
     if penalize_repetition:
@@ -154,7 +154,8 @@ def run_mcts(num_batches=10, # respawn after that - workaround for memory leak
             state_store.flush()
             mem = memory_by_type()
             print("memory post-explore", sum([x[2] for x in mem]), mem[:5])
-            if b % save_every == 0 and b != 0:
+            if b % save_every == save_every-1:
+                print('**** saving global state ****')
                 with gzip.open(globals_name, 'wb') as f:
                     dill.dump(my_globals.get_mutable_state(), f)
 

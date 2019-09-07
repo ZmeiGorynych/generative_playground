@@ -17,18 +17,20 @@ try:
 
     args = parser.parse_args()
     obj_num = args.objective
+    attempt = args.attempt
 except:
     obj_num = 0
+    attempt = ''
 
-
+ver = 'v2'
 run_mcts(kind='model_mixed',
          compress_data_store=True,
-         base_name='MCTS_mixed_model',
+         root_name='MCTSMixedModel' + ver + '_obj' + str(obj_num) + '_attempt' + attempt,
          obj_num=obj_num,
-         ver='v2',
+         ver=ver,
          reset_cache=False,
          penalize_repetition=True,
          decay=0.95,
          updates_to_refresh=10,
-         batch_size=100,
-         num_batches=10000)
+         batch_size=70,
+         num_batches=30)

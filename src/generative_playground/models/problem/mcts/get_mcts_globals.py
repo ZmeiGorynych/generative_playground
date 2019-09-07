@@ -91,7 +91,7 @@ class GlobalParametersModel(GlobalParametersParent):
         grammar_name = 'hypergraph:' + grammar_cache
         codec = get_codec(True, grammar_name, max_depth)
         super().__init__(codec.grammar, max_depth, reward_fun_, {}, plotter=plotter)
-        do_model = False
+        do_model = True
         if do_model:
             # create optimizer factory
             optimizer_factory = optimizer_factory_gen(lr, grad_clip)
