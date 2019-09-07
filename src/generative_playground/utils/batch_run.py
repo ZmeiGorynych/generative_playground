@@ -9,7 +9,7 @@ def batch_run(
     python_file: str,
     key_file: str,
     job_assignments: Dict[str, List[str]],
-        respawner = False
+    respawner: bool = False
 ) -> None:
     if respawner:
         respawner_file = source_root + "/generative_playground/molecules/train/respawner.py"

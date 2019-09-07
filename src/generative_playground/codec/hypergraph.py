@@ -4,6 +4,7 @@ import networkx as nx
 import uuid
 from rdkit import Chem
 from rdkit.Chem import MolFromSmiles, AddHs, MolToSmiles, RemoveHs, Kekulize, BondType
+import pickle
 from functools import lru_cache
 
 from collections import OrderedDict
@@ -85,6 +86,7 @@ class HyperGraph:
         self.node = OrderedDict()  # of Nodes
         self.edges = OrderedDict() # of edges
         self.parent_node_id = None  # The node we'll match/merge when expanding
+        self.pickled = None
 
     def reorder(self, mapping):
         assert len(mapping) == len(self.node), "Invalid mapping length"
@@ -96,6 +98,25 @@ class HyperGraph:
         out.parent_node_id = self.parent_node_id
         out.validate()
         return out
+
+    # def __getstate__(self):
+    #     if self.pickled is not None:
+    #         return self.pickled
+    #     else:
+    #         return pickle.dumps(self.__dict__)
+    #
+    # def __setstate__(self, state):
+    #     if type(state) != dict:
+    #         pkl = state
+    #         state = pickle.loads(state)
+    #     else:
+    #         pkl = None
+    #     self.__dict__ = state
+    #     self.pickled = pkl
+    #
+    # def __setattr__(self, key, value):
+    #     self.__dict__['pickled'] = None
+    #     self.__dict__[key] = value
 
     def clone(self): #create a copy of self that uses different uuids
         clone = HyperGraph()

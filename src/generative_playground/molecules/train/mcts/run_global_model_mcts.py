@@ -14,7 +14,7 @@ except:
 run_mcts(num_batches=10,
          kind='model_global',
          compress_data_store=True,
-         base_name='MCTS_global_model_test',
+         base_name='MCTS_global_model_test2',
          obj_num=obj_num,
             ver='v2',
          reset_cache=False)

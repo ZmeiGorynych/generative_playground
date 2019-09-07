@@ -1,4 +1,5 @@
 import torch
+import psutil
 use_gpu = True
 torch.set_num_threads(1)
 
@@ -37,3 +38,9 @@ def get_gpu_memory_map():
     except Exception as e:
         gpu_memory_map = {0: 0}
     return gpu_memory_map
+
+def get_free_ram():
+    mem = psutil.virtual_memory()
+    meg = 1e6
+    return {'used': mem.used/meg, 'available': mem.available/meg}
+

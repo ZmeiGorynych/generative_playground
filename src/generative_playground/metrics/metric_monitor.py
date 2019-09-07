@@ -4,7 +4,7 @@ import pandas as pd
 import pickle, gzip
 import datetime
 from collections import OrderedDict
-from generative_playground.utils.gpu_utils import get_gpu_memory_map
+from generative_playground.utils.gpu_utils import get_gpu_memory_map, get_free_ram
 import os, inspect
 
 
@@ -123,14 +123,16 @@ class MetricPlotter:
 
         # show intermediate results
         gpu_usage = get_gpu_memory_map()
+        cpu_usage = get_free_ram()
         print(loss_name, loss, self.plot_counter, gpu_usage)
         self.plot_counter += 1
         if self.vis is not None and self.plot_counter > self.plot_ignore_initial and self.have_visdom:
             all_metrics = {}
             # if not train: # don't want to call it too often as it takes time
-            all_metrics['gpu_usage'] ={'type':'line',
-                            'X': np.array([self.plot_counter]),
-                            'Y':np.array([gpu_usage[0]])}
+            all_metrics['memory_usage'] = self.entry_from_dict({'gpu': gpu_usage[0],'cpu': cpu_usage['used']})
+                             #   {'type':'line',
+                            # 'X': np.array([self.plot_counter]),
+                            # 'Y':np.array([gpu_usage[0]])}
             if loss is not None:
                 all_metrics[loss_name] ={'type': 'line',
                             'X': np.array([self.plot_counter]),

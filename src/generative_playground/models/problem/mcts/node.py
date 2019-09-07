@@ -90,11 +90,14 @@ class MCTSModelParent(MCTSNodeParent):
         self.logp = None
         return chosen_child, reward, info
 
-    def back_up(self, reward, log_ps=None, actions=None):
+    def back_up(self, reward, log_ps=None, actions=None, parameters=None):
         if log_ps is None:  # terminal node
             log_ps = []
             actions = []
+            parameters = set()
         else:
+            for p in self.parameters():
+                parameters.add(p)
             log_ps += [self.used_logp]
             actions += [self.last_action]
             self.used_logp = None
@@ -103,9 +106,9 @@ class MCTSModelParent(MCTSNodeParent):
         self.update(reward)
 
         if self.parent is None:
-            self.globals.process_reward(reward, log_ps, actions, self.parameters())
+            self.globals.process_reward(reward, log_ps, actions, parameters)
         else:
-            self.parent.back_up(reward, log_ps, actions)
+            self.parent.back_up(reward, log_ps, actions, parameters)
 
     def action_probabilities(self):
         locals = self.locals()
@@ -135,7 +138,8 @@ class MCTSNodeLocalModel(MCTSModelParent):
             self.locals().local_logits = torch.zeros(self.locals().log_priors.shape, device=device)
 
     def parameters(self):
-        return self.globals.model.parameters() + [self.locals().local_logits]
+        # TODO: recast this as an iterator
+        return list(self.globals.model.parameters() ) + [self.locals().local_logits]
 
 class MCTSNodeGlobalModelLocalThompson(MCTSNodeGlobalModel):
     def __init__(self, global_params, parent, source_action, depth):

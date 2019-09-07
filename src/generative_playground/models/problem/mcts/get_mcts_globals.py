@@ -91,18 +91,38 @@ class GlobalParametersModel(GlobalParametersParent):
         grammar_name = 'hypergraph:' + grammar_cache
         codec = get_codec(True, grammar_name, max_depth)
         super().__init__(codec.grammar, max_depth, reward_fun_, {}, plotter=plotter)
-        # create optimizer factory
-        optimizer_factory = optimizer_factory_gen(lr, grad_clip)
-        # create model
-        model = CondtionalProbabilityModel(codec.grammar).to(device)
-        # create loss object
-        loss_type = 'advantage_record'
-        loss_fun = PolicyGradientLoss(loss_type, entropy_wgt=entropy_weight)
-        self.model = model
-        self.process_reward = MCTSRewardProcessor(loss_fun, model, optimizer_factory, batch_size)
+        do_model = False
+        if do_model:
+            # create optimizer factory
+            optimizer_factory = optimizer_factory_gen(lr, grad_clip)
+            # create model
+            model = CondtionalProbabilityModel(codec.grammar).to(device)
+            # create loss object
+            loss_type = 'advantage_record'
+            loss_fun = PolicyGradientLoss(loss_type, entropy_wgt=entropy_weight)
+            self.model = model
+            self.process_reward = MCTSRewardProcessor(loss_fun, model, optimizer_factory, batch_size)
+        else:
+            self.model = lambda x, y: y
+
         self.decay = decay
         self.reward_proc = RewardProcessor(num_bins)
         self.updates_to_refresh = updates_to_refresh
+
+    def get_mutable_state(self):
+        state = {'model': self.model,
+                 'plotter': self.plotter,
+                 }
+        if hasattr(self.reward_fun, 'history_data'):
+            state['history_data'] = self.reward_fun.history_data
+        return state
+
+    def set_mutable_state(self, state):
+        self.model = state['model']
+        self.process_reward.model = state['model']
+        self.plotter = state['plotter']
+        if 'history_data' in state:
+            self.reward_fun.history_data = state['history_data']
 
 
 class GlobalParametersThompson(GlobalParametersParent):

@@ -55,6 +55,8 @@ def run_mcts(num_batches=10, # respawn after that - workaround for memory leak
              compress_data_store=True,
              kind='thompson_local',
              reset_cache=False,
+             penalize_repetition=True,
+             save_every=10,
 
              num_bins=50,  # TODO: replace with a Value Distribution object
              updates_to_refresh=10,
@@ -66,14 +68,15 @@ def run_mcts(num_batches=10, # respawn after that - workaround for memory leak
              ):
     root_name = base_name + '_' + ver + '_' + str(obj_num)
 
-    pre_reward_fun = lambda x: guacamol_goal_scoring_functions(ver)[obj_num]([x])[0]
-    if True:  # 'model' in kind:
+
+    if penalize_repetition:
         zinc_set = set(get_smiles_from_database(source='ChEMBL:train'))
         lookbacks = [batch_size, 10 * batch_size, 100 * batch_size]
+        pre_reward_fun = guacamol_goal_scoring_functions(ver)[obj_num]
         reward_fun_ = AdjustedRewardCalculator(pre_reward_fun, zinc_set, lookbacks)
         # reward_fun_ = CountRewardAdjuster(pre_reward_fun)
     else:
-        reward_fun_ = pre_reward_fun
+        reward_fun_ = lambda x: guacamol_goal_scoring_functions(ver)[obj_num]([x])[0]
 
 
 
@@ -82,64 +85,58 @@ def run_mcts(num_batches=10, # respawn after that - workaround for memory leak
     save_path = os.path.realpath(here + '../../../../molecules/train/mcts/data/') + '/'
     globals_name = os.path.realpath(save_path + root_name + '.gpkl')
     db_path = '/' + os.path.realpath(save_path + root_name + '.db').replace('\\', '/')
+
+    plotter = MetricPlotter(plot_prefix='',
+                            save_file=None,
+                            loss_display_cap=4,
+                            dashboard_name=root_name,
+                            plot_ignore_initial=0,
+                            process_model_fun=model_process_fun,
+                            extra_metric_fun=None,
+                            smooth_weight=0.5,
+                            frequent_calls=False)
+
+    # if 'thompson' in kind:
+    #     my_globals = get_thompson_globals(num_bins=num_bins,
+    #                                       reward_fun_=reward_fun_,
+    #                                       grammar_cache=grammar_cache,
+    #                                       max_seq_length=max_seq_length,
+    #                                       decay=decay,
+    #                                       updates_to_refresh=updates_to_refresh,
+    #                                       plotter=plotter
+    #                                       )
+    # elif 'model' in kind:
+    my_globals = GlobalParametersModel(batch_size=batch_size,
+                                       reward_fun_=reward_fun_,
+                                       grammar_cache=grammar_cache,  # 'hyper_grammar.pickle'
+                                       max_depth=max_seq_length,
+                                       lr=lr,
+                                       grad_clip=grad_clip,
+                                       entropy_weight=entropy_weight,
+                                       decay=decay,
+                                       num_bins=num_bins,
+                                       updates_to_refresh=updates_to_refresh,
+                                       plotter=plotter
+                                       )
     if reset_cache:
         try:
             os.remove(globals_name)
             print('removed globals cache ' + globals_name)
         except:
             print("Could not remove globals cache" + globals_name)
-
         try:
             os.remove(db_path[1:])
             print('removed locals cache ' + db_path[1:])
         except:
             print("Could not remove locals cache" + db_path[1:])
-
-
-
-    try:
-        with gzip.open(globals_name) as f:
-            my_globals = dill.load(f)
-    except:
-        plotter = MetricPlotter(plot_prefix='',
-                                save_file=None,
-                                loss_display_cap=4,
-                                dashboard_name=root_name,
-                                plot_ignore_initial=0,
-                                process_model_fun=model_process_fun,
-                                extra_metric_fun=None,
-                                smooth_weight=0.5,
-                                frequent_calls=False)
-
-        if 'thompson' in kind:
-            my_globals = get_thompson_globals(num_bins=num_bins,
-                                              reward_fun_=reward_fun_,
-                                              grammar_cache=grammar_cache,
-                                              max_seq_length=max_seq_length,
-                                              decay=decay,
-                                              updates_to_refresh=updates_to_refresh,
-                                              plotter = plotter
-                                              )
-        elif 'model' in kind:
-            my_globals = GlobalParametersModel(batch_size=batch_size,
-                                               reward_fun_=reward_fun_,
-                                               grammar_cache=grammar_cache,  # 'hyper_grammar.pickle'
-                                               max_depth=max_seq_length,
-                                               lr=lr,
-                                               grad_clip=grad_clip,
-                                               entropy_weight=entropy_weight,
-                                               decay=decay,
-                                               num_bins=num_bins,
-                                               updates_to_refresh=updates_to_refresh,
-                                               plotter=plotter
-                                               )
-
-        with gzip.open(globals_name, 'wb') as f:
-            dill.dump(my_globals, f)
-
-
-
-    # plotter.vis.plots = my_globals.plots
+    else:
+        try:
+            with gzip.open(globals_name) as f:
+                global_state = dill.load(f)
+                my_globals.set_mutable_state(global_state)
+                print("Loaded global state cache!")
+        except:
+            pass
 
     node_type = class_from_kind(kind)
     from generative_playground.utils.deep_getsizeof import memory_by_type
@@ -150,18 +147,16 @@ def run_mcts(num_batches=10, # respawn after that - workaround for memory leak
                               source_action=None,
                               depth=1)
 
-        for _ in range(num_batches):
+        for b in range(num_batches):
             mem = memory_by_type()
             print("memory pre-explore", sum([x[2] for x in mem]), mem[:5])
             rewards, infos = explore(root_node, batch_size)
             state_store.flush()
             mem = memory_by_type()
             print("memory post-explore", sum([x[2] for x in mem]), mem[:5])
-            with gzip.open(globals_name, 'wb') as f:
-                my_globals.state_store = None
-                # my_globals.plotter = plotter
-                dill.dump(my_globals, f)
-                my_globals.state_store = state_store
+            if b % save_every == 0 and b != 0:
+                with gzip.open(globals_name, 'wb') as f:
+                    dill.dump(my_globals.get_mutable_state(), f)
 
             # visualisation code goes here
             plotter_input = {'rewards': np.array(rewards),
@@ -169,6 +164,6 @@ def run_mcts(num_batches=10, # respawn after that - workaround for memory leak
             my_globals.plotter(None, None, plotter_input, None, None)
             print(max(rewards))
 
-    print(root_node.result_repo.avg_reward())
+    # print(root_node.result_repo.avg_reward())
     # temp_dir.cleanup()
     print("done!")

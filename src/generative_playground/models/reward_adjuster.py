@@ -69,7 +69,8 @@ def adj_reward(discrim_wt, discrim_model, reward_fun_on, zinc_set, history_data,
         p = discriminator_reward_mult(discrim_model, x)
     else:
         p = 0
-    rwd = np.array(reward_fun_on(x))
+    pre_rwd = reward_fun_on(x)
+    rwd = np.array(reward_fun_on(x)) if hasattr(pre_rwd,'__len__') else np.array([reward_fun_on(x)])
     orig_mult = originality_mult(zinc_set, history_data, x)
     # we assume the reward is <=1, first term will dominate for reward <0, second for 0 < reward < 1
     # reward = np.minimum(rwd/orig_mult, np.power(np.abs(rwd),1/orig_mult))
@@ -105,14 +106,22 @@ class AdjustedRewardCalculator:
     def __call__(self, smiles):
         """
         Converts from SMILES inputs to adjusted rewards, keeping track of the molecules observed so far
-        :param x: list of SMILES strings
+        :param smiles: list of SMILES strings
         :return:
         """
+        if type(smiles) == str:
+            smiles = [smiles]
+            single_value = True
+        else:
+            single_value = False
 
         reward = adj_reward(self.discrim_wt, self.discrim_model, self.reward_fun, self.zinc_set, self.history_data, self.repetition_penalty, smiles)
         for s in smiles:  # only store unique instances of molecules so discriminator can't guess on frequency
             for data in self.history_data:
                 if s not in data:
                     data.append(s)
+
+        if single_value:
+            reward = reward[0]
         return reward
 
