@@ -21,14 +21,13 @@ except:
     attempt = ''
 
 ver = 'v2'
-run_mcts(kind='model_global',
+run_mcts(kind='model_thompson',
          compress_data_store=True,
-         root_name='MCTSGlobalModel' + ver + '_obj' + str(obj_num) + '_attempt' + attempt,
+         root_name='MCTSThompsonModel' + ver + '_obj' + str(obj_num) + '_attempt' + attempt,
          obj_num=obj_num,
          ver=ver,
          reset_cache=False,
-         penalize_repetition=True,
+         penalize_repetition=False,
          batch_size=70,
          num_batches=30,
-         entropy_weight=0
          )

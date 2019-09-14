@@ -6,7 +6,7 @@ from generative_playground.models.losses.policy_gradient_loss import PolicyGradi
 from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring_functions
 from generative_playground.codec.codec import get_codec
 from generative_playground.utils.gpu_utils import device
-
+import torch
 
 # TODO: merge with get_globals
 
@@ -60,6 +60,13 @@ class RewardProcessor:
         return (1, to_bins(x, self.num_bins))
 
 
+class PassthroughModel:
+    def __call__(self, x, y):
+        return {'masked_policy_logits': torch.from_numpy(y).to(device=device, dtype=torch.float32)}
+
+    def parameters(self):
+        return []
+
 class GlobalParametersParent:
     def __init__(self,
                  grammar,
@@ -86,13 +93,14 @@ class GlobalParametersModel(GlobalParametersParent):
                  decay=None,
                  num_bins=None,
                  updates_to_refresh=None,
-                 plotter=None
+                 plotter=None,
+                 degenerate=False # use a null model if true
                  ):
         grammar_name = 'hypergraph:' + grammar_cache
         codec = get_codec(True, grammar_name, max_depth)
         super().__init__(codec.grammar, max_depth, reward_fun_, {}, plotter=plotter)
-        do_model = True
-        if do_model:
+
+        if not degenerate:
             # create optimizer factory
             optimizer_factory = optimizer_factory_gen(lr, grad_clip)
             # create model
@@ -103,7 +111,10 @@ class GlobalParametersModel(GlobalParametersParent):
             self.model = model
             self.process_reward = MCTSRewardProcessor(loss_fun, model, optimizer_factory, batch_size)
         else:
-            self.model = lambda x, y: y
+
+
+            self.model = PassthroughModel()
+            self.process_reward = lambda reward, log_ps, actions, params: None
 
         self.decay = decay
         self.reward_proc = RewardProcessor(num_bins)

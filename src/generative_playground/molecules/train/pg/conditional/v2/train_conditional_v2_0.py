@@ -14,16 +14,12 @@ except:
 # from deep_rl import *
 # from generative_playground.models.problem.rl.network_heads import CategoricalActorCriticNet
 # from generative_playground.train.rl.run_iterations import run_iterations
-from generative_playground.molecules.rdkit_utils.rdkit_utils import num_atoms, num_aromatic_rings, NormalizedScorer
 # from generative_playground.models.problem.rl.DeepRL_wrappers import BodyAdapter, MyA2CAgent
 from generative_playground.molecules.model_settings import get_settings
 from generative_playground.molecules.train.pg.hypergraph.main_train_policy_gradient_minimal import train_policy_gradient
-from generative_playground.codec.hypergraph_grammar import GrammarInitializer
-from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring_functions, version_name_list
-
-
-
-batch_size = 100# 20
+from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring_functions
+from generative_playground.models.temperature_schedule import toothy_exp_schedule, shifted_cosine_schedule
+batch_size = 75# 20
 drop_rate = 0.5
 molecules = True
 grammar_cache = 'hyper_grammar_guac_10k_with_clique_collapse.pickle'#'hyper_grammar.pickle'
@@ -38,7 +34,7 @@ reward_fun = reward_funs[obj_num]
 # gi = GrammarInitializer(grammar_cache)
 
 
-root_name = 'test_e_' + ver + '_' + str(obj_num) + '_lr4e-5'
+root_name = 'xsched2_' + ver + '_' + str(obj_num) + '_lr4e-5'
 max_steps = 50
 model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        grammar,
@@ -46,8 +42,9 @@ model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        BATCH_SIZE=batch_size,
                                                        reward_fun_on=reward_fun,
                                                        max_steps=max_steps,
-                                                       lr_on=5e-2,
+                                                       lr_on=0.05, # crazy, to be used with the cosine schedule!
                                                        lr_discrim=0.0,
+                                                       # lr_schedule=shifted_cosine_schedule,
                                                        discrim_wt=0.0,
                                                        p_thresh=-10,
                                                        drop_rate=drop_rate,
@@ -59,10 +56,10 @@ model, gen_fitter, disc_fitter = train_policy_gradient(molecules,
                                                        preload_file_root_name=None,#root_name,  #'guacamol_ar_emb_node_rpev2_0lr2e-5',#'guacamol_ar_nodev2_0lr2e-5',#root_name,
                                                        smiles_save_file=root_name.replace(' ', '_') + '_smiles_2.zip',
                                                        on_policy_loss_type='advantage_record',
-                                                       node_temperature_schedule=lambda x: 100,
+                                                       rule_temperature_schedule=toothy_exp_schedule,
                                                        eps=0.0,
                                                        priors='conditional',
-                                                       entropy_wgt=10.0)
+                                                       entropy_wgt=1.0)
 # preload_file='policy_gradient_run.h5')
 
 while True:

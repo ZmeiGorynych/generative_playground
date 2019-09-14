@@ -14,6 +14,8 @@ def truncated_entropy(x):
     entropy[x>-1.0] = torch.exp(big_x)*big_x + math.exp(-1.0)
     return entropy
 
+def entropy_fun(x):
+    return x*torch.exp(x)
 
 class PolicyGradientLoss(nn.Module):
     def __init__(self, loss_type='mean', loss_cutoff=1e4, keep_records=10, entropy_wgt=1.0): #last_reward_wgt=0.0,
@@ -51,7 +53,7 @@ class PolicyGradientLoss(nn.Module):
         if 'logp' in model_out:
             # in the old pg code, logp length was for some reason different to actions length
             logp = model_out['logp'][:, :actions.shape[1]]
-            entropy = truncated_entropy(logp)#[:, :-1]
+            entropy = entropy_fun(logp) #truncated_entropy(logp)#[:, :-1]
             entropy[actions == 0] = 0.0 # ignore padding
 
             if len(logp.shape) > 1:

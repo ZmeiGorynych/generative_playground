@@ -112,7 +112,7 @@ class MCTSModelParent(MCTSNodeParent):
 
     def action_probabilities(self):
         locals = self.locals()
-        action_logits = self.globals.model([locals.graph], locals.log_priors)['masked_policy_logits'][0]
+        action_logits = self.globals.model([locals.graph], locals.log_priors)['masked_policy_logits'].reshape(-1)
         if hasattr(locals, 'local_logits'):
             action_logits += locals.local_logits
         action_probs = F.softmax(action_logits)

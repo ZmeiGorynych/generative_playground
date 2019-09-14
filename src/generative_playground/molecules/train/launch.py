@@ -3,7 +3,7 @@ import os
 
 here = os.path.realpath(__file__)
 ohio = False  # True
-file =  'mcts_global'#'conditional'  #'mcts_local'#
+file =  'conditional'#'conditional'  #'mcts_local'#
 source_root = "/home/ubuntu/shared/GitHub/generative_playground/src"
 train_root = source_root + "/generative_playground/molecules/train"
 
@@ -15,17 +15,17 @@ elif file == 'mcts_local':
     python_file = '{}/mcts/run_local_model_mcts.py'.format(train_root)
 elif file == 'mcts_mixed':
     python_file = '{}/mcts/run_mixed_model_mcts.py'.format(train_root)
+elif file == 'mcts_thompson':
+    python_file = '{}/mcts/run_thompson_model_mcts.py'.format(train_root)
 
 if ohio:
     key_file = os.path.realpath("../../../../../aws_ohio.pem")
 else:
     key_file = os.path.realpath("../../../../../aws_second_key_pair.pem")
 
-# local: 18.202.26.193
-# mixed: 54.171.197.35
-# global: 54.246.226.31
 
-job_assignments = {'54.246.226.31': ['--attempt ' + str(i) + ' 0' for i in range(4)]}
+
+job_assignments = {'52.208.213.92': ['--attempt ' + str(i) + ' --entropy_wgt 0 --lr 0.2' + ' 0' for i in range(4)]}
 
 batch_run(source_root, python_file, key_file, job_assignments, respawner=True)
 

@@ -37,6 +37,7 @@ def train_policy_gradient(molecules=True,
                           max_steps=277,
                           lr_on=2e-4,
                           lr_discrim=1e-4,
+                          lr_schedule = None,
                           discrim_wt=2,
                           p_thresh=0.5,
                           drop_rate=0.0,
@@ -108,7 +109,7 @@ def train_policy_gradient(molecules=True,
                                   save_dataset=None)
 
     node_policy = SoftmaxRandomSamplePolicy(temperature=torch.tensor(1.0), eps=eps)
-    rule_policy = SoftmaxRandomSamplePolicy(temperature=torch.tensor(1.0), eps=eps)
+    rule_policy = SoftmaxRandomSamplePolicy(temperature=torch.tensor(2.0), eps=eps)
 
     model = get_decoder(molecules,
                         grammar,
@@ -169,6 +170,7 @@ def train_policy_gradient(molecules=True,
                       fit_plot_prefix='',
                       model_process_fun=None,
                       lr=None,
+                      lr_schedule=lr_schedule,
                       extra_callbacks=[],
                       loss_display_cap=float('inf'),
                       anchor_model=None,
@@ -176,7 +178,9 @@ def train_policy_gradient(molecules=True,
                       ):
         nice_params = filter(lambda p: p.requires_grad, model.parameters())
         optimizer = optim.Adam(nice_params, lr=lr, eps=1e-4)
-        scheduler = lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.99)
+        if lr_schedule is None:
+            lr_schedule = lambda x: 1.0
+        scheduler = lr_scheduler.LambdaLR(optimizer, lr_schedule)
 
         if dashboard is not None:
             metric_monitor = MetricPlotter(plot_prefix=fit_plot_prefix,

@@ -41,7 +41,7 @@ def class_from_kind(kind):
         return MCTSNodeGlobalModel
     if kind == 'model_local':
         return MCTSNodeLocalModel
-    if kind == 'model_mixed':
+    if kind in ['model_mixed', 'model_thompson']:
         return MCTSNodeGlobalModelLocalThompson
 
 
@@ -116,7 +116,8 @@ def run_mcts(num_batches=10, # respawn after that - workaround for memory leak
                                        decay=decay,
                                        num_bins=num_bins,
                                        updates_to_refresh=updates_to_refresh,
-                                       plotter=plotter
+                                       plotter=plotter,
+                                       degenerate=True if kind=='model_thompson' else False
                                        )
     if reset_cache:
         try:

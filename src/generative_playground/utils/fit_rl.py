@@ -41,8 +41,6 @@ def fit_rl(train_gen=None, # an iterable providing training data
 
     for epoch in range(epochs):
         print('epoch ', epoch)
-        if scheduler is not None:
-            scheduler.step()
         for inputs in train_gen:
             outputs = model(inputs) # we assume model passes through the inputs - is that a nice assumption to make?
             loss = loss_fn(outputs)
@@ -63,6 +61,8 @@ def fit_rl(train_gen=None, # an iterable providing training data
             if grad_clip is not None:
                 torch.nn.utils.clip_grad_norm_(nice_params, grad_clip)
             optimizer.step()
+            if scheduler is not None:
+                scheduler.step()
 
             # push the metrics out
             this_loss = loss.data.item()
