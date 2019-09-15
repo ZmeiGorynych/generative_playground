@@ -76,16 +76,15 @@ class PolicyGradientLoss(nn.Module):
                 total_logp -= this_logp
                 total_entropy += torch.exp(this_logp)*this_logp
 
+
+        if 'entropy' in model_out:
+            total_entropy = model_out['entropy'].sum(dim=1)
+
         if len(model_out['rewards'].shape) > 1: # old-style outputs
             total_rewards = model_out['rewards'].sum(1).to(dtype=total_logp.dtype)
         else:
             total_rewards = model_out['rewards'].to(dtype=total_logp.dtype)
         best_ind = torch.argmax(total_rewards)
-
-
-
-
-
 
 
         my_loss = self.entropy_wgt * total_entropy.mean()

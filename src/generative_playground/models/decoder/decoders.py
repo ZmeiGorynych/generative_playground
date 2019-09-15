@@ -70,11 +70,17 @@ class DecoderWithEnvironmentNew(nn.Module):
         actions = []
         out_logp = []
         out_rewards = []
+        out_entropy = []
         while True:
             try:
                 #  batch x num_actions
-                next_action, next_logp = self.stepper(last_state)
+                stepper_out = self.stepper(last_state)
+                next_action = stepper_out[0]
+                next_logp = stepper_out[1]
                 out_logp.append(to_pytorch(next_logp).unsqueeze(1))
+                if len(stepper_out) > 2:
+                    next_entropy = stepper_out[2]
+                    out_entropy.append(to_pytorch(next_entropy).unsqueeze(1))
                 # need to do a deepcopy to snapshot the graphs at their current state
                 next_env_output = self.task.step(to_numpy(next_action))
                 last_state, rewards, done, info = next_env_output
@@ -93,6 +99,9 @@ class DecoderWithEnvironmentNew(nn.Module):
                'logp': torch.cat(out_logp, dim=1),
                'graphs': last_state[0],
                'info': (info[0], to_pytorch(info[1]))}
+
+        if len(out_entropy):
+            out['entropy'] = torch.cat(out_entropy, dim=1)
 
         return out
 

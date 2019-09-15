@@ -273,6 +273,17 @@ class HypergraphGrammar(GenericCodec):
                     self.rule_frequency_dict[a] = 0
                 self.rule_frequency_dict[a] += 1
 
+    def normalize_conditional_frequencies(self):
+        for key, values in self.conditional_frequencies.items():
+            self.conditional_frequencies[key] = normalize_frequencies(values)
+
+
+def normalize_frequencies(x: dict):
+    total = sum(x.values())
+    out = {key: value/total for key, value in x.items()}
+    return out
+
+
 
 def check_full_equivalence(graph1, graph2):
     for node1, node2 in zip(graph1.node.values(), graph2.node.values()):
@@ -339,6 +350,8 @@ class GrammarInitializer:
             os.remove(self.grammar_filename)
         self.grammar.delete_cache()
 
+
+
     def init_grammar(self, max_num_mols):
         L = get_smiles_from_database(max_num_mols)
         for ind, smiles in enumerate(L):
@@ -385,5 +398,6 @@ class GrammarInitializer:
                     'avg_len': self.total_len / ind,
                     'num_rules': len(self.grammar.rules),
                 }
+        self.grammar.normalize_conditional_frequencies()
         self.grammar.calc_terminal_distance()
         return self.max_len # maximum observed molecule length

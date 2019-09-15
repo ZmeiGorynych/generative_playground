@@ -55,8 +55,11 @@ class GraphDecoderWithNodeSelection(Stepper):
         # apply policy - would need to make more elaborate if we want to have separate temperatures on node and rule selection
         next_action_ = self.rule_policy(masked_logits, used_priors)
         action_logp = self.rule_policy.logp
-
-        return next_action_, action_logp #(next_node, next_action), action_logp # will also want to return which node we picked, once we enable that
+        if hasattr(self.rule_policy, 'entropy'):
+            return next_action_, action_logp, self.rule_policy.entropy
+        else:
+            return next_action_, action_logp
+            #(next_node, next_action), action_logp # will also want to return which node we picked, once we enable that
 
     # def old_forward(self, last_state):
     #     """

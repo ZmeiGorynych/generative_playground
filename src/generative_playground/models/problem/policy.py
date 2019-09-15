@@ -50,6 +50,9 @@ class SoftmaxRandomSamplePolicy(SimplePolicy):
         self.gumbel = Gumbel(loc=0, scale=1)
         self.temperature = torch.tensor(temperature, requires_grad=False)
         self.eps = eps
+        self.do_entropy = False
+        if self.do_entropy:
+            self.entropy = None
 
     def set_temperature(self, new_temperature):
         if self.temperature != new_temperature:
@@ -70,6 +73,8 @@ class SoftmaxRandomSamplePolicy(SimplePolicy):
                 new_logits[logits < logits.max()-1000] = -1e4
             else:
                 new_logits = priors
+            if self.do_entropy:
+                self.entropy = torch.zeros_like(logits).sum(dim=1)
         else:
             if self.temperature.dtype != logits.dtype or self.temperature.device != logits.device:
                 self.temperature = torch.tensor(self.temperature,
@@ -82,9 +87,13 @@ class SoftmaxRandomSamplePolicy(SimplePolicy):
             # temperature is applied to model only, not priors!
             if priors is None:
                 new_logits = logits/self.temperature
+                raw_logits = new_logits
             else:
-                new_logits = priors + (logits-priors)/self.temperature
-
+                raw_logits = (logits-priors)/self.temperature
+                new_logits = priors + raw_logits
+            if self.do_entropy:
+                raw_logits_normalized = F.log_softmax(raw_logits, dim=1)
+                self.entropy = torch.sum(-raw_logits_normalized*torch.exp(raw_logits_normalized), dim=1)
 
         eff_logits = new_logits
         x = self.gumbel.sample(logits.shape).to(device=device, dtype=eff_logits.dtype) + eff_logits
