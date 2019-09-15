@@ -11,11 +11,12 @@ def toothy_exp_schedule(x, scale=150, max_value=10):
     temp = max_value**modifier
     return temp
 
+
 def seesaw_exp_schedule(x, scale=150, max_value=10):
-    modifier = 1 - ((x%scale)/scale) # see-saws from 1 to almost 0 then jumps back # used to go from 1 to -1
+    scale = 2*scale
+    modifier = abs(2*(x%scale)/scale - 1)  # see-saws between 0 and 1
     temp = max_value**modifier
     return temp
-
 
 def reverse_toothy_exp_schedule(x, scale=100, max_value=10):
     modifier = (x%scale)/scale # see-saws from 0 to almost 1 then jumps back # used to go from 1 to -1
