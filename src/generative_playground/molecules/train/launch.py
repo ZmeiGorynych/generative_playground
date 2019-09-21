@@ -25,7 +25,7 @@ else:
 
 
 
-job_assignments = {'34.255.194.187': ['--attempt ' + str(i) + ' --entropy_wgt 0 --lr 0.1' + ' 0' for i in range(4)]}
+job_assignments = {'18.203.232.137': ['--attempt ' + str(i) + ' --entropy_wgt 1 --lr 0.02' + ' 0' for i in range(4)]}
 
 batch_run(source_root, python_file, key_file, job_assignments, respawner=True)
 

@@ -34,7 +34,8 @@ class MetricPlotter:
                  plot_prefix='',
                  save_file=None,
                  loss_display_cap=4,
-                 dashboard_name=None,
+                 dashboard_name='main',
+                 save_location=None,
                  plot_ignore_initial=0,
                  process_model_fun=None,
                  extra_metric_fun=None,
@@ -43,15 +44,14 @@ class MetricPlotter:
         self.plot_prefix = plot_prefix
         self.process_model_fun = process_model_fun
         self.extra_metric_fun = extra_metric_fun
-        if save_file is not None:
-            self.save_file = save_file
-        else:
-            self.save_file = plot_prefix.replace(' ','_') + '.pkz'
 
-        my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-        root_location = my_location + '/../'
-        # TODO: pass that through in the constructor!
-        self.save_file = root_location + 'molecules/train/vae/data/' + self.save_file
+
+        if save_location is not None:
+            if save_file is None:
+                save_file = '/' + dashboard_name + '_metrics.zip'
+            self.save_file = save_location + save_file
+        else:
+            self.save_file = None
         self.plot_ignore_initial = plot_ignore_initial
         self.loss_display_cap = loss_display_cap
         self.plot_counter = 0
@@ -167,7 +167,7 @@ class MetricPlotter:
                 reward_dict = self.reward_calc(rewards,smiles)
                 all_metrics['reward_stats'] = self.entry_from_dict(reward_dict)
             except:
-                pass
+                rewards = np.array([0])
             # if self.extra_metric_fun is not None:
             #     all_metrics.update(self.extra_metric_fun(inputs, targets, model_out, train, self.plot_counter))
 
@@ -196,10 +196,11 @@ class MetricPlotter:
         metrics_from_loss['loss'] = loss
         metrics_from_loss['batch'] = self.plot_counter
         metrics_from_loss['timestamp'] = datetime.datetime.now()
+        metrics_from_loss['best_reward'] = rewards.max()
 
         self.stats = self.stats.append(metrics_from_loss, ignore_index=True)
 
-        if True:#not train: # only save to disk during valdation calls for speedup
+        if self.save_file is not None:
             with gzip.open(self.save_file,'wb') as f:
                 pickle.dump(self.stats, f)
 

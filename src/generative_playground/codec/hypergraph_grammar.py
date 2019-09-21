@@ -276,12 +276,14 @@ class HypergraphGrammar(GenericCodec):
     def normalize_conditional_frequencies(self):
         for key, values in self.conditional_frequencies.items():
             self.conditional_frequencies[key] = normalize_frequencies(values)
+        print('conditional frequencies normalized')
 
 
 def normalize_frequencies(x: dict):
-    total = sum(x.values())
-    out = {key: value/total for key, value in x.items()}
-    return out
+    return x
+    # total = sum(x.values())
+    # out = {key: value/total for key, value in x.items()}
+    # return out
 
 
 

@@ -1,4 +1,6 @@
 import gzip, pickle
+
+
 class MoleculeSaver:
     def __init__(self, filename, gzip=True):
         self.data = []

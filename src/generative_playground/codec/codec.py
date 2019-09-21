@@ -40,6 +40,7 @@ def get_codec(molecules, grammar, max_seq_length):
         assert grammar_cache is not None, "Invalid cached hypergraph grammar file:" + str(grammar_cache)
         codec = HypergraphGrammar.load(grammar_cache)
         codec.MAX_LEN = max_seq_length
+        codec.normalize_conditional_frequencies()
         codec.calc_terminal_distance() # just in case it wasn't initialized yet
         codec.mask_gen = HypergraphMaskGenerator(max_seq_length, codec)
     assert hasattr(codec, 'PAD_INDEX')

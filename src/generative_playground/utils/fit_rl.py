@@ -39,8 +39,7 @@ def fit_rl(train_gen=None, # an iterable providing training data
     model.train()
     # loss_fn.train()
 
-    for epoch in range(epochs):
-        print('epoch ', epoch)
+    while True:
         for inputs in train_gen:
             outputs = model(inputs) # we assume model passes through the inputs - is that a nice assumption to make?
             loss = loss_fn(outputs)

@@ -27,3 +27,15 @@ def shifted_cosine_schedule(x, period=200):
     x1 = (x % period)/period # goes from 0 to almost 1
     x2 = 0.5*(math.cos(math.pi*x1) + 1)
     return x2
+
+
+class TemperatureCallback:
+    def __init__(self, policy, temperature_function):
+        self.policy = policy
+        self.counter = 0
+        self.temp_fun = temperature_function
+
+    def __call__(self, inputs, model, outputs, loss_fn, loss):
+        self.counter += 1
+        target_temp = self.temp_fun(self.counter)
+        self.policy.set_temperature(target_temp)

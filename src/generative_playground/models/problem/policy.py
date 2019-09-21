@@ -41,7 +41,7 @@ class SoftmaxRandomSamplePolicy(SimplePolicy):
     TODO: should probably switch that to something more like
     http://pytorch.org/docs/master/distributions.html
     '''
-    def __init__(self, temperature=1.0, eps=0.0):
+    def __init__(self, temperature=1.0, eps=0.0, do_entropy=True):
         '''
 
         :param bias: a vector of log frequencies, to bias the sampling towards what we want
@@ -50,7 +50,7 @@ class SoftmaxRandomSamplePolicy(SimplePolicy):
         self.gumbel = Gumbel(loc=0, scale=1)
         self.temperature = torch.tensor(temperature, requires_grad=False)
         self.eps = eps
-        self.do_entropy = False
+        self.do_entropy = do_entropy
         if self.do_entropy:
             self.entropy = None
 
