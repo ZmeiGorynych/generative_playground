@@ -11,6 +11,8 @@ class CondtionalProbabilityModel(nn.Module):
         self.unconditionals = nn.Parameter(torch.zeros(num_rules))
         self.conditionals = nn.Parameter(torch.zeros(num_conditionals, num_rules))
         self.condition_to_ind = {pair: ind for ind, pair in enumerate(grammar.conditional_frequencies.keys())}
+        self.ind_to_condition = {ind: pair for pair, ind in self.condition_to_ind.items()}
+        self.ind_to_nonterminal = None # TODO: implement
         self.output_shape = {'action': [None]}
         self.to(device=device)
 

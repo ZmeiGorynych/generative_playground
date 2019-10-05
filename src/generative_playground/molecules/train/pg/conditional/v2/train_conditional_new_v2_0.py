@@ -39,8 +39,7 @@ root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentf
 root_location = root_location + '/../../../'
 save_location = os.path.realpath(root_location + 'pretrained/')
 
-
-runner = PolicyGradientRunner(grammar,
+runner_factory = lambda x: PolicyGradientRunner(grammar,
                               BATCH_SIZE=batch_size,
                               reward_fun=reward_fun,
                               max_steps=max_steps,
@@ -55,11 +54,13 @@ runner = PolicyGradientRunner(grammar,
                               metric_smooth=0.0,
                               decoder_type='graph_conditional',  # 'rnn_graph',# 'attention',
                               on_policy_loss_type='advantage_record',
-                              rule_temperature_schedule=lambda x: toothy_exp_schedule(x, scale=num_batches),
+                              rule_temperature_schedule=None, #lambda x: toothy_exp_schedule(x, scale=num_batches),
                               eps=0.0,
                               priors='conditional',
                               )
 # preload_file='policy_gradient_run.h5')
+
+runner = runner_factory()
 
 runner.set_root_name('whatever')
 save_fn = runner.run()

@@ -240,6 +240,17 @@ class HypergraphGrammar(GenericCodec):
             with open(self.cache_file, 'wb') as f:
                 pickle.dump(self, f)
 
+    @lru_cache(maxsize=10000)
+    def condition_pair_to_nonterminal_string(self, pair):
+        rule_ind, nt_ind = pair
+        if rule_ind is None:
+            node = None # starting graphs, rules with no parent node
+        else:
+            rule = self.rules[rule_ind]
+            node = rule.node[rule.nonterminal_ids()[nt_ind]]
+            assert node.node_index == nt_ind
+        return str(node)
+
 
     def index_node_data(self, node):
         for fn in node.data.keys():

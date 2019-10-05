@@ -60,7 +60,7 @@ class MetricPlotter:
         self.smooth_weight = smooth_weight
         self.smooth = {}
         self.last_timestamp = datetime.datetime.now()
-        self.dashboard_name = dashboard_name
+        self.dashboard_name = dashboard_name.replace('#',':') # for some reason, Visdom doesn't like hashes in dashboard names
         self.frequent_calls = frequent_calls
         self.vis = None
         self.have_visdom = False

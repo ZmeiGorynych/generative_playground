@@ -188,7 +188,8 @@ def train_policy_gradient(molecules=True,
                                            dashboard_name=dashboard,
                                            plot_ignore_initial=plot_ignore_initial,
                                            process_model_fun=model_process_fun,
-                                           smooth_weight=reward_sm)
+                                           smooth_weight=reward_sm,
+                                           save_location=os.path.dirname(save_path))
         else:
             metric_monitor = None
 
