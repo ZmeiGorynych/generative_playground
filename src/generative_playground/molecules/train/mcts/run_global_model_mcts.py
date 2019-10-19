@@ -28,7 +28,7 @@ run_mcts(kind='model_global',
          ver=ver,
          reset_cache=False,
          penalize_repetition=True,
-         batch_size=70,
+         batch_size=5,
          num_batches=30,
          entropy_weight=0
          )

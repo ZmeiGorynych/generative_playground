@@ -1,9 +1,12 @@
 import torch.nn as nn
 import torch
+import numpy as np
 from generative_playground.utils.gpu_utils import device
+from generative_playground.codec.hypergraph_mask_generator import mask_from_cond_tuple
+from generative_playground.codec.hypergraph_grammar import HypergraphGrammar
 
 class CondtionalProbabilityModel(nn.Module):
-    def __init__(self, grammar):
+    def __init__(self, grammar: HypergraphGrammar):
         super().__init__()
         self.grammar = grammar
         num_rules = len(grammar.rules)
@@ -12,9 +15,26 @@ class CondtionalProbabilityModel(nn.Module):
         self.conditionals = nn.Parameter(torch.zeros(num_conditionals, num_rules))
         self.condition_to_ind = {pair: ind for ind, pair in enumerate(grammar.conditional_frequencies.keys())}
         self.ind_to_condition = {ind: pair for pair, ind in self.condition_to_ind.items()}
-        self.ind_to_nonterminal = None # TODO: implement
+        # self.ind_to_nonterminal = None # TODO: implement
+        self.mask_by_cond_tuple = np.zeros((list(self.conditionals.shape)), dtype=np.int)
+        for ind, cond in self.ind_to_condition.items():
+            self.mask_by_cond_tuple[ind, :] = mask_from_cond_tuple(self.grammar, cond)
+        self.torch_mask_by_cond_tuple = torch.from_numpy(self.mask_by_cond_tuple).to(
+            device=self.unconditionals.device)
         self.output_shape = {'action': [None]}
         self.to(device=device)
+
+    def get_params_as_vector(self):
+        total_probs = (self.unconditionals + self.conditionals).cpu().detach().numpy()
+        out = total_probs[self.mask_by_cond_tuple==1]
+        return out
+
+    def set_params_from_vector(self, in_vector):
+        self.unconditionals.data[:] = 0
+        self.conditionals.data[self.torch_mask_by_cond_tuple==1] = torch.from_numpy(in_vector).to(
+                                                                                 dtype=self.unconditionals.dtype,
+                                                                                 device=self.unconditionals.device
+                                                                                 )
 
     def forward(self, graphs, full_logit_priors):
         max_nodes = max([1 if g is None else len(g) for g in graphs])

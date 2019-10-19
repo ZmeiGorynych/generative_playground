@@ -7,6 +7,7 @@ class MCTSRewardProcessor:
         self.loss_fun = loss_fun
         self.model = model
         self.optimizer_factory = optimizer_factory
+        self.optimizer = None
         self.batch_size = batch_size
         self.rewards = None
         self.log_ps = None
@@ -31,11 +32,14 @@ class MCTSRewardProcessor:
             self.reset()
 
     def optimizer_step(self):
-        opt = self.optimizer_factory(list(self.params))
+        if self.optimizer is None:
+            self.optimizer = self.optimizer_factory(list(self.params))
+        else:
+            del self.optimizer.optimizer.param_groups[0]
+            self.optimizer.optimizer.add_param_group({'params': list(self.params)})
+
         loss = self.loss_fun(self.compose_loss_input())
-        opt.step(loss)
-        del opt
-        del loss
+        self.optimizer.step(loss)
 
     def compose_loss_input(self):
         rewards = torch.tensor(self.rewards, device=device)

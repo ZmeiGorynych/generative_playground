@@ -61,6 +61,8 @@ class HypergraphGrammar(GenericCodec):
 
     @property
     def rule_term_dist_deltas(self): # write-protect that one
+        if isinstance(self._rule_term_dist_deltas, tuple):
+            self._rule_term_dist_deltas = np.array(self._rule_term_dist_deltas)
         return self._rule_term_dist_deltas
 
     @classmethod

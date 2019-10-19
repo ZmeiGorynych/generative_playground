@@ -203,6 +203,13 @@ class PolicyGradientRunner(Saveable):
         # need to use the factory because neither dill nor cloudpickle will serialize generators
         self.fitter = self.fitter_factory()
 
+    def get_model_coeff_vector(self):
+        coeffvec = self.model.stepper.model.get_params_as_vector()
+        return coeffvec
+
+    def set_model_coeff_vector(self, vector_in):
+        self.model.stepper.model.set_params_from_vector(vector_in)
+
     @classmethod
     def load_from_root_name(cls, save_location, root_name):
         full_save_file = os.path.realpath(save_location + '/' + root_name + '_runner.zip')
