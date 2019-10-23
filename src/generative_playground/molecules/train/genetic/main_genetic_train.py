@@ -92,3 +92,45 @@ def run_genetic_opt(top_N = 10,
 
     return extract_best(data_cache, 1)
 
+def run_initial_scan(num_batches = 100,
+                    batch_size = 30,
+                    snapshot_dir=None,
+                    entropy_wgt =0.0,
+                    root_name = None,
+                    obj_num=None,
+                    ver='v2',
+                    lr=0.01,
+                    attempt=''
+                    ):
+    grammar_cache = 'hyper_grammar_guac_10k_with_clique_collapse.pickle'  # 'hyper_grammar.pickle'
+    grammar = 'hypergraph:' + grammar_cache
+    reward_funs = guacamol_goal_scoring_functions(ver)
+    reward_fun = reward_funs[obj_num]
+
+    first_runner = lambda: PolicyGradientRunner(grammar,
+                                                  BATCH_SIZE=batch_size,
+                                                  reward_fun=reward_fun,
+                                                  max_steps=60,
+                                                  num_batches=num_batches,
+                                                  lr=lr,
+                                                  entropy_wgt=entropy_wgt,
+                                                  # lr_schedule=shifted_cosine_schedule,
+                                                  root_name=root_name,
+                                                  preload_file_root_name=None,
+                                                  plot_metrics=True,
+                                                  save_location=snapshot_dir,
+                                                  metric_smooth=0.0,
+                                                  decoder_type='graph_conditional',  # 'rnn_graph',# 'attention',
+                                                  on_policy_loss_type='advantage_record',
+                                                  rule_temperature_schedule=None,
+                                                  # lambda x: toothy_exp_schedule(x, scale=num_batches),
+                                                  eps=0.0,
+                                                  priors='conditional',
+                                                  )
+
+    run = 0
+    while True:
+        model = first_runner()
+        orig_name = model.root_name
+        model.set_root_name(generate_root_name(orig_name, {}))
+        model.run()

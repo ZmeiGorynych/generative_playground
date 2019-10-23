@@ -3,7 +3,7 @@ import os
 
 here = os.path.realpath(__file__)
 ohio = False  # True
-file = 'conditional'#'genetic'#  #'mcts_local'#
+file = 'genetic_scan'#'genetic'#  #'mcts_local'#
 source_root = "/home/ubuntu/shared/GitHub/generative_playground/src"
 train_root = source_root + "/generative_playground/molecules/train"
 
@@ -19,13 +19,15 @@ elif file == 'mcts_thompson':
     python_file = '{}/mcts/run_thompson_model_mcts.py'.format(train_root)
 elif file == 'genetic':
     python_file = '{}/genetic/genetic_train.py'.format(train_root)
+elif file == 'genetic_scan':
+    python_file = '{}/genetic/genetic_initial_scan.py'.format(train_root)
 
 if ohio:
     key_file = os.path.realpath("../../../../../aws_ohio.pem")
 else:
     key_file = os.path.realpath("../../../../../aws_second_key_pair.pem")
 
-ips = ['34.245.166.214', '34.243.21.208', '34.243.254.23', '34.244.44.8']#['52.215.15.7']#,
+ips = ['54.154.80.79', '34.244.112.6']#['34.243.197.243', '52.212.201.20']#['52.215.15.7']#,
 
 job_assignments = {ip: ['--attempt ' + str(i + 4*(iip)) + ' --entropy_wgt 0.1 --lr 0.1 ' + '8' for i in range(4)] for iip, ip in enumerate(ips)}
 
