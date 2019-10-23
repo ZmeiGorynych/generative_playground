@@ -36,7 +36,7 @@ snapshot_dir = os.path.realpath(my_location + '/data')
 # attempt = args.attempt if args.attempt else ''
 obj_num = args.objective
 ver = 'v2'
-root_name = 'AA2scan' + str(obj_num) + '_' + ver + '_lr' + lr_str + '_ew' + ew_str
+root_name = 'zzzscan' + str(obj_num) + '_' + ver + '_lr' + lr_str + '_ew' + ew_str
 snapshot_dir += '/' + root_name
 if not os.path.isdir(snapshot_dir):
     os.mkdir(snapshot_dir)
@@ -46,11 +46,12 @@ num_batches = 400
 best = run_initial_scan(num_batches = num_batches,
                     batch_size = 30,
                     snapshot_dir=snapshot_dir,
-                    entropy_wgt =entropy_wgt,
+                    entropy_wgt =entropy_wgt*lr*10,
                     root_name = root_name,
                        attempt = args.attempt,
                     obj_num=obj_num,
                     ver=ver,
                     lr=lr,
+                        plot=True
                     )
 print(best)

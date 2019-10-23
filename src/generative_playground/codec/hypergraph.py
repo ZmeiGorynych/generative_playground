@@ -9,6 +9,9 @@ from functools import lru_cache
 
 from collections import OrderedDict
 
+
+strict_validation = False
+
 bond_types =[]
 # each edge is a FrozenDict with a random ID
 # each node is an OrderedDict with value 'edges' containing a list of edges, and optional other values from rdkit, and has a random ID too
@@ -86,7 +89,15 @@ class HyperGraph:
         self.node = OrderedDict()  # of Nodes
         self.edges = OrderedDict() # of edges
         self.parent_node_id = None  # The node we'll match/merge when expanding
-        self.pickled = None
+        self._child_ids = None # cached for performance only
+        # self.pickled = None
+
+    def shallow_copy(self):
+        out = HyperGraph()
+        out.node = copy.copy(self.node)
+        out.edges = copy.copy(self.edges)
+        out.parent_node_id = self.parent_node_id
+        return out
 
     def reorder(self, mapping):
         assert len(mapping) == len(self.node), "Invalid mapping length"
@@ -186,7 +197,9 @@ class HyperGraph:
         return [key for key, value in self.node.items() if value.is_terminal is True]
 
     def child_ids(self):
-        return [key for key in self.nonterminal_ids() if key != self.parent_node_id]
+        if not hasattr(self, '_child_ids') or self._child_ids is None:
+            self._child_ids = [key for key in self.nonterminal_ids() if key != self.parent_node_id]
+        return self._child_ids
 
     def child_indices(self):
         return [i for i, id in enumerate(self.node.keys()) if id in self.child_ids()]
@@ -230,6 +243,8 @@ class HyperGraph:
         return my_nodes
 
     def validate(self):
+        if not strict_validation:
+            return
         edge_count = self.node_ids_by_edge_id()
         # edge_count = {}
         # edge_lists = [node.edge_ids for node in self.node.values()]
@@ -531,7 +546,7 @@ def to_mol(graph):
 
 
 def replace_nonterminal(orig_node, loc, new_node):
-    orig_node = copy.deepcopy(orig_node)
+    orig_node = orig_node.shallow_copy()
     new_node = new_node.clone()
     orig_node.validate()
     new_node.validate()
