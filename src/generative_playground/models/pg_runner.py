@@ -100,7 +100,7 @@ class PolicyGradientRunner(Saveable):
 
         task = SequenceGenerationTask(molecules=True,
                                       grammar=grammar,
-                                      reward_fun=reward_fun,
+                                      reward_fun=self.alt_reward_calc,
                                       batch_size=BATCH_SIZE,
                                       max_steps=max_steps,
                                       save_dataset=None)
@@ -116,7 +116,7 @@ class PolicyGradientRunner(Saveable):
                             max_seq_length=max_steps,
                             batch_size=BATCH_SIZE,
                             decoder_type=decoder_type,
-                            reward_fun=reward_fun,
+                            reward_fun=self.alt_reward_calc,
                             task=task,
                             rule_policy=rule_policy,
                             priors=priors)[0]

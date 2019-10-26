@@ -76,9 +76,10 @@ def adj_reward(discrim_wt, discrim_model, reward_fun_on, zinc_set, history_data,
     # reward = np.minimum(rwd/orig_mult, np.power(np.abs(rwd),1/orig_mult))
     reward = np.array([apply_originality_penalty(extra_repetition_penalty, x, om) for x, om in zip(rwd, orig_mult)])
     out = reward + discrim_wt*p*orig_mult
-    # if alt_calc is not None:
-    #     alt_out = alt_calc(x)
-    #     assert alt_out[0] == out[0]
+    if alt_calc is not None:
+        alt_out = alt_calc(x)
+        assert alt_out[0] == out[0]
+        return alt_out
     return out
 
 

@@ -90,6 +90,8 @@ class HyperGraph:
         self.edges = OrderedDict() # of edges
         self.parent_node_id = None  # The node we'll match/merge when expanding
         self._child_ids = None # cached for performance only
+        self._nonterminal_ids = None# cached for performance only
+        self._node_ids_by_edge_id = None # cached for performance only
         # self.pickled = None
 
     def shallow_copy(self):
@@ -191,7 +193,10 @@ class HyperGraph:
         self.node[self.parent_node_id] = x
 
     def nonterminal_ids(self):
-        return [key for key, value in self.node.items() if value.is_terminal is False]
+        if not hasattr(self, '_nonterminal_ids') or self._nonterminal_ids is None:
+            self._nonterminal_ids = [key for key, value in self.node.items() if value.is_terminal is False]
+        return self._nonterminal_ids
+
 
     def terminal_ids(self):
         return [key for key, value in self.node.items() if value.is_terminal is True]
@@ -226,21 +231,23 @@ class HyperGraph:
         return len(self.node)
 
     def node_ids_by_edge_id(self):
-        data = OrderedDict()
-        for node_id, node in self.node.items():
-            for edge_id in node.edge_ids:
-                if edge_id not in data:
-                    data[edge_id] = []
-                data[edge_id].append(node_id)
+        if self._node_ids_by_edge_id is None:
+            self._node_ids_by_edge_id = OrderedDict()
+            for node_id, node in self.node.items():
+                for edge_id in node.edge_ids:
+                    if edge_id not in self._node_ids_by_edge_id:
+                        self._node_ids_by_edge_id[edge_id] = []
+                    self._node_ids_by_edge_id[edge_id].append(node_id)
 
-        return data
+        return self._node_ids_by_edge_id
 
     def node_ids_from_edge_id(self, edge_id):
-        my_nodes=[]
-        for node_id, node in self.node.items():
-            if edge_id in node.edge_ids:
-                my_nodes.append(node_id)
-        return my_nodes
+        return self.node_ids_by_edge_id()[edge_id]
+        # my_nodes=[]
+        # for node_id, node in self.node.items():
+        #     if edge_id in node.edge_ids:
+        #         my_nodes.append(node_id)
+        # return my_nodes
 
     def validate(self):
         if not strict_validation:
@@ -288,7 +295,6 @@ class HyperGraph:
         for edge_id in self.node[node_id].edge_ids:
             n_ids += [x for x in self.node_ids_from_edge_id(edge_id) if x != node_id]
         return n_ids
-
 
 
     # TODO: redo this so it also works when self has open edges, possibly with lhs_node - or does this work already?
@@ -438,9 +444,9 @@ def bond_to_properties(bond):
 
 def properties_to_bond(mol, atoms, bond_type, props):
     mol.AddBond(atoms[0], atoms[1], bond_type)  # sadly this doesn't return the index of the new bond
-    bond = [bond for bond in mol.GetBonds()
-            if bond.GetBeginAtomIdx() == atoms[0] and
-            bond.GetEndAtomIdx() == atoms[1]][0]
+    for bond in mol.GetBonds():
+        if bond.GetBeginAtomIdx() == atoms[0] and bond.GetEndAtomIdx() == atoms[1]:
+            break
     if 'stereo' in props:
         bond.SetStereo(props['stereo'])
     if 'direction' in props:

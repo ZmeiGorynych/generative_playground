@@ -27,15 +27,16 @@ if ohio:
 else:
     key_file = os.path.realpath("../../../../../aws_second_key_pair.pem")
 
-ips = ['54.154.80.79', '34.244.112.6']#['34.243.197.243', '52.212.201.20']#['52.215.15.7']#,
+ips = ['52.209.149.197', '54.246.245.37']#['34.243.197.243', '52.212.201.20']#['52.215.15.7']#,
 
-job_assignments = {ip: ['--attempt ' + str(i + 4*(iip)) + ' --entropy_wgt 0.1 --lr 0.1 ' + '8' for i in range(4)] for iip, ip in enumerate(ips)}
+job_assignments = {ip: ['--attempt ' + str(i + 4*(iip)) + ' --entropy_wgt 0.1 --lr 0.03 ' + '8' for i in range(4)] for iip, ip in enumerate(ips)}
 
-batch_run(source_root, python_file, key_file, job_assignments, respawner=False)
+batch_run(source_root, python_file, key_file, job_assignments, respawner=True)
 
 # screen -ls
 # screen -r ...
-# ^a d
+# ^a dtop
+
 
 
 job_assignments = {}

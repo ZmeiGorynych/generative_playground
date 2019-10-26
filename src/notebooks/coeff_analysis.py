@@ -6,7 +6,7 @@ if '/home/ubuntu/shared/GitHub' in sys.path:
 from generative_playground.models.pg_runner import PolicyGradientRunner
 from generative_playground.models.decoder.decoder import get_node_decoder
 snapshot_dir = os.path.realpath('../generative_playground/molecules/train/genetic/data')
-root_name = 'AAscan8_v2_lr_0.1_ew_0.1'#'AA2scan8_v2_lr0.1_ew0.1' #
+root_name = 'Ascan8_v2_lr0.03_ew0.1'#'AA2scan8_v2_lr0.1_ew0.1' #
 files = glob.glob(snapshot_dir + '/' + root_name + '/*_runner.zip')
 coeffs = {}
 for file in files:
