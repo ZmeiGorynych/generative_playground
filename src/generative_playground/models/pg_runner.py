@@ -210,6 +210,14 @@ class PolicyGradientRunner(Saveable):
     def set_model_coeff_vector(self, vector_in):
         self.model.stepper.model.set_params_from_vector(vector_in)
 
+    @property
+    def params(self):
+        return self.get_model_coeff_vector()
+
+    @params.setter
+    def params(self, vector_in):
+        self.set_model_coeff_vector(vector_in)
+
     @classmethod
     def load_from_root_name(cls, save_location, root_name):
         full_save_file = os.path.realpath(save_location + '/' + root_name + '_runner.zip')

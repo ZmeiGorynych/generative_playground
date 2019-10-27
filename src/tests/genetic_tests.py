@@ -4,7 +4,8 @@ import os, sys, inspect
 from unittest import TestCase
 from uuid import uuid4
 from generative_playground.models.problem.genetic.genetic_opt import populate_data_cache, \
-    pick_model_to_run, crossover, generate_root_name
+    pick_model_to_run, generate_root_name
+from generative_playground.models.problem.genetic.crossover import crossover, mutate, classic_crossover, classic_mutate
 from generative_playground.models.pg_runner import PolicyGradientRunner
 from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring_functions
 
@@ -78,6 +79,22 @@ class Environment(TestCase):
         model1 = runner_factory()
         model2 = runner_factory()
         out = crossover(model1, model2)
+        assert isinstance(out, PolicyGradientRunner)
+
+    def test_mutate(self):
+        model1 = runner_factory()
+        out = mutate(model1)
+        assert isinstance(out, PolicyGradientRunner)
+
+    def test_classic_crossover(self):
+        model1 = runner_factory()
+        model2 = runner_factory()
+        out = classic_crossover(model1, model2)
+        assert isinstance(out, PolicyGradientRunner)
+
+    def test_classic_mutate(self):
+        model1 = runner_factory()
+        out = classic_mutate(model1, delta_scale=0.1)
         assert isinstance(out, PolicyGradientRunner)
 
     def test_generate_root_name_1(self):

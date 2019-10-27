@@ -59,11 +59,11 @@ def mutate(model, delta_scale, parameter_capper):
     model = prune(model, parameter_capper)
     return model
 
-def crossover(model1, model2, d, parameter_capper):
+def crossover(model1, model2, d, parameter_capper=lambda x: x):
     alpha = np.random.uniform(-d, 1+d)
     child_params = model1.params + alpha*(model2.params - model1.params)
     child = Model(params=child_params)
-    child = prune(child, parameter_capper)
+    child.params = parameter_capper(child.params)
     return child
 
 

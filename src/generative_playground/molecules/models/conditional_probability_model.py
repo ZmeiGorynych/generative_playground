@@ -33,8 +33,14 @@ class CondtionalProbabilityModel(nn.Module):
         self.unconditionals.data[:] = 0
         self.conditionals.data[self.torch_mask_by_cond_tuple==1] = torch.from_numpy(in_vector).to(
                                                                                  dtype=self.unconditionals.dtype,
-                                                                                 device=self.unconditionals.device
+                                                                             device=self.unconditionals.device
                                                                                  )
+
+    def collapse_unconditionals(self):
+        # add the unconditional vectors to the conditional ones, and zero the unconditionals:
+        # doesn't change model's output but makes it easier to work with the coefficients
+        self.conditionals.data += self.unconditionals.data
+        self.unconditionals.data[:] = 0
 
     def forward(self, graphs, full_logit_priors):
         max_nodes = max([1 if g is None else len(g) for g in graphs])

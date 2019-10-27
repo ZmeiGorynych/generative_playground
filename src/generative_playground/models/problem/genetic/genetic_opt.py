@@ -26,7 +26,7 @@ def populate_data_cache(snapshot_dir, reward_cache={}):
 
 
 def extract_best(data_cache, num_best, key_fun=np.median):
-    sorted_items = sorted(list(data_cache.items()), reverse=True, key=key_fun(lambda x: x[1]['best_rewards']))
+    sorted_items = sorted(list(data_cache.items()), reverse=True, key=lambda x: key_fun(x[1]['best_rewards']))
     data_cache_best = OrderedDict(sorted_items[:num_best])
     return data_cache_best
 
@@ -72,7 +72,7 @@ def generate_root_name(old_name, data_cache):
     :return:
     """
     new_uuid = str(uuid4())
-    if len(old_name) > len(new_uuid):
+    if '#' in old_name:
         old_root, old_timestamp, old_lineage, old_uuid = old_name.split('#')
     else: #first call
         old_root, old_timestamp, old_lineage, old_uuid = old_name, '', '', ''

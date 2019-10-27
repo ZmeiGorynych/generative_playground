@@ -26,7 +26,9 @@ def run_genetic_opt(top_N = 10,
                     ver='v2',
                     lr=0.01,
                     num_runs=100,
-                    attempt=''
+                    plot_single_runs=False,
+                    steps_with_no_improvement=10,
+                    reward_aggregation = np.median
                     ):
     relationships = nx.DiGraph()
     grammar_cache = 'hyper_grammar_guac_10k_with_clique_collapse.pickle'  # 'hyper_grammar.pickle'
@@ -47,7 +49,7 @@ def run_genetic_opt(top_N = 10,
                                                   # lr_schedule=shifted_cosine_schedule,
                                                   root_name=root_name,
                                                   preload_file_root_name=None,
-                                                  plot_metrics=True,
+                                                  plot_metrics=plot_single_runs,
                                                   save_location=snapshot_dir,
                                                   metric_smooth=0.0,
                                                   decoder_type='graph_conditional',  # 'rnn_graph',# 'attention',
@@ -58,8 +60,9 @@ def run_genetic_opt(top_N = 10,
                                                   priors='conditional',
                                                   )
     data_cache = {}
-
-    for run in range(num_runs): # TODO: do we want a smarter stopping criterion?
+    best_so_far = float('-inf')
+    steps_since_best = 0
+    for run in range(num_runs):
         data_cache = populate_data_cache(snapshot_dir, data_cache)
         model = pick_model_to_run(data_cache, PolicyGradientRunner, snapshot_dir, num_best=top_N) \
             if data_cache else first_runner
@@ -88,7 +91,17 @@ def run_genetic_opt(top_N = 10,
          'Y': np.array([[val for key, val in metrics.items()]]),
          'opts': {'legend': [key for key, val in metrics.items()]}}
 
-        vis.plot_metric_dict({'worker_' + attempt + ' rewards': metric_dict})
+        vis.plot_metric_dict({'worker rewards': metric_dict})
+
+        this_agg_reward = reward_aggregation(my_rewards)
+        if this_agg_reward > best_so_far:
+            best_so_far = this_agg_reward
+            steps_since_best = 0
+        else:
+            steps_since_best += 1
+
+        if steps_since_best >= steps_with_no_improvement:
+            break
 
     return extract_best(data_cache, 1)
 
