@@ -5,7 +5,7 @@ import os
 from uuid import uuid4
 import numpy as np
 from collections import OrderedDict
-
+from generative_playground.models.pg_runner import PolicyGradientRunner
 
 def populate_data_cache(snapshot_dir, reward_cache={}):
     """
@@ -24,6 +24,19 @@ def populate_data_cache(snapshot_dir, reward_cache={}):
                 reward_cache[file_root] = {'best_rewards': data['best_reward'].values}
     return reward_cache
 
+def load_coeff_vector_cache(snapshot_dir, coeff_vector_cache):
+    """
+        Query the file system for all snapshots so far along with their max rewards
+        :param snapshot_dir: data location
+        :return: dict {root_name: max_reward}
+        """
+    files = glob.glob(os.path.realpath(snapshot_dir) + '/*_runner.zip')
+    for file in files:
+        file_root = os.path.split(file)[-1].replace('_runner.zip', '')
+        if file_root not in coeff_vector_cache:
+            model = PolicyGradientRunner.load(file)
+            coeff_vector_cache[file_root] = {'params': model.params}
+    return coeff_vector_cache
 
 def extract_best(data_cache, num_best, key_fun=np.median):
     sorted_items = sorted(list(data_cache.items()), reverse=True, key=lambda x: key_fun(x[1]['best_rewards']))

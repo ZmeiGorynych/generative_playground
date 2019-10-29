@@ -40,7 +40,10 @@ def run_genetic_opt(top_N=10,
     reward_funs = guacamol_goal_scoring_functions(ver)
     reward_fun = reward_funs[obj_num]
 
-    vis = Dashboard(root_name + attempt, call_every=1)
+    split_name = root_name.split('_')
+    split_name[0] += 'Stats'
+    dash_name = '_'.join(split_name) + attempt
+    vis = Dashboard(dash_name, call_every=1)
 
     first_runner = PolicyGradientRunner(grammar,
                                         BATCH_SIZE=batch_size,

@@ -12,7 +12,7 @@ coeffs = {}
 for file in files:
     print(file)
     model = PolicyGradientRunner.load(file)
-    coeffs[file] = model.get_model_coeff_vector()
+    coeffs[file] = model.params
     # model = get_node_decoder('hypergraph:hyper_grammar_guac_10k_with_clique_collapse.pickle',
     #                  decoder_type='graph_conditional',
     #                  priors='conditional',
