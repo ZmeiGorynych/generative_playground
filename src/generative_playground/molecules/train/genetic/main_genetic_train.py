@@ -3,6 +3,7 @@ import sys, os, inspect
 import argparse
 import numpy as np
 import pickle
+
 if '/home/ubuntu/shared/GitHub' in sys.path:
     sys.path.remove('/home/ubuntu/shared/GitHub')
 from generative_playground.models.pg_runner import PolicyGradientRunner
@@ -14,21 +15,23 @@ from generative_playground.utils.visdom_helper import Dashboard
 
 import networkx as nx
 
-def run_genetic_opt(top_N = 10,
-                    p_mutate = 0.2,
-                    p_crossover = 0.2,
-                    num_batches = 100,
-                    batch_size = 30,
+
+def run_genetic_opt(top_N=10,
+                    p_mutate=0.2,
+                    p_crossover=0.2,
+                    num_batches=100,
+                    batch_size=30,
                     snapshot_dir=None,
-                    entropy_wgt =0.0,
-                    root_name = None,
+                    entropy_wgt=0.0,
+                    root_name=None,
                     obj_num=None,
                     ver='v2',
                     lr=0.01,
                     num_runs=100,
-                    plot_single_runs=False,
+                    plot_single_runs=True,
                     steps_with_no_improvement=10,
-                    reward_aggregation = np.median
+                    reward_aggregation=np.median,
+                    attempt=''  # only used for disambiguating plotting
                     ):
     relationships = nx.DiGraph()
     grammar_cache = 'hyper_grammar_guac_10k_with_clique_collapse.pickle'  # 'hyper_grammar.pickle'
@@ -37,28 +40,28 @@ def run_genetic_opt(top_N = 10,
     reward_funs = guacamol_goal_scoring_functions(ver)
     reward_fun = reward_funs[obj_num]
 
-    vis = Dashboard(root_name, call_every=1)
+    vis = Dashboard(root_name + attempt, call_every=1)
 
     first_runner = PolicyGradientRunner(grammar,
-                                                  BATCH_SIZE=batch_size,
-                                                  reward_fun=reward_fun,
-                                                  max_steps=60,
-                                                  num_batches=num_batches,
-                                                  lr=lr,
-                                                  entropy_wgt=entropy_wgt,
-                                                  # lr_schedule=shifted_cosine_schedule,
-                                                  root_name=root_name,
-                                                  preload_file_root_name=None,
-                                                  plot_metrics=plot_single_runs,
-                                                  save_location=snapshot_dir,
-                                                  metric_smooth=0.0,
-                                                  decoder_type='graph_conditional',  # 'rnn_graph',# 'attention',
-                                                  on_policy_loss_type='advantage_record',
-                                                  rule_temperature_schedule=None,
-                                                  # lambda x: toothy_exp_schedule(x, scale=num_batches),
-                                                  eps=0.0,
-                                                  priors='conditional',
-                                                  )
+                                        BATCH_SIZE=batch_size,
+                                        reward_fun=reward_fun,
+                                        max_steps=60,
+                                        num_batches=num_batches,
+                                        lr=lr,
+                                        entropy_wgt=entropy_wgt,
+                                        # lr_schedule=shifted_cosine_schedule,
+                                        root_name=root_name,
+                                        preload_file_root_name=None,
+                                        plot_metrics=plot_single_runs,
+                                        save_location=snapshot_dir,
+                                        metric_smooth=0.0,
+                                        decoder_type='graph_conditional',  # 'rnn_graph',# 'attention',
+                                        on_policy_loss_type='advantage_record',
+                                        rule_temperature_schedule=None,
+                                        # lambda x: toothy_exp_schedule(x, scale=num_batches),
+                                        eps=0.0,
+                                        priors='conditional',
+                                        )
     data_cache = {}
     best_so_far = float('-inf')
     steps_since_best = 0
@@ -77,8 +80,10 @@ def run_genetic_opt(top_N = 10,
             relationships.add_edge(second_model.root_name, model.root_name)
 
         if random.random() < p_mutate:
-            model = mutate(model)
-
+            model = mutate(model, pick_best=32)
+            relationships.node[model.root_name]['mutated'] = True
+        else:
+            relationships.node[model.root_name]['mutated'] = False
 
         with open(snapshot_dir + '/' + model.root_name + '_lineage.pkl', 'wb') as f:
             pickle.dump(relationships, f)
@@ -86,10 +91,10 @@ def run_genetic_opt(top_N = 10,
         data_cache = populate_data_cache(snapshot_dir, data_cache)
         my_rewards = data_cache[model.root_name]['best_rewards']
         metrics = {'max': my_rewards.max(), 'median': np.median(my_rewards), 'min': my_rewards.min()}
-        metric_dict =  {'type': 'line',
-         'X': np.array([run]),
-         'Y': np.array([[val for key, val in metrics.items()]]),
-         'opts': {'legend': [key for key, val in metrics.items()]}}
+        metric_dict = {'type': 'line',
+                       'X': np.array([run]),
+                       'Y': np.array([[val for key, val in metrics.items()]]),
+                       'opts': {'legend': [key for key, val in metrics.items()]}}
 
         vis.plot_metric_dict({'worker rewards': metric_dict})
 
@@ -105,42 +110,43 @@ def run_genetic_opt(top_N = 10,
 
     return extract_best(data_cache, 1)
 
-def run_initial_scan(num_batches = 100,
-                    batch_size = 30,
-                    snapshot_dir=None,
-                    entropy_wgt =0.0,
-                    root_name = None,
-                    obj_num=None,
-                    ver='v2',
-                    lr=0.01,
-                    attempt='',
+
+def run_initial_scan(num_batches=100,
+                     batch_size=30,
+                     snapshot_dir=None,
+                     entropy_wgt=0.0,
+                     root_name=None,
+                     obj_num=None,
+                     ver='v2',
+                     lr=0.01,
+                     attempt='',
                      plot=False
-                    ):
+                     ):
     grammar_cache = 'hyper_grammar_guac_10k_with_clique_collapse.pickle'  # 'hyper_grammar.pickle'
     grammar = 'hypergraph:' + grammar_cache
     reward_funs = guacamol_goal_scoring_functions(ver)
     reward_fun = reward_funs[obj_num]
 
     first_runner = lambda: PolicyGradientRunner(grammar,
-                                                  BATCH_SIZE=batch_size,
-                                                  reward_fun=reward_fun,
-                                                  max_steps=60,
-                                                  num_batches=num_batches,
-                                                  lr=lr,
-                                                  entropy_wgt=entropy_wgt,
-                                                  # lr_schedule=shifted_cosine_schedule,
-                                                  root_name=root_name,
-                                                  preload_file_root_name=None,
-                                                  plot_metrics=plot,
-                                                  save_location=snapshot_dir,
-                                                  metric_smooth=0.0,
-                                                  decoder_type='graph_conditional',  # 'rnn_graph',# 'attention',
-                                                  on_policy_loss_type='advantage_record',
-                                                  rule_temperature_schedule=None,
-                                                  # lambda x: toothy_exp_schedule(x, scale=num_batches),
-                                                  eps=0.0,
-                                                  priors='conditional',
-                                                  )
+                                                BATCH_SIZE=batch_size,
+                                                reward_fun=reward_fun,
+                                                max_steps=60,
+                                                num_batches=num_batches,
+                                                lr=lr,
+                                                entropy_wgt=entropy_wgt,
+                                                # lr_schedule=shifted_cosine_schedule,
+                                                root_name=root_name,
+                                                preload_file_root_name=None,
+                                                plot_metrics=plot,
+                                                save_location=snapshot_dir,
+                                                metric_smooth=0.0,
+                                                decoder_type='graph_conditional',  # 'rnn_graph',# 'attention',
+                                                on_policy_loss_type='advantage_record',
+                                                rule_temperature_schedule=None,
+                                                # lambda x: toothy_exp_schedule(x, scale=num_batches),
+                                                eps=0.0,
+                                                priors='conditional',
+                                                )
 
     run = 0
     while True:

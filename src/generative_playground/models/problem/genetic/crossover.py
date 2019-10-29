@@ -3,6 +3,7 @@ import numpy as np
 import random
 import torch
 
+# TODO: does this belong in the grammar object?
 def ind_to_nonterminal_string(model, ind):
     condition = model.ind_to_condition[ind]
     nonterm = model.grammar.condition_pair_to_nonterminal_string(condition)
@@ -49,7 +50,7 @@ def mutate(model, pick_best=20):
 
 
 def classic_crossover(model1, model2, d=0.25, parameter_capper=lambda x: x):
-    # to save RAM, we mutate model1 into the child
+    # to save RAM, we make the child out of model1
     alpha = np.random.uniform(-d, 1+d)
     child = model1
     child.params = model1.params + alpha*(model2.params - model1.params)
