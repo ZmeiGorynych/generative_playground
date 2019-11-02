@@ -35,7 +35,7 @@ class HypergraphGrammar(GenericCodec):
         self.last_tree_processed = None
         self.MAX_LEN = max_len # only used to pad string_to_actions output, factor out?
         self.PAD_INDEX = 0
-        self.conditional_frequencies = {}
+        self.conditional_frequencies = OrderedDict()
         # self.isomorphy_match = isomorphy
 
     def __len__(self):
@@ -84,6 +84,12 @@ class HypergraphGrammar(GenericCodec):
         if x in self.conditional_frequencies:
             for ind, value in self.conditional_frequencies[x].items():
                 out[ind] = math.log(value)
+        return out
+
+    @lru_cache()
+    def get_all_conditional_log_frequencies(self):
+        out = np.array([self.get_conditional_log_frequencies_single_query(x)
+                        for x in self.conditional_frequencies.keys()])
         return out
 
     def decode_from_actions(self, actions):

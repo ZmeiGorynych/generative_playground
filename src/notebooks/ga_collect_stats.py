@@ -8,7 +8,7 @@ if '/home/ubuntu/shared/GitHub' in sys.path:
 
 from generative_playground.models.problem.genetic.genetic_opt import populate_data_cache, load_coeff_vector_cache
 snapshot_dir = os.path.realpath('../generative_playground/molecules/train/genetic/data')
-root_name = 'genetic2_v2_lr0.01_ew0.1'#'AA2scan8_v2_lr0.1_ew0.1' #
+root_name = 'geneticA9'#'AA2scan8_v2_lr0.1_ew0.1' #
 dirs = glob.glob(snapshot_dir + '/' + root_name + '*')
 lineage_files = []
 for dir in dirs:

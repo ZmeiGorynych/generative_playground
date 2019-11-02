@@ -50,6 +50,7 @@ class PolicyGradientLoss(nn.Module):
         actions = model_out['actions']
 
 
+
         if 'logp' in model_out:
             # in the old pg code, logp length was for some reason different to actions length
             logp = model_out['logp'][:, :actions.shape[1]]
@@ -128,6 +129,12 @@ class PolicyGradientLoss(nn.Module):
         if sum(valid) > 0:
             self.metrics = {'entropy': {'avg_entropy': total_entropy.mean().data.item(),
                                        'best_entropy': total_entropy[best_ind].data.item()}}
+
+            seq_lens = (actions > 0).sum(dim=1)  # do some sequence length stats
+            self.metrics['num_steps'] = {'max': seq_lens.max().data.item(),
+                                         'median': seq_lens.median().data.item(),
+                                         'min': seq_lens.min().data.item(),
+                                         'best': seq_lens[best_ind].data.item()}
             if len(logp.shape) > 1:
                 best_actions = actions[best_ind, :]
                 best_logp = logp[best_ind][best_actions != 0] # ignore padding

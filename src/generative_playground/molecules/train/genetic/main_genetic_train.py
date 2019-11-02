@@ -1,15 +1,16 @@
 import random
-import sys, os, inspect
-import argparse
+import sys
 import numpy as np
 import pickle
+
+from generative_playground.models.problem.param_sampler import sample_params
 
 if '/home/ubuntu/shared/GitHub' in sys.path:
     sys.path.remove('/home/ubuntu/shared/GitHub')
 from generative_playground.models.pg_runner import PolicyGradientRunner
 from generative_playground.models.problem.genetic.genetic_opt import populate_data_cache, pick_model_to_run, \
     pick_model_for_crossover, generate_root_name, extract_best
-from generative_playground.models.problem.genetic.crossover import mutate, crossover
+from generative_playground.models.problem.genetic.crossover import mutate, classic_crossover
 from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring_functions
 from generative_playground.utils.visdom_helper import Dashboard
 
@@ -18,6 +19,8 @@ import networkx as nx
 
 def run_genetic_opt(top_N=10,
                     p_mutate=0.2,
+                    mutate_num_best=64,
+                    mutate_use_total_probs=False,
                     p_crossover=0.2,
                     num_batches=100,
                     batch_size=30,
@@ -28,10 +31,12 @@ def run_genetic_opt(top_N=10,
                     ver='v2',
                     lr=0.01,
                     num_runs=100,
+                    num_explore=5,
                     plot_single_runs=True,
                     steps_with_no_improvement=10,
                     reward_aggregation=np.median,
-                    attempt=''  # only used for disambiguating plotting
+                    attempt='',  # only used for disambiguating plotting
+                    max_steps=90
                     ):
     relationships = nx.DiGraph()
     grammar_cache = 'hyper_grammar_guac_10k_with_clique_collapse.pickle'  # 'hyper_grammar.pickle'
@@ -45,10 +50,10 @@ def run_genetic_opt(top_N=10,
     dash_name = '_'.join(split_name) + attempt
     vis = Dashboard(dash_name, call_every=1)
 
-    first_runner = PolicyGradientRunner(grammar,
+    first_runner_factory = lambda: PolicyGradientRunner(grammar,
                                         BATCH_SIZE=batch_size,
                                         reward_fun=reward_fun,
-                                        max_steps=60,
+                                        max_steps=max_steps,
                                         num_batches=num_batches,
                                         lr=lr,
                                         entropy_wgt=entropy_wgt,
@@ -68,28 +73,36 @@ def run_genetic_opt(top_N=10,
     data_cache = {}
     best_so_far = float('-inf')
     steps_since_best = 0
+
     for run in range(num_runs):
         data_cache = populate_data_cache(snapshot_dir, data_cache)
-        model = pick_model_to_run(data_cache, PolicyGradientRunner, snapshot_dir, num_best=top_N) \
-            if data_cache else first_runner
+        if run < num_explore:
+            model = first_runner_factory()
+            model.params = sample_params(obj_num, model.params.shape)
+        else:
+            model = pick_model_to_run(data_cache, PolicyGradientRunner, snapshot_dir, num_best=top_N) \
+                if data_cache else first_runner_factory()
 
         orig_name = model.root_name
         model.set_root_name(generate_root_name(orig_name, data_cache))
-        relationships.add_edge(orig_name, model.root_name)
 
-        if random.random() < p_crossover and len(data_cache) > 1:
-            second_model = pick_model_for_crossover(data_cache, model, PolicyGradientRunner, snapshot_dir)
-            model = crossover(model, second_model)
-            relationships.add_edge(second_model.root_name, model.root_name)
+        if run > num_explore:
+            relationships.add_edge(orig_name, model.root_name)
 
-        if random.random() < p_mutate:
-            model = mutate(model, pick_best=32)
-            relationships.node[model.root_name]['mutated'] = True
-        else:
-            relationships.node[model.root_name]['mutated'] = False
+            if random.random() < p_crossover and len(data_cache) > 1:
+                second_model = pick_model_for_crossover(data_cache, model, PolicyGradientRunner, snapshot_dir)
+                model = classic_crossover(model, second_model)
+                relationships.add_edge(second_model.root_name, model.root_name)
 
-        with open(snapshot_dir + '/' + model.root_name + '_lineage.pkl', 'wb') as f:
-            pickle.dump(relationships, f)
+            if random.random() < p_mutate:
+                model = mutate(model, pick_best=mutate_num_best, total_probs=mutate_use_total_probs)
+                relationships.node[model.root_name]['mutated'] = True
+            else:
+                relationships.node[model.root_name]['mutated'] = False
+
+            with open(snapshot_dir + '/' + model.root_name + '_lineage.pkl', 'wb') as f:
+                pickle.dump(relationships, f)
+
         model.run()
         data_cache = populate_data_cache(snapshot_dir, data_cache)
         my_rewards = data_cache[model.root_name]['best_rewards']
@@ -108,7 +121,7 @@ def run_genetic_opt(top_N=10,
         else:
             steps_since_best += 1
 
-        if steps_since_best >= steps_with_no_improvement:
+        if steps_since_best >= steps_with_no_improvement and run > num_explore + steps_with_no_improvement:
             break
 
     return extract_best(data_cache, 1)

@@ -31,18 +31,22 @@ snapshot_dir = os.path.realpath(my_location + '/data')
 attempt = '_' + args.attempt if args.attempt else ''
 obj_num = args.objective
 ver = 'v2'
-root_name = 'geneticA' + str(obj_num) + '_' + ver + '_lr' + lr_str + '_ew' + ew_str
+root_name = 'geneticZ' + str(obj_num) + '_' + ver + '_lr' + lr_str + '_ew' + ew_str
 snapshot_dir += '/' + root_name
 if not os.path.isdir(snapshot_dir):
     os.mkdir(snapshot_dir)
 
 top_N = 16
-p_mutate = 0.3
+p_mutate = 0.5
+mutate_num_best = 64
 p_crossover = 0.5
 num_batches = 100
+mutate_use_total_probs=False
 
 best = run_genetic_opt(top_N=top_N,
                        p_mutate=p_mutate,
+                       mutate_num_best=mutate_num_best,
+                       mutate_use_total_probs=mutate_use_total_probs,
                        p_crossover=p_crossover,
                        num_batches=num_batches,
                        batch_size=30,
