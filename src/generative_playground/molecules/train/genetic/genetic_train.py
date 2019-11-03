@@ -32,17 +32,18 @@ attempt = '_' + args.attempt if args.attempt else ''
 obj_num = args.objective
 ver = 'v2'
 past_runs_graph_file = snapshot_dir + '/geneticA' + str(obj_num) + '_graph.zip'
-root_name = 'geneticAT' + str(obj_num) + '_' + ver + '_lr' + lr_str + '_ew' + ew_str
+root_name = 'geneticAAF' + str(obj_num) + '_' + ver + '_lr' + lr_str + '_ew' + ew_str
 snapshot_dir += '/' + root_name
 if not os.path.isdir(snapshot_dir):
     os.mkdir(snapshot_dir)
 
 top_N = 16
-p_mutate = 0.5
+p_mutate = 0.33
 mutate_num_best = 64
 p_crossover = 0.5
-num_batches = 20
-mutate_use_total_probs=True
+num_batches = 50
+mutate_use_total_probs = False
+num_explore=5
 
 best = run_genetic_opt(top_N=top_N,
                        p_mutate=p_mutate,
@@ -50,7 +51,7 @@ best = run_genetic_opt(top_N=top_N,
                        mutate_use_total_probs=mutate_use_total_probs,
                        p_crossover=p_crossover,
                        num_batches=num_batches,
-                       batch_size=5, # 30
+                       batch_size=20, # 30
                        snapshot_dir=snapshot_dir,
                        entropy_wgt=entropy_wgt,
                        root_name=root_name,
@@ -60,6 +61,7 @@ best = run_genetic_opt(top_N=top_N,
                        num_runs=1000,
                        plot_single_runs=True,
                        attempt=attempt,
-                       past_runs_graph_file=past_runs_graph_file
+                       past_runs_graph_file=past_runs_graph_file,
+                       num_explore=num_explore
                        )
 print(best)

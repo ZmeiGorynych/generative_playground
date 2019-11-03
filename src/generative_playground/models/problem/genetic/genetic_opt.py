@@ -1,5 +1,6 @@
 import random
 import datetime
+import math
 import glob, gzip, pickle
 import os
 from uuid import uuid4
@@ -38,7 +39,13 @@ def load_coeff_vector_cache(snapshot_dir, coeff_vector_cache):
             coeff_vector_cache[file_root] = {'params': model.params}
     return coeff_vector_cache
 
-def extract_best(data_cache, num_best, key_fun=np.median):
+def get_mean_top_prctile(x, fraction=0.2):
+    sorted_x = np.array(sorted(x, reverse=True))
+    max_ind = math.ceil(len(x)*fraction)
+    out = sorted_x[:max_ind].mean()
+    return out
+
+def extract_best(data_cache, num_best, key_fun=get_mean_top_prctile):
     sorted_items = sorted(list(data_cache.items()), reverse=True, key=lambda x: key_fun(x[1]['best_rewards']))
     data_cache_best = OrderedDict(sorted_items[:num_best])
     return data_cache_best
@@ -50,7 +57,7 @@ def pick_model_to_run(data_cache, model_class, save_location, num_best=10):
     :param data_cache: dict {root_name: max_reward}
     :return: a ready-to-run model simulator
     """
-    data_cache_best = extract_best(data_cache, num_best, key_fun=np.median)
+    data_cache_best = extract_best(data_cache, num_best)
     done = False
     while not done:  # a loop to catch file contention between workers
         try:
