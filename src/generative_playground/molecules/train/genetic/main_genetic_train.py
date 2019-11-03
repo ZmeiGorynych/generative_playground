@@ -3,7 +3,7 @@ import sys
 import numpy as np
 import pickle
 
-from generative_playground.models.problem.param_sampler import sample_params
+from generative_playground.models.param_sampler import sample_params
 
 if '/home/ubuntu/shared/GitHub' in sys.path:
     sys.path.remove('/home/ubuntu/shared/GitHub')
@@ -13,6 +13,7 @@ from generative_playground.models.problem.genetic.genetic_opt import populate_da
 from generative_playground.models.problem.genetic.crossover import mutate, classic_crossover
 from generative_playground.molecules.guacamol_utils import guacamol_goal_scoring_functions
 from generative_playground.utils.visdom_helper import Dashboard
+from generative_playground.models.param_sampler import ParameterSampler, extract_params_rewards
 
 import networkx as nx
 
@@ -36,7 +37,8 @@ def run_genetic_opt(top_N=10,
                     steps_with_no_improvement=10,
                     reward_aggregation=np.median,
                     attempt='',  # only used for disambiguating plotting
-                    max_steps=90
+                    max_steps=90,
+                    past_runs_graph_file=None
                     ):
     relationships = nx.DiGraph()
     grammar_cache = 'hyper_grammar_guac_10k_with_clique_collapse.pickle'  # 'hyper_grammar.pickle'
@@ -70,6 +72,14 @@ def run_genetic_opt(top_N=10,
                                         eps=0.0,
                                         priors='conditional',
                                         )
+
+    init_thresh = 50
+    pca_dim = 10
+    if past_runs_graph_file:
+        params, rewards = extract_params_rewards(past_runs_graph_file)
+        sampler = ParameterSampler(params, rewards, init_thresh=init_thresh, pca_dim=pca_dim)
+    else:
+        sampler = None
     data_cache = {}
     best_so_far = float('-inf')
     steps_since_best = 0
@@ -78,7 +88,8 @@ def run_genetic_opt(top_N=10,
         data_cache = populate_data_cache(snapshot_dir, data_cache)
         if run < num_explore:
             model = first_runner_factory()
-            model.params = sample_params(obj_num, model.params.shape)
+            if sampler:
+                model.params = sampler.sample()
         else:
             model = pick_model_to_run(data_cache, PolicyGradientRunner, snapshot_dir, num_best=top_N) \
                 if data_cache else first_runner_factory()
