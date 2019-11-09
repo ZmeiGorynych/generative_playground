@@ -17,33 +17,37 @@ parser.add_argument('--entropy_wgt', help="weight of the entropy penalty", defau
 args = parser.parse_args()
 lr_str = args.lr
 if not lr_str:
-    lr_str = '0.01'
+    lr_str = '0.02'
 lr = float(lr_str)
 
 ew_str = args.entropy_wgt
 if not ew_str:
-    ew_str = '0.1'
+    ew_str = '0.0'
 entropy_wgt = float(ew_str)
 
 my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+# snapshot_dir = os.path.realpath(my_location + '/../../../../../../../../data')
 snapshot_dir = os.path.realpath(my_location + '/data')
 
 attempt = '_' + args.attempt if args.attempt else ''
 obj_num = args.objective
 ver = 'v2'
-past_runs_graph_file = snapshot_dir + '/geneticA' + str(obj_num) + '_graph.zip'
-root_name = 'geneticAAF' + str(obj_num) + '_' + ver + '_lr' + lr_str + '_ew' + ew_str
+past_runs_graph_file = None#snapshot_dir + '/geneticA' + str(obj_num) + '_graph.zip'
+root_name = 'geneticZZZZC' + str(obj_num) + '_' + ver + '_lr' + lr_str + '_ew' + ew_str
 snapshot_dir += '/' + root_name
 if not os.path.isdir(snapshot_dir):
     os.mkdir(snapshot_dir)
 
+max_steps = 75
+batch_size = 10
+
 top_N = 16
-p_mutate = 0.33
+p_mutate = 0.2
 mutate_num_best = 64
 p_crossover = 0.5
-num_batches = 50
-mutate_use_total_probs = False
-num_explore=5
+num_batches = 64
+mutate_use_total_probs = True
+num_explore=0
 
 best = run_genetic_opt(top_N=top_N,
                        p_mutate=p_mutate,
@@ -51,7 +55,8 @@ best = run_genetic_opt(top_N=top_N,
                        mutate_use_total_probs=mutate_use_total_probs,
                        p_crossover=p_crossover,
                        num_batches=num_batches,
-                       batch_size=20, # 30
+                       batch_size=batch_size, # 30
+                       max_steps=max_steps,
                        snapshot_dir=snapshot_dir,
                        entropy_wgt=entropy_wgt,
                        root_name=root_name,
@@ -65,3 +70,5 @@ best = run_genetic_opt(top_N=top_N,
                        num_explore=num_explore
                        )
 print(best)
+
+

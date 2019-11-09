@@ -3,7 +3,7 @@ import torch
 from math import floor
 
 from generative_playground.codec.hypergraph_mask_generator import HypergraphMaskGenerator
-from generative_playground.models.problem.policy import SoftmaxRandomSamplePolicy
+from generative_playground.models.problem.policy import SoftmaxRandomSamplePolicy, SoftmaxRandomSamplePolicySparse
 from generative_playground.models.decoder.stepper import Stepper
 from generative_playground.utils.gpu_utils import device
 from generative_playground.models.embedder.graph_embedder import GraphEmbedder
@@ -59,43 +59,50 @@ class GraphDecoderWithNodeSelection(Stepper):
             return next_action_, action_logp, self.rule_policy.entropy
         else:
             return next_action_, action_logp
-            #(next_node, next_action), action_logp # will also want to return which node we picked, once we enable that
 
-    # def old_forward(self, last_state):
-    #     """
-    #
-    #     :param last_state: self.mask_gen.graphs
-    #     :param node_mask:
-    #     :param full_logit_priors:
-    #     :return:
-    #     """
-    #     graphs, node_mask, full_logit_priors = last_state
-    #
-    #     model_out = self.model(graphs)  # batch x num_nodes, batch x num_nodes x num_actions
-    #
-    #     node_logits = model_out['node'].squeeze(2)
-    #     dtype = node_logits.dtype
-    #     node_logits += torch.from_numpy(node_mask).to(device=device, dtype=dtype) # batch x max_num_nodes
-    #     next_node = self.node_policy(node_logits)
-    #     node_selection_logp = torch.cat([F.log_softmax(node_logits, dim=1)[b, node:(node+1)] for b, node in enumerate(next_node)])
-    #
-    #     # and now choose the next logits for the appropriate nodes
-    #     next_logits = model_out['action']
-    #     next_logits_compact = torch.cat([next_logits[b, node, :].unsqueeze(0) for b, node in enumerate(next_node)],
-    #                                     dim=0)
-    #     # now that we know which nodes we're going to expand, can generate action masks: the logit priors also include masking
-    #     full_logit_priors_pytorch = torch.from_numpy(full_logit_priors).to(device=device, dtype=dtype)
-    #     logit_priors_pytorch = torch.cat([full_logit_priors_pytorch[b, node, :].unsqueeze(0)
-    #                                       for b, node in enumerate(next_node)],
-    #                                     dim=0)
-    #
-    #     masked_logits = next_logits_compact + logit_priors_pytorch
-    #     next_action = self.rule_policy(masked_logits, logit_priors_pytorch)
-    #     action_logp = torch.cat([F.log_softmax(masked_logits, dim=1)[a, action:(action+1)] for a, action in enumerate(next_action)], dim=0)
-    #
-    #     # we only care about the logits for the logP, right?
-    #
-    #     return (next_node, next_action), action_logp + node_selection_logp # will also want to return which node we picked, once we enable that
+class GraphDecoderWithNodeSelectionSparse(Stepper):
+    def __init__(self,
+                 model,
+                 # node_policy=SoftmaxRandomSamplePolicy(),
+                 rule_policy=SoftmaxRandomSamplePolicySparse(),
+                 detach_model_output=False
+                 ):
+        super().__init__()
+        # self.node_policy = node_policy
+        self.rule_policy = rule_policy
+        self.model = model
+        self.detach_model_output = detach_model_output
+        self.output_shape = [None, self.model.output_shape['action'][
+            -1]]  # a batch of logits to select next action
+
+    def init_encoder_output(self, z):
+        '''
+        Must be called at the start of each new sequence
+        :param z: encoder output
+        :return: None
+        '''
+        # self.mask_gen.reset()
+        self.model.init_encoder_output(z)
+
+    def forward(self, last_state):
+        """
+
+        :param last_state: self.mask_gen.graphs
+        :param node_mask:
+        :param full_logit_priors:
+        :return:
+        """
+        graphs, node_mask, full_logit_priors = last_state
+        model_out = self.model(graphs, full_logit_priors)
+        valid_logits = model_out['valid_policy_logits']
+        action_inds = model_out['action_inds']
+        # used_priors = model_out['used_priors']
+        next_action_ = self.rule_policy(valid_logits, action_inds)
+        action_logp = self.rule_policy.logp
+        if hasattr(self.rule_policy, 'entropy'):
+            return next_action_, action_logp, self.rule_policy.entropy
+        else:
+            return next_action_, action_logp
 
 class GraphDecoder(Stepper): # DEPRECATED
     def __init__(self,

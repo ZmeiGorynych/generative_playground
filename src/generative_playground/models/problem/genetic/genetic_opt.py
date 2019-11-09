@@ -45,7 +45,7 @@ def get_mean_top_prctile(x, fraction=0.2):
     out = sorted_x[:max_ind].mean()
     return out
 
-def extract_best(data_cache, num_best, key_fun=get_mean_top_prctile):
+def extract_best(data_cache, num_best, key_fun=np.max):
     sorted_items = sorted(list(data_cache.items()), reverse=True, key=lambda x: key_fun(x[1]['best_rewards']))
     data_cache_best = OrderedDict(sorted_items[:num_best])
     return data_cache_best

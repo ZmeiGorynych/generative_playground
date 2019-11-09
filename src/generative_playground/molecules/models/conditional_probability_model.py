@@ -6,9 +6,10 @@ from generative_playground.codec.hypergraph_mask_generator import mask_from_cond
 from generative_playground.codec.hypergraph_grammar import HypergraphGrammar
 
 class CondtionalProbabilityModel(nn.Module):
-    def __init__(self, grammar: HypergraphGrammar):
+    def __init__(self, grammar: HypergraphGrammar, drop_rate=0.0, sparse_output=True):
         super().__init__()
         self.grammar = grammar
+        self.sparse_output = sparse_output
         num_rules = len(grammar.rules)
         num_conditionals = len(grammar.conditional_frequencies)
         self.unconditionals = nn.Parameter(torch.zeros(num_rules))
@@ -22,6 +23,9 @@ class CondtionalProbabilityModel(nn.Module):
         self.torch_mask_by_cond_tuple = torch.from_numpy(self.mask_by_cond_tuple).to(
             device=self.unconditionals.device)
         self.output_shape = {'action': [None]}
+        self.dropout = nn.Dropout(1-drop_rate)
+        # self.dropout_mask = torch.ones_like(self.conditionals.data)
+        # self.dropout_mask.requires_grad = False
         self.to(device=device)
 
     def get_params_as_vector(self):
@@ -55,9 +59,22 @@ class CondtionalProbabilityModel(nn.Module):
         out = {}
         out['masked_policy_logits'] = masked_logits
         out['used_priors'] = used_priors
+        if self.sparse_output:
+            out['valid_policy_logits'] = []
+            out['action_inds'] = []
+            ind_array = torch.tensor(list(range(masked_logits.shape[1])),
+                                     device=masked_logits.device,
+                                     requires_grad=False)
+            # todo: the below is to test the flow for sparse evaluation, before moving to sparsely parametrized model
+            for i, logits in enumerate(masked_logits):
+                this_mask = logits > -1e5
+                out['valid_policy_logits'].append(logits[this_mask])
+                out['action_inds'].append(ind_array[this_mask])
+
         return out
 
     def conditional_logits(self, g, out):
+        # TODO: implement dropout
         if g is None: # first step, no graph yet
             query = (None, None)
             cond_ind = self.condition_to_ind[query]

@@ -2,7 +2,7 @@ dill
 h5py
 nltk
 numpy
-scipy
+scipy==1.1.0
 scikit-learn
 matplotlib
 pandas
@@ -13,3 +13,4 @@ gpyopt
 visdom
 frozendict
 fabric
+guacamol

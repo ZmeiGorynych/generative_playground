@@ -105,7 +105,46 @@ class SoftmaxRandomSamplePolicy(SimplePolicy):
     def effective_logits(self, logits):
         return logits
 
+class SoftmaxRandomSamplePolicySparse(SimplePolicy):
+    '''
+    Randomly samples from the softmax of the logits
+    # https://hips.seas.harvard.edu/blog/2013/04/06/the-gumbel-max-trick-for-discrete-distributions/
+    TODO: should probably switch that to something more like
+    http://pytorch.org/docs/master/distributions.html
+    '''
+    def __init__(self, do_entropy=False):
+        '''
 
+        '''
+        super().__init__()
+        self.gumbel = Gumbel(loc=0, scale=1)
+        self.do_entropy = do_entropy
+        if self.do_entropy:
+            self.entropy = None
+
+    def forward(self, all_logits_list, all_action_inds_list):
+        '''
+
+        :param logits: list of tensors of len batch_size
+        :param action_inds: list of long tensors with indices of the actions corresponding to the logits
+        :return:
+        '''
+        # The number of feasible actions is differnt for every item in the batch, so for loop is the simplest
+        logp = []
+        out_actions = []
+        for logits, action_inds in zip(all_logits_list, all_action_inds_list):
+            if len(logits):
+                x = self.gumbel.sample(logits.shape).to(device=device, dtype=logits.dtype) + logits
+                _, out = torch.max(x, -1)
+                this_logp = F.log_softmax(logits)[out]
+                out_actions.append(action_inds[out])
+                logp.append(this_logp)
+            else:
+                out_actions.append(torch.tensor(0, device=logits.device, dtype=action_inds.dtype))
+                logp.append(torch.tensor(0.0, device=logits.device, dtype=logits.dtype))
+        self.logp = torch.stack(logp)
+        out = torch.stack(out_actions)
+        return out
 
 class PolicyFromTarget(SimplePolicy):
     '''

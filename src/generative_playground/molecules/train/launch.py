@@ -27,10 +27,11 @@ if ohio:
 else:
     key_file = os.path.realpath("../../../../../aws_second_key_pair.pem")
 
-ips = ['63.33.50.200']
+ips = ['34.244.119.201','18.202.29.225']#['18.202.229.242', '34.244.245.44']
 
-job_assignments = {ip: ['--attempt ' + str(i + 4*(iip)) + ' --entropy_wgt 0.0 --lr 0.03 ' + '9'
-                        for i in range(4)] for iip, ip in enumerate(ips)}
+workers_per_machine = 3
+job_assignments = {ip: ['--attempt ' + str(i + workers_per_machine*(iip)) + ' --entropy_wgt 0.0 --lr 0.03 ' + '16'
+                        for i in range(workers_per_machine)] for iip, ip in enumerate(ips)}
 
 batch_run(source_root, python_file, key_file, job_assignments, respawner=True)
 

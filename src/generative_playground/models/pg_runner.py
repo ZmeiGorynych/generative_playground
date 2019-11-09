@@ -18,7 +18,7 @@ from generative_playground.metrics.metric_monitor import MetricPlotter
 from generative_playground.models.problem.rl.task import SequenceGenerationTask
 from generative_playground.models.decoder.decoder import get_decoder
 from generative_playground.models.losses.policy_gradient_loss import PolicyGradientLoss
-from generative_playground.models.problem.policy import SoftmaxRandomSamplePolicy
+from generative_playground.models.problem.policy import SoftmaxRandomSamplePolicy, SoftmaxRandomSamplePolicySparse
 from generative_playground.codec.codec import get_codec
 from generative_playground.molecules.data_utils.zinc_utils import get_smiles_from_database
 from generative_playground.data_utils.data_sources import GeneratorToIterable
@@ -105,7 +105,10 @@ class PolicyGradientRunner(Saveable):
                                       max_steps=max_steps,
                                       save_dataset=None)
 
-        rule_policy = SoftmaxRandomSamplePolicy(temperature=torch.tensor(1.0), eps=eps)
+        if 'sparse' in decoder_type:
+            rule_policy = SoftmaxRandomSamplePolicySparse()
+        else:
+            rule_policy = SoftmaxRandomSamplePolicy(temperature=torch.tensor(1.0), eps=eps)
 
         # TODO: strip this down to the normal call
         self.model = get_decoder(True,

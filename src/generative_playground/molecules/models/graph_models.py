@@ -67,8 +67,9 @@ class GraphTransformerModel(nn.Module):
 
 
 def get_graph_model(codec, drop_rate, model_type, output_type='values', num_bins=51):
-    if model_type == 'conditional':
-        model = CondtionalProbabilityModel(codec.grammar)
+    if 'conditional' in model_type:
+        # TODO: will need to instantiate the actual sparse model once available
+        model = CondtionalProbabilityModel(codec.grammar, sparse_output=True)#'sparse' in model_type)
         model.init_encoder_output = lambda x: None
         return model
 

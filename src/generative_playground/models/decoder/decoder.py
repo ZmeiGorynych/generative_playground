@@ -160,7 +160,10 @@ def get_node_decoder(grammar,
     elif 'rnn' in decoder_type:
         model_type = 'rnn'
     elif 'conditional' in decoder_type:
-        model_type = 'conditional'
+        if 'sparse' in decoder_type:
+            model_type = 'conditional_sparse'
+        else:
+            model_type = 'conditional'
 
     if 'distr' in decoder_type:
         if 'softmax' in decoder_type:
@@ -176,9 +179,10 @@ def get_node_decoder(grammar,
                                        grammar=codec.grammar)
     mask_gen.priors = priors
     if rule_policy is None:
-        rule_policy = SoftmaxRandomSamplePolicy()
+        rule_policy = SoftmaxRandomSamplePolicySparse() if 'sparse' in decoder_type else SoftmaxRandomSamplePolicy()
 
-    stepper = GraphDecoderWithNodeSelection(model,
+    stepper_type = GraphDecoderWithNodeSelectionSparse if 'sparse' in decoder_type else GraphDecoderWithNodeSelection
+    stepper = stepper_type(model,
                                             rule_policy=rule_policy)
     env = GraphEnvironment(mask_gen,
                            reward_fun=reward_fun,
