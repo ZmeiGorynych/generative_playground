@@ -5,6 +5,7 @@ from hyperopt.mongoexp import MongoTrials
 from hyperopt.pyll.stochastic import sample
 from timeit import default_timer as timer
 from hyperopt import tpe
+from generative_playground.models.hyperopt.worker import spawn_hyperopt_worker
 import subprocess
 
 def objective(params):
@@ -37,12 +38,12 @@ best = fmin(fn=objective,
 # Sort the trials with lowest loss (highest AUC) first
 bayes_trials_results = sorted(bayes_trials.results, key=lambda x: x['loss'])
 print(bayes_trials_results[:10])
-
 mongo_server = '52.213.134.161:27017'
-cmd = ['hyperopt-mongo-worker', '--mongo=' + mongo_server + '/test_db', '--poll-interval=0.1']
-subprocess.run(cmd)
+
+spawn_hyperopt_worker(mongo_server, 'test_db_2')
+
 ## now try a distributed opt via mongo
-mtrials = MongoTrials('mongo://' + mongo_server + '/test_db/jobs', exp_key='exp1')
+mtrials = MongoTrials('mongo://' + mongo_server + '/test_db_2/jobs', exp_key='exp1')
 # Run optimization
 mbest = fmin(fn=objective,
             space=space,
@@ -50,4 +51,5 @@ mbest = fmin(fn=objective,
             max_evals=10,
             trials=mtrials,
             rstate=np.random.RandomState(50))
+
 print('done!')

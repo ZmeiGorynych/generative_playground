@@ -1,52 +1,49 @@
 import multiprocessing as mp
-import random
+import random, math
 import sys, os, inspect
 import argparse
 import pickle
+import numpy as np
+from hyperopt import STATUS_OK, hp, Trials, fmin
+from hyperopt.mongoexp import MongoTrials
+from hyperopt.pyll.stochastic import sample
+from timeit import default_timer as timer
+from hyperopt import tpe
+import subprocess
+
 
 if '/home/ubuntu/shared/GitHub' in sys.path:
     sys.path.remove('/home/ubuntu/shared/GitHub')
 
 from generative_playground.molecules.train.genetic.parallel_genetic_train import run_genetic_opt
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Run simple model against guac')
-    parser.add_argument('objective', type=int, help="Guacamol objective index to target")
-    parser.add_argument('--attempt', help="Attempt number (used for multiple runs)", default='')
-    parser.add_argument('--lr', help="learning rate", default='')
-    parser.add_argument('--entropy_wgt', help="weight of the entropy penalty", default='')
 
-    args = parser.parse_args()
-    lr_str = args.lr
-    if not lr_str:
-        lr_str = '0.05'
-    lr = float(lr_str)
 
-    ew_str = args.entropy_wgt
-    if not ew_str:
-        ew_str = '0.0'
-    entropy_wgt = float(ew_str)
+def try_for_params(params: dict, run_name: str = 'test', ver='v2', obj_num=0):
+    lr = params.get('lr',0.05)
+    lr_str = str(lr)[:5]
+    entropy_wgt = 0.0
 
     my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     # snapshot_dir = os.path.realpath(my_location + '/../../../../../../../../data')
     snapshot_dir = os.path.realpath(my_location + '/data')
 
-    attempt = '_' + args.attempt if args.attempt else ''
-    obj_num = args.objective
+    attempt = ''
+    obj_num = 0
     ver = 'v2'
     past_runs_graph_file = None#snapshot_dir + '/geneticA' + str(obj_num) + '_graph.zip'
-    root_name = 'geneticTest' + str(obj_num) + '_' + ver + '_lr' + lr_str + '_ew' + ew_str
+    root_name = run_name + str(obj_num) + '_' + ver + '_lr' + lr_str
     snapshot_dir += '/' + root_name
     if not os.path.isdir(snapshot_dir):
         os.mkdir(snapshot_dir)
 
     max_steps = 90
-    batch_size = 64
+    batch_size = 8
 
     top_N = 16
-    p_mutate = 0.2
+    p_mutate = params.get('p_mutate', 0.2)
     mutate_num_best = 64
-    p_crossover = 0.5
+    p_crossover = params.get('p_crossover', 0.5)
     num_batches = 4
     mutate_use_total_probs = True
     num_explore=0
@@ -72,6 +69,29 @@ if __name__ == '__main__':
                            past_runs_graph_file=past_runs_graph_file,
                            num_explore=num_explore
                            )
-    print(best)
 
+    fun_vec = list(best.values())[0]['best_rewards']
+    loss = -fun_vec.max()
+    loss_variance = fun_vec.var()
 
+    return {'loss': loss, 'loss_variance': loss_variance, 'status': STATUS_OK}
+
+if __name__ == '__main__':
+    space = {'lr': hp.loguniform('lr', math.log(0.001), math.log(0.1)),
+             'p_mutate': hp.uniform('p_mutate', 0.0, 1.0),
+             'p_crossover': hp.uniform('p_crossover', 0.0, 1.0),
+             }
+    mongo_server = '52.213.134.161:27017'
+    tpe_algorithm = tpe.suggest
+    run_name = 'HyperTest'
+    mtrials = MongoTrials('mongo://' + mongo_server + '/' + run_name + '/jobs', exp_key='exp1')
+    objective = lambda params: try_for_params(params, run_name=run_name, ver='v2', obj_num=0)
+    mbest = fmin(fn=objective,
+                 space=space,
+                 algo=tpe_algorithm,
+                 max_evals=10,
+                 trials=mtrials,
+                 rstate=np.random.RandomState(50))
+
+    mtrials_results = sorted(mtrials.results, key=lambda x: x['loss'])
+    print(mtrials_results[:10])
