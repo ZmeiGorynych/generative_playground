@@ -21,7 +21,7 @@ def run_model(queue, root_name, run_index, save_location):
     print('Running: {}'.format(run_index))
     model = PolicyGradientRunner.load_from_root_name(save_location, root_name)
     model.run()
-    queue.put(model.root_name)
+    queue.put((run_index, model.root_name,))
 
 
 def run_genetic_opt(top_N=10,
@@ -168,7 +168,7 @@ def run_genetic_opt(top_N=10,
                 )
                 run += 1
 
-            finished_root_name = queue.get(block=True)
+            finished_run, finished_root_name = queue.get(block=True)
             print('Finished: {}'.format(finished_root_name))
 
             data_cache = populate_data_cache(snapshot_dir, data_cache)
@@ -176,7 +176,7 @@ def run_genetic_opt(top_N=10,
             metrics = {'max': my_rewards.max(), 'median': np.median(my_rewards), 'min': my_rewards.min()}
             metric_dict = {
                 'type': 'line',
-                'X': np.array([run]),
+                'X': np.array([finished_run]),
                 'Y': np.array([[val for key, val in metrics.items()]]),
                 'opts': {'legend': [key for key, val in metrics.items()]}
             }
@@ -192,7 +192,7 @@ def run_genetic_opt(top_N=10,
 
             should_stop = (
                 steps_since_best >= steps_with_no_improvement
-                and run > num_explore + steps_with_no_improvement
+                and finished_run > num_explore + steps_with_no_improvement
             )
 
         p.terminate()
