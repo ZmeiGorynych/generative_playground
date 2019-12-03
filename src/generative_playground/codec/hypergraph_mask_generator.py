@@ -1,7 +1,7 @@
 from math import floor
 
 import numpy as np
-
+from generative_playground.codec.hypergraph_grammar import HypergraphGrammar
 from generative_playground.codec.hypergraph import replace_nonterminal, HyperGraph, expand_index_to_id
 
 
@@ -26,18 +26,6 @@ class HypergraphMaskGenerator:
         steps_left = self.MAX_LEN - self.t
         grammar = self.grammar
         this_mask = get_one_mask_fun(grammar, steps_left, graph, expand_id)
-        # if graph is None:
-        #     next_rule_string = 'None'
-        # else:
-        #     if expand_id is not None:
-        #         next_rule_string = str(graph.node[expand_id])
-        #     else: # we're out of nonterminals, just use the padding rule
-        #         next_rule_string = 'DONE'
-        #
-        # free_rules_left = steps_left - 1 - \
-        #                   grammar.terminal_distance(graph)
-        #
-        # this_mask = grammar.get_mask(next_rule_string, free_rules_left)
         return this_mask
 
     def __call__(self, last_action):
@@ -55,12 +43,16 @@ class HypergraphMaskGenerator:
             self.pick_next_node_to_expand(last_node) # converts index to node id, validating it in the process
         self.apply_action(last_rule)
 
-        full_logit_priors, node_priors, node_mask = get_full_logit_priors(self.grammar, self.MAX_LEN - self.t, self.graphs)
-
-        if self.priors == True:
-            full_logit_priors += self.grammar.get_log_frequencies()[None, None, :]
-        elif self.priors == 'conditional':
-            full_logit_priors += self.get_log_conditional_frequencies()
+        steps_left = self.MAX_LEN - self.t
+        if self.priors == 'term_dist_only':
+            full_logit_priors = term_distance_mask_fun(self.grammar, steps_left, self.graphs)
+            node_priors = None
+        else:
+            full_logit_priors, node_priors, node_mask = get_full_logit_priors(self.grammar, steps_left , self.graphs)
+            if self.priors == True:
+                full_logit_priors += self.grammar.get_log_frequencies()[None, None, :]
+            elif self.priors == 'conditional':
+                full_logit_priors += self.get_log_conditional_frequencies()
 
         return self.graphs, node_priors, full_logit_priors  # already add in the node priors
 
@@ -129,6 +121,19 @@ class HypergraphMaskGenerator:
         for i, graph, node_index in zip(range(len(self.graphs)), self.graphs, node_idx):
             if graph is not None: # during the very first step graph is None, before first rule was picked
                 self.next_expand_location[i] = expand_index_to_id(graph, node_index)
+
+def term_distance_mask_fun(grammar: HypergraphGrammar, steps_left, graphs):
+    graph_tds = np.zeros(len(graphs))
+    max_len = 1
+    for ig, g in enumerate(graphs):
+        graph_tds[ig] = grammar.terminal_distance(g)
+        max_len = max(max_len, 1 if g is None else len(g))
+
+    max_td_delta = steps_left - graph_tds # per graph
+    td_mask = grammar.rule_term_dist_deltas[None, None, :] <  max_td_delta[:, None, None]
+    td_mask = np.repeat(td_mask, max_len, axis=1)
+    return td_mask
+
 
 def valid_node_mask_fun(graphs):
     max_nodes = max([1 if g is None else len(g) for g in graphs])

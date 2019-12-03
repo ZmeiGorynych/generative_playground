@@ -175,8 +175,12 @@ def get_node_decoder(grammar,
 
     model = get_graph_model(codec, drop_rate, model_type, output_type, num_bins=bins)
 
+    if model_type == 'conditional_sparse':
+        priors = 'term_dist_only'
+
     mask_gen = HypergraphMaskGenerator(max_len=max_seq_length,
-                                       grammar=codec.grammar)
+                                       grammar=codec.grammar,
+                                       priors=priors)
     mask_gen.priors = priors
     if rule_policy is None:
         rule_policy = SoftmaxRandomSamplePolicySparse() if 'sparse' in decoder_type else SoftmaxRandomSamplePolicy()

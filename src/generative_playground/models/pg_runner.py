@@ -227,6 +227,13 @@ class PolicyGradientRunner(Saveable):
         inst = cls.load(full_save_file)
         return inst
 
+    @classmethod
+    def load(cls, save_file_name):
+        inst = super().load(save_file_name)
+        inst.set_root_name(inst.root_name)  # initializes metric monitor etc
+        return inst
+
+
 def make_fitter(batch_size, z_size, callbacks, obj):
     def my_gen(length=100):
         for _ in range(length):

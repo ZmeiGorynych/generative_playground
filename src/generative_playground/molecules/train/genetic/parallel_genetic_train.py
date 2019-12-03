@@ -45,7 +45,8 @@ def run_genetic_opt(top_N=10,
                     past_runs_graph_file=None
                     ):
 
-    results_queue = mp.Queue()
+    manager = mp.Manager()
+    results_queue = manager.Queue()
 
     relationships = nx.DiGraph()
     grammar_cache = 'hyper_grammar_guac_10k_with_clique_collapse.pickle'  # 'hyper_grammar.pickle'

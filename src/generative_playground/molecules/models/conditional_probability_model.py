@@ -196,9 +196,8 @@ class CondtionalProbabilityModelSparse(nn.Module):
                                            dtype=self.indices[(None, None)].dtype,
                                            device=self.indices[(None, None)].device)
         # now apply the mask inferred from the priors - this just gives you the terminal distance filter
-        torch_priors = torch.from_numpy(logit_priors).to(device=action_logits.device,
-                                                         dtype=action_logits.dtype).view(-1)
-        prior_mask = torch_priors[action_inds] > -5e4
+        torch_priors = torch.from_numpy(logit_priors).to(device=action_logits.device).view(-1)
+        prior_mask = torch_priors[action_inds]
         action_logits = action_logits[prior_mask]
         action_inds = action_inds[prior_mask]
 

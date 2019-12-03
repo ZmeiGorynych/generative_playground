@@ -188,9 +188,12 @@ class HypergraphGrammar(GenericCodec):
 
     def terminal_distance(self, graph):
         if graph is None:
-            return 0
+            return 0 #TODO: should really be the min of term distance of parent-less rules
         else:
-            return sum([self.terminal_distance_by_parent[str(child)] for child in graph.children()])
+            my_sum = 0
+            for child in graph.children():
+                my_sum += self.terminal_distance_by_parent[str(child)]
+            return my_sum
 
     def get_mask(self, next_rule_string, max_term_dist):
         out = np.zeros((len(self)))
