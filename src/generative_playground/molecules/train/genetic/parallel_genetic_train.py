@@ -1,4 +1,4 @@
-import multiprocessing as mp
+import torch.multiprocessing as mp
 import numpy as np
 import pickle
 import random
@@ -17,9 +17,11 @@ from generative_playground.models.param_sampler import ParameterSampler, extract
 import networkx as nx
 
 
-def run_model(model, results_queue, run_index):
+def run_model(queue, root_name, run_index, save_location):
+    print('Running: {}'.format(run_index))
+    model = PolicyGradientRunner.load_from_root_name(save_location, root_name)
     model.run()
-    results_queue.put(run_index)
+    queue.put(run_index)
 
 
 def run_genetic_opt(top_N=10,
@@ -45,7 +47,8 @@ def run_genetic_opt(top_N=10,
                     past_runs_graph_file=None
                     ):
 
-    results_queue = mp.Queue()
+    manager = mp.Manager()
+    queue = manager.Queue()
 
     relationships = nx.DiGraph()
     grammar_cache = 'hyper_grammar_guac_10k_with_clique_collapse.pickle'  # 'hyper_grammar.pickle'
@@ -146,25 +149,37 @@ def run_genetic_opt(top_N=10,
                 ) as f:
                     pickle.dump(relationships, f)
 
+            model.save()
+
             if initial is True:
                 for _ in range(4):
-                    p.apply_async(run_model, (model, results_queue, run,))
+                    print('Starting {}'.format(run))
+                    p.apply_async(
+                        run_model,
+                        (queue, model.root_name, run, snapshot_dir)
+                    )
                     run += 1
                 initial = False
             else:
-                p.apply_async(run_model, (model, results_queue, run,))
+                print('Starting {}'.format(run))
+                p.apply_async(
+                    run_model,
+                    (queue, model.root_name, run, snapshot_dir)
+                )
                 run += 1
 
-            result = results_queue.get(block=True)
+            result = queue.get(block=True, timeout=20)
             print('Finished: {}'.format(result))
 
             data_cache = populate_data_cache(snapshot_dir, data_cache)
             my_rewards = data_cache[model.root_name]['best_rewards']
             metrics = {'max': my_rewards.max(), 'median': np.median(my_rewards), 'min': my_rewards.min()}
-            metric_dict = {'type': 'line',
-                        'X': np.array([run]),
-                        'Y': np.array([[val for key, val in metrics.items()]]),
-                        'opts': {'legend': [key for key, val in metrics.items()]}}
+            metric_dict = {
+                'type': 'line',
+                'X': np.array([run]),
+                'Y': np.array([[val for key, val in metrics.items()]]),
+                'opts': {'legend': [key for key, val in metrics.items()]}
+            }
 
             vis.plot_metric_dict({'worker rewards': metric_dict})
 
