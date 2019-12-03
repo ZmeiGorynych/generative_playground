@@ -20,8 +20,9 @@ import networkx as nx
 def run_model(queue, root_name, run_index, save_location):
     print('Running: {}'.format(run_index))
     model = PolicyGradientRunner.load_from_root_name(save_location, root_name)
+    model.set_root_name(model.root_name)
     model.run()
-    queue.put(run_index)
+    queue.put(model.root_name)
 
 
 def run_genetic_opt(top_N=10,
@@ -168,11 +169,11 @@ def run_genetic_opt(top_N=10,
                 )
                 run += 1
 
-            result = queue.get(block=True, timeout=20)
-            print('Finished: {}'.format(result))
+            finished_root_name = queue.get(block=True)
+            print('Finished: {}'.format(finished_root_name))
 
             data_cache = populate_data_cache(snapshot_dir, data_cache)
-            my_rewards = data_cache[model.root_name]['best_rewards']
+            my_rewards = data_cache[finished_root_name]['best_rewards']
             metrics = {'max': my_rewards.max(), 'median': np.median(my_rewards), 'min': my_rewards.min()}
             metric_dict = {
                 'type': 'line',

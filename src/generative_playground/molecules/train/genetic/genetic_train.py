@@ -46,7 +46,7 @@ if __name__ == '__main__':
     p_mutate = 0.2
     mutate_num_best = 64
     p_crossover = 0.5
-    num_batches = 64
+    num_batches = 4
     mutate_use_total_probs = True
     num_explore=0
 
