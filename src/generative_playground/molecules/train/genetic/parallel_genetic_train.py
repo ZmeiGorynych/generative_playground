@@ -20,7 +20,6 @@ import networkx as nx
 def run_model(queue, root_name, run_index, save_location):
     print('Running: {}'.format(run_index))
     model = PolicyGradientRunner.load_from_root_name(save_location, root_name)
-    model.set_root_name(model.root_name)
     model.run()
     queue.put(model.root_name)
 
