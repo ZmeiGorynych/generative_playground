@@ -20,7 +20,7 @@ import networkx as nx
 
 def run_genetic_opt(top_N=10,
                     p_mutate=0.2,
-                    mutate_num_best=64,
+                    mutate_num_best=16,
                     mutate_use_total_probs=False,
                     p_crossover=0.2,
                     num_batches=100,

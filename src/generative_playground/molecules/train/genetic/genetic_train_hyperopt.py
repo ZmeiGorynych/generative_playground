@@ -9,7 +9,7 @@ from hyperopt.mongoexp import MongoTrials
 from hyperopt.pyll.stochastic import sample
 from timeit import default_timer as timer
 from hyperopt import tpe
-import subprocess
+from pymongo import MongoClient
 
 
 if '/home/ubuntu/shared/GitHub' in sys.path:
@@ -19,18 +19,22 @@ from generative_playground.molecules.train.genetic.parallel_genetic_train import
 
 
 
-def try_for_params(params: dict, run_name: str = 'test', ver='v2', obj_num=0):
+def try_for_params(params: dict,
+                   snapshot_dir: str,
+                   run_name: str = 'test',
+                   ver='v2',
+                   obj_num=0,
+                   ):
     lr = params.get('lr',0.05)
     lr_str = str(lr)[:5]
     entropy_wgt = 0.0
 
-    my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-    # snapshot_dir = os.path.realpath(my_location + '/../../../../../../../../data')
-    snapshot_dir = os.path.realpath(my_location + '/data')
+
+    # snapshot_dir = os.path.realpath(my_location + '/data')
 
     attempt = ''
-    obj_num = 0
-    ver = 'v2'
+    obj_num = obj_num
+    ver = ver
     past_runs_graph_file = None#snapshot_dir + '/geneticA' + str(obj_num) + '_graph.zip'
     root_name = run_name + str(obj_num) + '_' + ver + '_lr' + lr_str
     snapshot_dir += '/' + root_name
@@ -42,7 +46,7 @@ def try_for_params(params: dict, run_name: str = 'test', ver='v2', obj_num=0):
 
     top_N = 16
     p_mutate = params.get('p_mutate', 0.2)
-    mutate_num_best = 64
+    mutate_num_best = 16
     p_crossover = params.get('p_crossover', 0.5)
     num_batches = 4
     mutate_use_total_probs = True
@@ -84,8 +88,17 @@ if __name__ == '__main__':
     mongo_server = '52.213.134.161:27017'
     tpe_algorithm = tpe.suggest
     run_name = 'HyperTest'
+    client = MongoClient('mongodb://' + mongo_server + '/')
+    client.drop_database(run_name)
     mtrials = MongoTrials('mongo://' + mongo_server + '/' + run_name + '/jobs', exp_key='exp1')
-    objective = lambda params: try_for_params(params, run_name=run_name, ver='v2', obj_num=0)
+    my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+    snapshot_dir = '/home/ubuntu/data/'
+
+    objective = lambda params: try_for_params(params,
+                                              run_name=run_name,
+                                              ver='v2',
+                                              obj_num=0,
+                                              snapshot_dir=snapshot_dir)
     mbest = fmin(fn=objective,
                  space=space,
                  algo=tpe_algorithm,

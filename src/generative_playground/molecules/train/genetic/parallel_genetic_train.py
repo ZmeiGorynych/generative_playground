@@ -1,8 +1,10 @@
-import torch.multiprocessing as mp
 import numpy as np
 import pickle
 import random
 import sys
+
+import torch
+mp = torch.multiprocessing.get_context('forkserver')
 
 if '/home/ubuntu/shared/GitHub' in sys.path:
     sys.path.remove('/home/ubuntu/shared/GitHub')

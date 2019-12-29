@@ -8,6 +8,8 @@ from hyperopt import tpe
 from generative_playground.models.hyperopt.worker import spawn_hyperopt_worker
 import subprocess
 
+from pymongo import MongoClient
+
 def objective(params):
     start = timer()
     loss = math.sin(params['x1']) * math.cos(params['x2']) + params['x2'] + params['a'] * params['b']
@@ -39,16 +41,20 @@ best = fmin(fn=objective,
 bayes_trials_results = sorted(bayes_trials.results, key=lambda x: x['loss'])
 print(bayes_trials_results[:10])
 mongo_server = '52.213.134.161:27017'
+client = MongoClient('mongodb://' + mongo_server + '/')
+db_to_use = 'test_db'
+client.drop_database(db_to_use)
 
-spawn_hyperopt_worker(mongo_server, 'test_db_2')
+spawn_hyperopt_worker(mongo_server, db_to_use)
 
 ## now try a distributed opt via mongo
-mtrials = MongoTrials('mongo://' + mongo_server + '/test_db_2/jobs', exp_key='exp1')
+mtrials = MongoTrials('mongo://' + mongo_server + '/' + db_to_use + '/jobs',
+                      exp_key='exp1')
 # Run optimization
 mbest = fmin(fn=objective,
             space=space,
             algo=tpe_algorithm,
-            max_evals=10,
+            max_evals=30,
             trials=mtrials,
             rstate=np.random.RandomState(50))
 

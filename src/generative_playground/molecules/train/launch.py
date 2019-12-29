@@ -3,7 +3,7 @@ import os
 
 here = os.path.realpath(__file__)
 ohio = False  # True
-file = 'genetic'#'genetic'#  #'mcts_local'#
+file = 'hyper_worker'#'genetic'#  #'mcts_local'#
 source_root = "/home/ubuntu/shared/GitHub/generative_playground/src"
 train_root = source_root + "/generative_playground/molecules/train"
 
@@ -21,17 +21,21 @@ elif file == 'genetic':
     python_file = '{}/genetic/genetic_train.py'.format(train_root)
 elif file == 'genetic_scan':
     python_file = '{}/genetic/genetic_initial_scan.py'.format(train_root)
+elif file == 'hyper_worker':
+    python_file = '{}/generative_playground/models/hyperopt/worker.py'.format(source_root)
 
 if ohio:
     key_file = os.path.realpath("../../../../../aws_ohio.pem")
 else:
     key_file = os.path.realpath("../../../../../aws_second_key_pair.pem")
 
-ips = ['34.244.119.201','18.202.29.225']#['18.202.229.242', '34.244.245.44']
+ips = ['34.250.50.229']
 
-workers_per_machine = 3
-job_assignments = {ip: ['--attempt ' + str(i + workers_per_machine*(iip)) + ' --entropy_wgt 0.0 --lr 0.03 ' + '16'
-                        for i in range(workers_per_machine)] for iip, ip in enumerate(ips)}
+# workers_per_machine = 3
+# job_assignments = {ip: ['--attempt ' + str(i + workers_per_machine*(iip)) + ' --entropy_wgt 0.0 --lr 0.03 ' + '16'
+#                         for i in range(workers_per_machine)] for iip, ip in enumerate(ips)}
+
+job_assignments = {'34.250.50.229': ['--db_name HyperTest']}
 
 batch_run(source_root, python_file, key_file, job_assignments, respawner=True)
 
