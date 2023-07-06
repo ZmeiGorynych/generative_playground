@@ -2,7 +2,7 @@ dill
 h5py
 nltk
 numpy
-scipy==1.1.0
+scipy==1.10.0
 scikit-learn
 matplotlib
 pandas
